@@ -1,4 +1,3 @@
-USE=core tools
-
+USE=core tools bias
 # generic makefile
 include ../maketools/make.module
