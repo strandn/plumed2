@@ -19,7 +19,7 @@ double f(double x, void* params) {
   int j = gsl_params->j;
   int k = gsl_params->k;
   double fourier = gsl_params->instance->fourier(x, j);
-  double w = 0.02;
+  double w = gsl_params->instance->w();
   double sigma = w * (dom.second - dom.first);
   double s = dom.first + (k - 1) * (dom.second - dom.first) / (nbins - 1);
   return fourier * (1 / (sqrt(2 * M_PI) * sigma)) * exp(-pow(s - x, 2) / (2 * pow(sigma, 2)));
@@ -39,35 +39,43 @@ double df(double x, void* params) {
 }
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(-1.0, 1.0)), nbasis_(20), conv_(false), nbins_(0), L_(1.0), shift_(0.0) {}
+  : dom_(make_pair(0.0, 0.0)), nbasis_(0), conv_(false), nbins_(0), L_(0.0),
+    shift_(0.0), w_(0.0), gsl_n_(0), gsl_epsabs_(0.0), gsl_epsrel_(0.0),
+    gsl_limit_(0), gsl_key_(0) {}
 
-BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, int nbins)
-  : dom_(dom), nbasis_(nbasis), conv_(false), nbins_(nbins),
+BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
+                     int nbins, double w, int gsl_n, double gsl_epsabs,
+                     double gsl_epsrel, int gsl_limit, int gsl_key)
+  : dom_(dom), nbasis_(nbasis), conv_(false), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
-    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0)
+    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
+    gsl_n_(gsl_n), gsl_epsabs_(gsl_epsabs), gsl_epsrel_(gsl_epsrel),
+    gsl_limit_(gsl_limit), gsl_key_(gsl_key)
 {
-  gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(1000);
-  double result, error;
-  for(int j = 0; j < nbasis; ++j) {
-    for(int k = 0; k < nbins; ++k) {
-      GSLParams gsl_params = { this, j + 1, k + 1 };
-      gsl_function F;
-      F.function = &f;
-      F.params = &gsl_params;
-      gsl_integration_qag(&F, dom.first, dom.second, 1.0e-10, 1.0e-6, 1000, 2, workspace, &result, &error);
-      this->grid_[j][k] = result;
-      gsl_function DF;
-      DF.function = &df;
-      DF.params = &gsl_params;
-      gsl_integration_qag(&DF, dom.first, dom.second, 1.0e-10, 1.0e-6, 1000, 2, workspace, &result, &error);
-      this->gridd_[j][k] = result;
+  if(nbins > 0) {
+    gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(gsl_n);
+    double result, error;
+    for(int j = 0; j < nbasis; ++j) {
+      for(int k = 0; k < nbins; ++k) {
+        GSLParams gsl_params = { this, j + 1, k + 1 };
+        gsl_function F;
+        F.function = &f;
+        F.params = &gsl_params;
+        gsl_integration_qag(&F, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        this->grid_[j][k] = result;
+        gsl_function DF;
+        DF.function = &df;
+        DF.params = &gsl_params;
+        gsl_integration_qag(&DF, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        this->gridd_[j][k] = result;
+      }
     }
-  }
-  gsl_integration_workspace_free(workspace);
+    gsl_integration_workspace_free(workspace);
 
-  for(int i = 0; i < nbins; ++i) {
-    this->xdata_[i] = dom.first + i * (dom.second - dom.first) / (nbins - 1);
+    for(int i = 0; i < nbins; ++i) {
+      this->xdata_[i] = dom.first + i * (dom.second - dom.first) / (nbins - 1);
+    }
   }
 }
 
@@ -85,7 +93,7 @@ double BasisFunc::fourier(double x, int pos) const {
 }
 
 double BasisFunc::operator()(double x, int pos) const {
-  if(this->conv_) {
+  if(this->conv_ && this->nbins_ > 0) {
     return interpolate(x, pos, false);
   } else {
     return fourier(x, pos);
@@ -93,7 +101,7 @@ double BasisFunc::operator()(double x, int pos) const {
 }
 
 double BasisFunc::grad(double x, int pos) const {
-  if(this->conv_) {
+  if(this->conv_ && this->nbins_ > 0) {
     return interpolate(x, pos, true);
   } else {
     if(x < this->dom_.first || x > this->dom_.second) {
