@@ -1,9 +1,9 @@
-#include <Eigen/QR>
+#include "BasisFunc.h"
 #include "bias/Bias.h"
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
+#include <Eigen/QR>
 #include "itensor/all.h"
-#include "BasisFunc.h"
 
 using namespace std;
 using namespace Eigen;

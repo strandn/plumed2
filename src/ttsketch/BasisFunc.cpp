@@ -1,5 +1,5 @@
-#include <gsl/gsl_integration.h>
 #include "BasisFunc.h"
+#include <gsl/gsl_integration.h>
 
 using namespace std;
 
