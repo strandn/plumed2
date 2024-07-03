@@ -1,4 +1,7 @@
 #include <Eigen/QR>
+#include "bias/Bias.h"
+#include "core/ActionRegister.h"
+#include "core/ActionSet.h"
 #include "itensor/all.h"
 #include "BasisFunc.h"
 
@@ -45,7 +48,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   count_(0)
 {
-  
+
 }
 
 void TTSketch::registerKeywords(Keywords& keys) {
