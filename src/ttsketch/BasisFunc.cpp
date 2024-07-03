@@ -39,8 +39,7 @@ double df(double x, void* params) {
 }
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(-1.0, 1.0)), nbasis_(20), conv_(false), nbins_(0),
-    L_(1.0), shift_(0.0) {}
+  : dom_(make_pair(-1.0, 1.0)), nbasis_(20), conv_(false), nbins_(0), L_(1.0), shift_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, int nbins)
   : dom_(dom), nbasis_(nbasis), conv_(false), nbins_(nbins),

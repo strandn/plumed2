@@ -19,7 +19,7 @@ private:
 
 public:
   BasisFunc();
-  BasisFunc(std::pair<double, double> dom, int nbasis = 20, int nbins = 100);
+  BasisFunc(std::pair<double, double> dom, int nbasis, int nbins);
   double fourier(double x, int pos) const;
   double operator()(double x, int pos) const;
   double grad(double x, int pos) const;
