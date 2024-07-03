@@ -29,17 +29,23 @@ public:
   explicit TTSketch(const ActionOptions&);
   static void registerKeywords(Keywords& keys);
   void calculate();
+  void paraSketch();
+  MPS createTTCoeff(int n, int d) const;
+  pair<vector<ITensor>, IndexSet> intBasisSample(IndexSet const& is) const;
+  static tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(vector<ITensor> const& M, MPS const& coeff, IndexSet const& is) const;
+  double densEval(int step, vector<double> const& elements) const;
+  vector<double> densGrad(int step, vector<double> const& elements) const;
 };
 
-PLUMED_REGISTER_ACTION(TTSketch,"TTSKETCH")
+PLUMED_REGISTER_ACTION(TTSketch, "TTSKETCH")
 
 TTSketch::TTSketch(const ActionOptions& ao):
   PLUMED_BIAS_INIT(ao),
-  vmax_(std::numeric_limits<double>::max()),
+  vmax_(numeric_limits<double>::max()),
   vshift_(0.0),
   count_(0)
 {
-
+  
 }
 
 void TTSketch::registerKeywords(Keywords& keys) {
@@ -47,6 +53,32 @@ void TTSketch::registerKeywords(Keywords& keys) {
 }
 
 void TTSketch::calculate() {
+
+}
+
+void TTSketch::paraSketch() {
+
+}
+
+MPS TTSketch::createTTCoeff(int n, int d) {
+  
+}
+
+pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(IndexSet const& is) const {
+
+}
+
+static tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(vector<ITensor> const& M,
+                                                                               MPS const& coeff,
+                                                                               IndexSet const& is) const {
+  
+}
+
+double TTSketch::densEval(int step, vector<double> const& elements) const {
+
+}
+
+vector<double> TTSketch::densGrad(int step, vector<double> const& elements) const {
 
 }
 
