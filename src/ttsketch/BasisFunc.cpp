@@ -40,18 +40,15 @@ double df(double x, void* params) {
 
 BasisFunc::BasisFunc()
   : dom_(make_pair(0.0, 0.0)), nbasis_(0), conv_(false), nbins_(0), L_(0.0),
-    shift_(0.0), w_(0.0), gsl_n_(0), gsl_epsabs_(0.0), gsl_epsrel_(0.0),
-    gsl_limit_(0), gsl_key_(0) {}
+    shift_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int gsl_n, double gsl_epsabs,
                      double gsl_epsrel, int gsl_limit, int gsl_key)
-  : dom_(dom), nbasis_(nbasis), conv_(false), nbins_(conv ? nbins : 0),
+  : dom_(dom), nbasis_(nbasis), conv_(true), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
-    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
-    gsl_n_(gsl_n), gsl_epsabs_(gsl_epsabs), gsl_epsrel_(gsl_epsrel),
-    gsl_limit_(gsl_limit), gsl_key_(gsl_key)
+    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0)
 {
   if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(gsl_n);

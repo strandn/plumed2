@@ -16,12 +16,6 @@ private:
   std::vector<std::vector<double>> grid_;
   std::vector<std::vector<double>> gridd_;
   std::vector<double> xdata_;
-  double w_;
-  int gsl_n_;
-  double gsl_epsabs_;
-  double gsl_epsrel_;
-  int gsl_limit_;
-  int gsl_key_;
 
 public:
   BasisFunc();
@@ -35,7 +29,7 @@ public:
   void setConv(bool status) { this->conv_ = status; }
   double interpolate(double x, int pos, bool grad) const;
   int nbasis() const { return this->nbasis_; }
-  std::pair<double, double> const& dom() const { return this->dom_; }
+  const std::pair<double, double>& dom() const { return this->dom_; }
   int nbins() const { return this->nbins_; }
   double w() const { return this->w_; }
 };
