@@ -2,6 +2,9 @@
 #include "bias/Bias.h"
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
+#include "core/PlumedMain.h"
+#include "tools/Exception.h"
+#include "tools/Communicator.h"
 #include <Eigen/QR>
 #include "itensor/all.h"
 
@@ -63,8 +66,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
 {
   bool conv = true;
   parseFlag("CONV", conv);
-  bool walkers_mpi = false;
-  parseFlag("WALKERS_MPI", walkers_mpi);
+  // bool walkers_mpi = false;
+  // parseFlag("WALKERS_MPI", walkers_mpi);
   parse("RANK", r_);
   parse("CUTOFF", cutoff_);
   if(r_ <= 0 && (cutoff_ <= 0.0 || cutoff_ > 1.0)) {
@@ -172,7 +175,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
   keys.addFlag("CONV", true, "Specifies that densities and corresponding gradients are to be smoothed via Gaussian kernels whenever evaluated");
-  keys.addFlag("WALKERS_MPI",false,"To be used when gromacs + multiple walkers are used");
+  // keys.addFlag("WALKERS_MPI",false,"To be used when gromacs + multiple walkers are used");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
@@ -211,7 +214,7 @@ void TTSketch::calculate() {
 }
 
 void TTSketch::update() {
-    bool nowAddATT;
+  bool nowAddATT;
   if(getStep() % pace_ && !isFirstStep_) {
     nowAddATT = true;
   } else {
@@ -234,11 +237,12 @@ void TTSketch::update() {
     for(int i = 0; i < d_; ++i) {
       double max = 0.0, min = numeric_limits<double>::max();
       for(int j = 0; j < N; ++j) {
-        if(samples_[j][i] > max) {
-          max = samples_[j][i];
+        int jadj = j + samples_.size() - N;
+        if(samples_[jadj][i] > max) {
+          max = samples_[jadj][i];
         }
-        if(samples_[j][i] < min) {
-          min = samples_[j][i];
+        if(samples_[jadj][i] < min) {
+          min = samples_[jadj][i];
         }
       }
       log << min << " " << max << "\n";
@@ -249,7 +253,37 @@ void TTSketch::update() {
     setConv(false);
     paraSketch();
 
-    samples_.clear();
+    double rhomax = 0.0;
+    for(vector<double>& sample : samples_) {
+        double rho = densEval(rholist_.size() - 1, sample);
+        if(rho > rhomax) {
+          rhomax = rho;
+        }
+    }
+    rhomaxlist_.push_back(rhomax);
+
+    double vtop = 0.0;
+    vector<double> gradtop(d_, 0.0);
+    for(vector<double>& sample : samples_) {
+      vector<double> der(d_, 0.0);
+      double result = getBiasAndDerivatives(sample, der);
+      if(result > vtop) {
+        vtop = result;
+      }
+      for(int i = 0; i < d_; ++i) {
+        if(abs(der[i]) > gradtop[i]) {
+          gradtop[i] = abs(der[i]);
+        }
+      }
+    }
+    vshift = max(vtop - vmax_, 0.0);
+    log << "\nVtop = " << vtop << " Vshift = " << vshift << "\n\ngradtop = ";
+    for(int i = 0; i < d_; ++i) {
+      log << gradtop[i] << " "
+    }
+    log << "\n\n";
+
+    // samples_.clear();
     setConv(true);
   }
 }
@@ -259,7 +293,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(bias == 0.0) {
     return 0.0;
   }
-  for(unsigned i = 0; i < rholist_.size(); ++i) {
+  for(int i = 0; i < rholist_.size(); ++i) {
     double rho = densEval(i, cv);
     if(rho * lambda_ / rhomaxlist_[i] > 1.0) {
       auto deri = densGrad(i, cv);
@@ -271,10 +305,10 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
 
 double TTSketch::getBias(const std::vector<double>& cv) {
   double bias = 0.0;
-  for(unsigned i = 0; i < rholist_.size(); ++i) {
+  for(int i = 0; i < rholist_.size(); ++i) {
     double rho = densEval(i, cv);
     double rho_adj = max(rho * lambda_ / rhomaxlist_[i], 1.0);
-    bias += log(rho_adj);
+    bias += std::log(rho_adj);
   }
   bias -= vshift_;
   return kbt_ * (bias < 0.0 ? 0.0 : bias);
@@ -366,10 +400,10 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(int j = 1; j <= N; ++j) {
-      // int jadj = j + samples_.size() - N;
+      int jadj = j + samples_.size() - N;
       for(int k = 1; k <= nb; ++k) {
-        M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[j - 1][i - 1], k));
-        // M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[jadj - 1][i - 1], k));
+        // M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[j - 1][i - 1], k));
+        M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[jadj - 1][i - 1], k));
       }
     }
   }
