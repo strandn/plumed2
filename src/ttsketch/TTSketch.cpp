@@ -5,11 +5,12 @@
 #include "core/PlumedMain.h"
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
-#include <Eigen/QR>
+#include "tools/Matrix.h"
+// #include <Eigen/QR>
 #include "itensor/all.h"
 
 using namespace std;
-using namespace Eigen;
+// using namespace Eigen;
 using namespace itensor;
 using namespace PLMD::bias;
 
@@ -325,15 +326,21 @@ void TTSketch::paraSketch() {
   vector<ITensor> V(d_);
   G.ref(1) = Bemp(1);
   for(int core_id = 2; core_id <= d_; ++core_id) {
-    MatrixXd LMat(N, rc_), RMat(N, rc_);
+    // MatrixXd LMat(N, rc_), RMat(N, rc_);
+    Matrix<double> LMat(N, rc_), RMat(N, rc_);
     for(int i = 1; i <= N; ++i) {
       for(int j = 1; j <= rc_; ++j) {
         LMat(i - 1, j - 1) = envi_L[core_id - 1].elt(is(core_id) = i, links(core_id - 1) = j);
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
       }
     }
-    MatrixXd AMat = LMat.transpose() * RMat;
-    MatrixXd PMat = AMat.completeOrthogonalDecomposition().pseudoInverse();
+    // MatrixXd AMat = LMat.transpose() * RMat;
+    // MatrixXd PMat = AMat.completeOrthogonalDecomposition().pseudoInverse();
+    Matrix<double> Lt, AMat, PMat;
+    transpose(LMat, Lt);
+    mult(Lt, RMat, AMat);
+    pseudoInvert(AMat, PMat);
+
     ITensor A(prime(links(core_id - 1)), links(core_id - 1)), Pinv(prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rc_; ++i) {
       for(int j = 1; j <= rc_; ++j) {
