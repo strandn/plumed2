@@ -25,3 +25,4 @@ makefile.dep
 /autom4*
 /stamp-h
 __pycache__
+.vscode
