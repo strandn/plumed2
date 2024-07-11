@@ -1,5 +1,7 @@
 #ifndef __PLUMED_ttsketch_BasisFunc_h
 #define __PLUMED_ttsketch_BasisFunc_h
+#include <utility>
+#include <vector>
 
 namespace PLMD {
 namespace ttsketch {

@@ -1,6 +1,4 @@
 #include "BasisFunc.h"
-#include <utility>
-#include <vector>
 #include <gsl/gsl_integration.h>
 
 using namespace std;
