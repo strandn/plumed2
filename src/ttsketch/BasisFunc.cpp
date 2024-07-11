@@ -1,4 +1,6 @@
 #include "BasisFunc.h"
+#include <utility>
+#include <vector>
 #include <gsl/gsl_integration.h>
 
 using namespace std;
@@ -32,7 +34,7 @@ double df(double x, void* params) {
   int j = gsl_params->j;
   int k = gsl_params->k;
   double fourier = gsl_params->instance->fourier(x, j);
-  double w = 0.02;
+  w = gsl_params->instance->w();
   double sigma = w * (dom.second - dom.first);
   double s = dom.first + (k - 1) * (dom.second - dom.first) / (nbins - 1);
   return fourier * ((x - s) / (sqrt(2 * M_PI) * pow(sigma, 3))) * exp(-pow(s - x, 2) / (2 * pow(sigma, 2)));
@@ -40,7 +42,7 @@ double df(double x, void* params) {
 
 BasisFunc::BasisFunc()
   : dom_(make_pair(0.0, 0.0)), nbasis_(0), conv_(false), nbins_(0), L_(0.0),
-    shift_(0.0) {}
+    shift_(0.0), w_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int gsl_n, double gsl_epsabs,
@@ -48,7 +50,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
   : dom_(dom), nbasis_(nbasis), conv_(true), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
-    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0)
+    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w)
 {
   if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(gsl_n);

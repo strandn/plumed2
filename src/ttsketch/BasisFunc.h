@@ -16,6 +16,7 @@ private:
   std::vector<std::vector<double>> grid_;
   std::vector<std::vector<double>> gridd_;
   std::vector<double> xdata_;
+  double w_;
 
 public:
   BasisFunc();
