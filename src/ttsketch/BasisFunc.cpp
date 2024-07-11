@@ -32,7 +32,7 @@ double df(double x, void* params) {
   int j = gsl_params->j;
   int k = gsl_params->k;
   double fourier = gsl_params->instance->fourier(x, j);
-  w = gsl_params->instance->w();
+  double w = gsl_params->instance->w();
   double sigma = w * (dom.second - dom.first);
   double s = dom.first + (k - 1) * (dom.second - dom.first) / (nbins - 1);
   return fourier * ((x - s) / (sqrt(2 * M_PI) * pow(sigma, 3))) * exp(-pow(s - x, 2) / (2 * pow(sigma, 2)));
