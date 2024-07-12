@@ -26,7 +26,7 @@ private:
   double kbt_;
   int pace_;
   int stride_;
-  int d_;
+  unsigned d_;
   vector<MPS> rholist_;
   vector<double> rhomaxlist_;
   vector<BasisFunc> basis_;
@@ -80,16 +80,16 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   parse("VMAX", vmax_);
   if(vmax_ <= 0.0) {
-    error("VMAX must be positive")
+    error("VMAX must be positive");
   }
   int nbins = 100;
-  arse("NBINS", nbins);
+  parse("NBINS", nbins);
   if(conv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
   int w = 0.02;
   parse("WIDTH", w);
-  if(conv && (width <= 0.0 || width > 1.0)) {
+  if(conv && (w <= 0.0 || w > 1.0)) {
     error("Gaussian smoothing requires positive WIDTH no greater than 1");
   }
   int gsl_n = 1000;
@@ -136,12 +136,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vector<double> interval_min;
   parseVector("INTERVAL_MIN", interval_min);
   if(interval_min.size() != d_) {
-    error("Number of arguments does not match number of INTERVAL_MIN parameters")
+    error("Number of arguments does not match number of INTERVAL_MIN parameters");
   }
   vector<double> interval_max;
   parseVector("INTERVAL_MAX", interval_max);
   if(interval_max.size() != d_) {
-    error("Number of arguments does not match number of INTERVAL_MAX parameters")
+    error("Number of arguments does not match number of INTERVAL_MAX parameters");
   }
   int nbasis = 20;
   parse("NBASIS", nbasis);
@@ -277,8 +277,8 @@ void TTSketch::update() {
         }
       }
     }
-    vshift = max(vtop - vmax_, 0.0);
-    log << "\nVtop = " << vtop << " Vshift = " << vshift << "\n\ngradtop = ";
+    vshift_ = max(vtop - vmax_, 0.0);
+    log << "\nVtop = " << vtop << " Vshift = " << vshift_ << "\n\ngradtop = ";
     for(int i = 0; i < d_; ++i) {
       log << gradtop[i] << " "
     }
@@ -294,7 +294,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(bias == 0.0) {
     return 0.0;
   }
-  for(int i = 0; i < rholist_.size(); ++i) {
+  for(unsigned i = 0; i < rholist_.size(); ++i) {
     double rho = densEval(i, cv);
     if(rho * lambda_ / rhomaxlist_[i] > 1.0) {
       auto deri = densGrad(i, cv);
@@ -306,7 +306,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
 
 double TTSketch::getBias(const std::vector<double>& cv) {
   double bias = 0.0;
-  for(int i = 0; i < rholist_.size(); ++i) {
+  for(unsigned i = 0; i < rholist_.size(); ++i) {
     double rho = densEval(i, cv);
     double rho_adj = max(rho * lambda_ / rhomaxlist_[i], 1.0);
     bias += std::log(rho_adj);
@@ -359,7 +359,7 @@ void TTSketch::paraSketch() {
     }
   }
   // PrintData(linkInds(G));
-  log << "Initial ranks "
+  log << "Initial ranks ";
   for(int i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
@@ -372,7 +372,7 @@ void TTSketch::paraSketch() {
   }
   G.ref(d_) *= V[d_ - 1];
   // PrintData(linkInds(G));
-  log << "Final ranks "
+  log << "Final ranks ";
   for(int i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
@@ -381,7 +381,7 @@ void TTSketch::paraSketch() {
   rholist_.push_back(G);
 }
 
-MPS TTSketch::createTTCoeff() {
+MPS TTSketch::createTTCoeff() const {
   int n = basis_[0].nbasis();
   auto sites = SiteSet(d_, n);
   auto coeff = randomMPS(sites, rc_);
@@ -479,7 +479,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
 }
 
 double TTSketch::densEval(int step, const vector<double>& elements) const {
-  MPS& G = rholist_[step];
+  const MPS& G = rholist_[step];
   auto s = siteInds(G);
   vector<ITensor> basis_evals(d_);
   for(int i = 1; i <= d_; ++i) {
@@ -496,7 +496,7 @@ double TTSketch::densEval(int step, const vector<double>& elements) const {
 }
 
 vector<double> TTSketch::densGrad(int step, const vector<double>& elements) const {
-  MPS& G = rholist_[step];
+  const MPS& G = rholist_[step];
   auto s = siteInds(G);
   vector<double> grad(d_, 0.0);
   vector<ITensor> basis_evals(d_), basisd_evals(d_);
