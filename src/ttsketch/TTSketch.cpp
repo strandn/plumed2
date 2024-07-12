@@ -65,8 +65,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   isFirstStep_(true)
 {
-  bool conv = true;
-  parseFlag("CONV", conv);
+  bool noconv = false;
+  parseFlag("NOCONV", noconv);
   // bool walkers_mpi = false;
   // parseFlag("WALKERS_MPI", walkers_mpi);
   parse("RANK", r_);
@@ -84,37 +84,37 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   int nbins = 100;
   parse("NBINS", nbins);
-  if(conv && nbins <= 0) {
+  if(!noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
   int w = 0.02;
   parse("WIDTH", w);
-  if(conv && (w <= 0.0 || w > 1.0)) {
+  if(!noconv && (w <= 0.0 || w > 1.0)) {
     error("Gaussian smoothing requires positive WIDTH no greater than 1");
   }
   int gsl_n = 1000;
   parse("GSL_N", gsl_n);
-  if(conv && gsl_n <= 0) {
+  if(!noconv && gsl_n <= 0) {
     error("Gaussian smoothing requires positive GSL_N");
   }
   int gsl_epsabs = 1.0e-10;
   parse("GSL_EPSABS", gsl_epsabs);
-  if(conv && gsl_epsabs < 0.0) {
+  if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
   }
   int gsl_epsrel = 1.0e-6;
   parse("GSL_EPSREL", gsl_epsrel);
-  if(conv && gsl_epsrel < 0.0) {
+  if(!noconv && gsl_epsrel < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSREL");
   }
   int gsl_limit = 1000;
   parse("GSL_LIMIT", gsl_limit);
-  if(conv && (gsl_limit <= 0 || gsl_limit > gsl_n)) {
+  if(!noconv && (gsl_limit <= 0 || gsl_limit > gsl_n)) {
     error("Gaussian smoothing requires positive GSL_LIMIT no greater than GSL_N");
   }
   int gsl_key = 2;
   parse("GSL_KEY", gsl_key);
-  if(conv && (gsl_key < 1 || gsl_key > 6)) {
+  if(!noconv && (gsl_key < 1 || gsl_key > 6)) {
     error("Gaussian smoothing requires GSL_KEY between 1 and 6");
   }
   parse("INITRANK", rc_);
@@ -166,7 +166,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
     basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
-                                         nbasis, conv, nbins, w, gsl_n,
+                                         nbasis, !noconv, nbins, w, gsl_n,
                                          gsl_epsabs, gsl_epsrel, gsl_limit,
                                          gsl_key));
   }
@@ -175,7 +175,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
 void TTSketch::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
-  keys.addFlag("CONV", true, "Specifies that densities and corresponding gradients are to be smoothed via Gaussian kernels whenever evaluated");
+  keys.addFlag("NOCONV", false, "Specifies that densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
   // keys.addFlag("WALKERS_MPI",false,"To be used when gromacs + multiple walkers are used");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
