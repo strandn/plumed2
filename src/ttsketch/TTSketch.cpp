@@ -125,9 +125,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(pace_ <= 0) {
     error("PACE must be positive");
   }
-  parse("STRIDE", stride_);
+  parse("SAMPLESTRIDE", stride_);
   if(stride_ <= 0 || stride_ > pace_) {
-    error("STRIDE must be positive and no greater than PACE");
+    error("SAMPLESTRIDE must be positive and no greater than PACE");
   }
   d_ = getNumberOfArguments();
   if(d_ < 2) {
@@ -190,7 +190,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "GSL_KEY", "Integration rule");
   keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
   keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
-  keys.add("compulsory", "STRIDE", "100", "The frequency with which samples are collected for density estimation");
+  keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
   keys.add("compulsory", "INTERVAL_MIN", "Lower limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "NBASIS", "20", "Number of Fourier basis functions per dimension");
