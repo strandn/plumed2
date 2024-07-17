@@ -87,7 +87,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
-  int w = 0.02;
+  double w = 0.02;
   parse("WIDTH", w);
   if(!noconv && (w <= 0.0 || w > 1.0)) {
     error("Gaussian smoothing requires positive WIDTH no greater than 1");
