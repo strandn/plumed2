@@ -153,7 +153,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("ALPHA must be positive and no greater than 1");
   }
   parse("LAMBDA", lambda_);
-  if(alpha_ <= 1.0) {
+  if(lambda_ <= 1.0) {
     error("LAMBDA must be greater than 1");
   }
   // string file;
