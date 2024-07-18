@@ -326,13 +326,13 @@ double TTSketch::getBias(const std::vector<double>& cv) {
 void TTSketch::paraSketch() {
   int N = pace_ / stride_;
   auto coeff = createTTCoeff();
-  cout << 1 << endl;
+  // cout << 1 << endl;
   auto [M, is] = intBasisSample(siteInds(coeff));
-  cout << 2 << endl;
+  // cout << 2 << endl;
   MPS G(d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
-  cout << 3 << endl;
+  // cout << 3 << endl;
   auto links = linkInds(coeff);
   vector<ITensor> V(d_);
   G.ref(1) = Bemp(1);
@@ -369,7 +369,7 @@ void TTSketch::paraSketch() {
       svd(A, U, S, V[core_id - 1], {"Cutoff=", cutoff_, "RightTags=", original_link_tags});
     }
   }
-  cout << 4 << endl;
+  // cout << 4 << endl;
   // PrintData(linkInds(G));
   log << "Initial ranks ";
   for(unsigned i = 1; i < d_; ++i) {
@@ -389,24 +389,31 @@ void TTSketch::paraSketch() {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
-  cout << 5 << endl;
+  // cout << 5 << endl;
 
   rholist_.push_back(G);
 }
 
 MPS TTSketch::createTTCoeff() const {
   int n = basis_[0].nbasis();
+  cout << d_ << " " << n << endl;
   auto sites = SiteSet(d_, n);
+  PrintData(sites);
   auto coeff = randomMPS(sites, rc_);
+  PrintData(coeff);
   for(unsigned i = 1; i <= d_; ++i) {
+    cout << i << endl;
     auto s = sites(i);
+    PrintData(s);
     auto sp = prime(s);
     vector<double> Avec(n, alpha_);
     Avec[0] = 1.0;
     auto A = diagITensor(Avec, s, sp);
+    PrintData(A);
     coeff.ref(i) *= A;
     coeff.ref(i).noPrime();
   }
+  PrintData(coeff);
   return coeff;
 }
 
