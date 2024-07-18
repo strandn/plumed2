@@ -97,12 +97,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && gsl_n <= 0) {
     error("Gaussian smoothing requires positive GSL_N");
   }
-  int gsl_epsabs = 1.0e-10;
+  double gsl_epsabs = 1.0e-10;
   parse("GSL_EPSABS", gsl_epsabs);
   if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
   }
-  int gsl_epsrel = 1.0e-6;
+  double gsl_epsrel = 1.0e-6;
   parse("GSL_EPSREL", gsl_epsrel);
   if(!noconv && gsl_epsrel < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSREL");
