@@ -218,7 +218,7 @@ void TTSketch::calculate() {
 void TTSketch::update() {
   bool nowAddATT;
   // cout << "step " << getStep() << endl;
-  if(getStep() % pace__ == 0 && !isFirstStep_) {
+  if(getStep() % pace_ == 0 && !isFirstStep_) {
     nowAddATT = true;
   } else {
     nowAddATT = false;
