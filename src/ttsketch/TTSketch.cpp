@@ -233,12 +233,12 @@ void TTSketch::update() {
     samples_.push_back(cv);
   }
 
-  cout << "1" << endl;
+  // cout << 1 << endl;
   if(nowAddATT) {
     int N = pace_ / stride_;
     vector<pair<double, double>> domain_small(d_);
     log << "Sample limits\n";
-    cout << "2" << endl;
+    // cout << 2 << endl;
     for(unsigned i = 0; i < d_; ++i) {
       double max = 0.0, min = numeric_limits<double>::max();
       for(int j = 0; j < N; ++j) {
@@ -253,12 +253,12 @@ void TTSketch::update() {
       log << min << " " << max << "\n";
       domain_small[i] = make_pair(min, max);
     }
-    cout << "3" << endl;
+    // cout << 3 << endl;
 
     log << "Forming TT...\n";
     setConv(false);
     paraSketch();
-    cout << "4" << endl;
+    // cout << 4 << endl;
 
     double rhomax = 0.0;
     for(vector<double>& sample : samples_) {
@@ -268,7 +268,7 @@ void TTSketch::update() {
         }
     }
     rhomaxlist_.push_back(rhomax);
-    cout << "5" << endl;
+    // cout << 5 << endl;
 
     double vtop = 0.0;
     vector<double> gradtop(d_, 0.0);
@@ -293,7 +293,7 @@ void TTSketch::update() {
 
     // samples_.clear();
     setConv(true);
-    cout << "6" << endl;
+    // cout << 6 << endl;
   }
 }
 
@@ -326,10 +326,13 @@ double TTSketch::getBias(const std::vector<double>& cv) {
 void TTSketch::paraSketch() {
   int N = pace_ / stride_;
   auto coeff = createTTCoeff();
+  cout << 1 << endl;
   auto [M, is] = intBasisSample(siteInds(coeff));
+  cout << 2 << endl;
   MPS G(d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
+  cout << 3 << endl;
   auto links = linkInds(coeff);
   vector<ITensor> V(d_);
   G.ref(1) = Bemp(1);
@@ -366,6 +369,7 @@ void TTSketch::paraSketch() {
       svd(A, U, S, V[core_id - 1], {"Cutoff=", cutoff_, "RightTags=", original_link_tags});
     }
   }
+  cout << 4 << endl;
   // PrintData(linkInds(G));
   log << "Initial ranks ";
   for(unsigned i = 1; i < d_; ++i) {
@@ -385,6 +389,7 @@ void TTSketch::paraSketch() {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
+  cout << 5 << endl;
 
   rholist_.push_back(G);
 }
