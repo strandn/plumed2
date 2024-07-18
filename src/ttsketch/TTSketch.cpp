@@ -217,7 +217,7 @@ void TTSketch::calculate() {
 
 void TTSketch::update() {
   bool nowAddATT;
-  cout << "step " << getStep() << "\n";
+  cout << "step " << getStep() << endl;
   if(getStep() % pace_ && !isFirstStep_) {
     nowAddATT = true;
   } else {
@@ -233,12 +233,12 @@ void TTSketch::update() {
     samples_.push_back(cv);
   }
 
-  cout << "1\n";
+  cout << "1" << endl;
   if(nowAddATT) {
     int N = pace_ / stride_;
     vector<pair<double, double>> domain_small(d_);
     log << "Sample limits\n";
-    cout << "2\n";
+    cout << "2" << endl;
     for(unsigned i = 0; i < d_; ++i) {
       double max = 0.0, min = numeric_limits<double>::max();
       for(int j = 0; j < N; ++j) {
@@ -253,12 +253,12 @@ void TTSketch::update() {
       log << min << " " << max << "\n";
       domain_small[i] = make_pair(min, max);
     }
-    cout << "3\n";
+    cout << "3" << endl;
 
     log << "Forming TT...\n";
     setConv(false);
     paraSketch();
-    cout << "4\n";
+    cout << "4" << endl;
 
     double rhomax = 0.0;
     for(vector<double>& sample : samples_) {
@@ -268,7 +268,7 @@ void TTSketch::update() {
         }
     }
     rhomaxlist_.push_back(rhomax);
-    cout << "5\n";
+    cout << "5" << endl;
 
     double vtop = 0.0;
     vector<double> gradtop(d_, 0.0);
@@ -293,7 +293,7 @@ void TTSketch::update() {
 
     // samples_.clear();
     setConv(true);
-    cout << "6\n";
+    cout << "6" << endl;
   }
 }
 
