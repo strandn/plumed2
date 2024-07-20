@@ -217,7 +217,6 @@ void TTSketch::calculate() {
 
 void TTSketch::update() {
   bool nowAddATT;
-  cout << "step " << getStep() << endl;
   if(getStep() % pace_ == 0 && !isFirstStep_) {
     nowAddATT = true;
   } else {
@@ -235,6 +234,7 @@ void TTSketch::update() {
 
   // cout << 1 << endl;
   if(nowAddATT) {
+    cout << "step " << getStep() << endl;
     int N = pace_ / stride_;
     vector<pair<double, double>> domain_small(d_);
     log << "Sample limits\n";
