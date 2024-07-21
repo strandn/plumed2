@@ -39,7 +39,7 @@ private:
   bool isFirstStep_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
-  double getBias(const std::vector<double>& cv);
+  double getBias(const vector<double>& cv);
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -284,7 +284,7 @@ void TTSketch::update() {
         }
       }
     }
-    vshift_ = max(vtop - vmax_, 0.0);
+    vshift_ = max(vtop - vmax_ * kbt_, 0.0);
     log << "\nVtop = " << vtop << " Vshift = " << vshift_ << "\n\ngradtop = ";
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
@@ -306,13 +306,14 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
     double rho = densEval(i, cv);
     if(rho * lambda_ / rhomaxlist_[i] > 1.0) {
       auto deri = densGrad(i, cv);
+      transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, kbt_ / rho));
       transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
     }
   }
   return bias;
 }
 
-double TTSketch::getBias(const std::vector<double>& cv) {
+double TTSketch::getBias(const vector<double>& cv) {
   double bias = 0.0;
   for(unsigned i = 0; i < rholist_.size(); ++i) {
     double rho = densEval(i, cv);
