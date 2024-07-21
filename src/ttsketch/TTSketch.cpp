@@ -234,7 +234,7 @@ void TTSketch::update() {
 
   // cout << 1 << endl;
   if(nowAddATT) {
-    cout << "step " << getStep() << endl;
+    // cout << "step " << getStep() << endl;
     int N = pace_ / stride_;
     vector<pair<double, double>> domain_small(d_);
     log << "Sample limits\n";
@@ -370,7 +370,6 @@ void TTSketch::paraSketch() {
     }
   }
   // cout << 4 << endl;
-  // PrintData(linkInds(G));
   log << "Initial ranks ";
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
@@ -383,7 +382,6 @@ void TTSketch::paraSketch() {
     G.ref(core_id) *= V[core_id];
   }
   G.ref(d_) *= V[d_ - 1];
-  // PrintData(linkInds(G));
   log << "Final ranks ";
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
@@ -396,24 +394,24 @@ void TTSketch::paraSketch() {
 
 MPS TTSketch::createTTCoeff() const {
   int n = basis_[0].nbasis();
-  cout << d_ << " " << n << endl;
+  // cout << d_ << " " << n << endl;
   auto sites = SiteSet(d_, n);
-  PrintData(sites);
+  // PrintData(sites);
   auto coeff = randomMPS(sites, rc_);
-  PrintData(coeff);
+  // PrintData(coeff);
   for(unsigned i = 1; i <= d_; ++i) {
-    cout << i << endl;
+    // cout << i << endl;
     auto s = sites(i);
-    PrintData(s);
+    // PrintData(s);
     auto sp = prime(s);
     vector<double> Avec(n, alpha_);
     Avec[0] = 1.0;
     auto A = diagITensor(Avec, s, sp);
-    PrintData(A);
+    // PrintData(A);
     coeff.ref(i) *= A;
     coeff.ref(i).noPrime();
   }
-  PrintData(coeff);
+  // PrintData(coeff);
   return coeff;
 }
 
