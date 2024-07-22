@@ -245,7 +245,7 @@ void TTSketch::update() {
     vector<double> dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
     cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
     cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
-    setConv(true)
+    setConv(true);
     cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
     cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
     dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
