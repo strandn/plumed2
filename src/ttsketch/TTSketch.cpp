@@ -66,13 +66,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
-  cout << "noconv " << noconv << endl;
+  // cout << "noconv " << noconv << endl;
   // bool walkers_mpi = false;
   // parseFlag("WALKERS_MPI", walkers_mpi);
   parse("RANK", r_);
-  cout << "rank " << r_ << endl;
+  // cout << "rank " << r_ << endl;
   parse("CUTOFF", cutoff_);
-  cout << "cutoff " << cutoff_ << endl;
+  // cout << "cutoff " << cutoff_ << endl;
   if(r_ <= 0 && (cutoff_ <= 0.0 || cutoff_ > 1.0)) {
     error("Valid RANK or CUTOFF needs to be specified");
   }
@@ -81,7 +81,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("Unless the MD engine passes the temperature to plumed, you must specify it using TEMP");
   }
   parse("VMAX", vmax_);
-  cout << "vmax " << vmax_ << endl;
+  // cout << "vmax " << vmax_ << endl;
   if(vmax_ <= 0.0) {
     error("VMAX must be positive");
   } else if(vmax_ != numeric_limits<double>::max()) {
@@ -89,58 +89,58 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   int nbins = 100;
   parse("NBINS", nbins);
-  cout << "nbins " << nbins << endl;
+  // cout << "nbins " << nbins << endl;
   if(!noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
   double w = 0.02;
   parse("WIDTH", w);
-  cout << "width " << w << endl;
+  // cout << "width " << w << endl;
   if(!noconv && (w <= 0.0 || w > 1.0)) {
     error("Gaussian smoothing requires positive WIDTH no greater than 1");
   }
   int gsl_n = 1000;
   parse("GSL_N", gsl_n);
-  cout << "gsl_n " << gsl_n << endl;
+  // cout << "gsl_n " << gsl_n << endl;
   if(!noconv && gsl_n <= 0) {
     error("Gaussian smoothing requires positive GSL_N");
   }
   double gsl_epsabs = 1.0e-10;
   parse("GSL_EPSABS", gsl_epsabs);
-  cout << "gsl_epsabs " << gsl_epsabs << endl;
+  // cout << "gsl_epsabs " << gsl_epsabs << endl;
   if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
   }
   double gsl_epsrel = 1.0e-6;
   parse("GSL_EPSREL", gsl_epsrel);
-  cout << "gsl_epsrel " << gsl_epsrel << endl;
+  // cout << "gsl_epsrel " << gsl_epsrel << endl;
   if(!noconv && gsl_epsrel < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSREL");
   }
   int gsl_limit = 1000;
   parse("GSL_LIMIT", gsl_limit);
-  cout << "gsl_limit " << gsl_limit << endl;
+  // cout << "gsl_limit " << gsl_limit << endl;
   if(!noconv && (gsl_limit <= 0 || gsl_limit > gsl_n)) {
     error("Gaussian smoothing requires positive GSL_LIMIT no greater than GSL_N");
   }
   int gsl_key = 2;
   parse("GSL_KEY", gsl_key);
-  cout << "gsl_key " << gsl_key << endl;
+  // cout << "gsl_key " << gsl_key << endl;
   if(!noconv && (gsl_key < 1 || gsl_key > 6)) {
     error("Gaussian smoothing requires GSL_KEY between 1 and 6");
   }
   parse("INITRANK", rc_);
-  cout << "initrank " << rc_ << endl;
+  // cout << "initrank " << rc_ << endl;
   if(rc_ <= 0) {
     error("INITRANK must be positive");
   }
   parse("PACE", pace_);
-  cout << "pace " << pace_ << endl;
+  // cout << "pace " << pace_ << endl;
   if(pace_ <= 0) {
     error("PACE must be positive");
   }
   parse("SAMPLESTRIDE", stride_);
-  cout << "samplestride " << stride_ << endl;
+  // cout << "samplestride " << stride_ << endl;
   if(stride_ <= 0 || stride_ > pace_) {
     error("SAMPLESTRIDE must be positive and no greater than PACE");
   }
@@ -160,17 +160,17 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   int nbasis = 20;
   parse("NBASIS", nbasis);
-  cout << "nbasis " << nbasis << endl;
+  // cout << "nbasis " << nbasis << endl;
   if(nbasis <= 0) {
     error("NBASIS must be positive");
   }
   parse("ALPHA", alpha_);
-  cout << "alpha " << alpha_ << endl;
+  // cout << "alpha " << alpha_ << endl;
   if(alpha_ <= 0.0 || alpha_ > 1.0) {
     error("ALPHA must be positive and no greater than 1");
   }
   parse("LAMBDA", lambda_);
-  cout << "lambda " << lambda_ << endl;
+  // cout << "lambda " << lambda_ << endl;
   if(lambda_ <= 1.0) {
     error("LAMBDA must be greater than 1");
   }
@@ -233,26 +233,26 @@ void TTSketch::calculate() {
 }
 
 void TTSketch::update() {
-  if(getStep() == 1) {
-    samples_.push_back({ -0.9, -0.8, -0.6 });
-    samples_.push_back({ -0.3, 0.1, 0.6 });
-    samples_.push_back({ -0.4, 0.3, -0.7 });
-    paraSketch();
-    setConv(false);
-    cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
-    cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
-    vector<double> dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
-    vector<double> dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
-    cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
-    cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
-    setConv(true);
-    cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
-    cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
-    dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
-    dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
-    cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
-    cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
-  }
+  // if(getStep() == 1) {
+  //   samples_.push_back({ -0.9, -0.8, -0.6 });
+  //   samples_.push_back({ -0.3, 0.1, 0.6 });
+  //   samples_.push_back({ -0.4, 0.3, -0.7 });
+  //   paraSketch();
+  //   setConv(false);
+  //   cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
+  //   cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
+  //   vector<double> dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
+  //   vector<double> dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
+  //   cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
+  //   cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
+  //   setConv(true);
+  //   cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
+  //   cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
+  //   dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
+  //   dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
+  //   cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
+  //   cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
+  // }
 
   bool nowAddATT;
   if(getStep() % pace_ == 0 && !isFirstStep_) {
