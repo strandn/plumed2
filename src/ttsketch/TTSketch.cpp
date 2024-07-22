@@ -6,12 +6,10 @@
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
 #include "tools/Matrix.h"
-// #include <Eigen/QR>
 #include "itensor/all.h"
 #include <iostream>
 
 using namespace std;
-// using namespace Eigen;
 using namespace itensor;
 using namespace PLMD::bias;
 
@@ -68,10 +66,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
+  cout << "noconv " << noconv << endl;
   // bool walkers_mpi = false;
   // parseFlag("WALKERS_MPI", walkers_mpi);
   parse("RANK", r_);
+  cout << "rank " << r_ << endl;
   parse("CUTOFF", cutoff_);
+  cout << "cutoff " << cutoff_ << endl;
   if(r_ <= 0 && (cutoff_ <= 0.0 || cutoff_ > 1.0)) {
     error("Valid RANK or CUTOFF needs to be specified");
   }
@@ -80,53 +81,66 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("Unless the MD engine passes the temperature to plumed, you must specify it using TEMP");
   }
   parse("VMAX", vmax_);
+  cout << "vmax " << vmax_ << endl;
   if(vmax_ <= 0.0) {
     error("VMAX must be positive");
+  } else if(vmax_ != numeric_limits<double>::max()) {
+    vmax_ *= kbt_;
   }
   int nbins = 100;
   parse("NBINS", nbins);
+  cout << "nbins " << nbins << endl;
   if(!noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
   double w = 0.02;
   parse("WIDTH", w);
+  cout << "width " << w << endl;
   if(!noconv && (w <= 0.0 || w > 1.0)) {
     error("Gaussian smoothing requires positive WIDTH no greater than 1");
   }
   int gsl_n = 1000;
   parse("GSL_N", gsl_n);
+  cout << "gsl_n " << gsl_n << endl;
   if(!noconv && gsl_n <= 0) {
     error("Gaussian smoothing requires positive GSL_N");
   }
   double gsl_epsabs = 1.0e-10;
   parse("GSL_EPSABS", gsl_epsabs);
+  cout << "gsl_epsabs " << gsl_epsabs << endl;
   if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
   }
   double gsl_epsrel = 1.0e-6;
   parse("GSL_EPSREL", gsl_epsrel);
+  cout << "gsl_epsrel " << gsl_epsrel << endl;
   if(!noconv && gsl_epsrel < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSREL");
   }
   int gsl_limit = 1000;
   parse("GSL_LIMIT", gsl_limit);
+  cout << "gsl_limit " << gsl_limit << endl;
   if(!noconv && (gsl_limit <= 0 || gsl_limit > gsl_n)) {
     error("Gaussian smoothing requires positive GSL_LIMIT no greater than GSL_N");
   }
   int gsl_key = 2;
   parse("GSL_KEY", gsl_key);
+  cout << "gsl_key " << gsl_key << endl;
   if(!noconv && (gsl_key < 1 || gsl_key > 6)) {
     error("Gaussian smoothing requires GSL_KEY between 1 and 6");
   }
   parse("INITRANK", rc_);
+  cout << "initrank " << rc_ << endl;
   if(rc_ <= 0) {
     error("INITRANK must be positive");
   }
   parse("PACE", pace_);
+  cout << "pace " << pace_ << endl;
   if(pace_ <= 0) {
     error("PACE must be positive");
   }
   parse("SAMPLESTRIDE", stride_);
+  cout << "samplestride " << stride_ << endl;
   if(stride_ <= 0 || stride_ > pace_) {
     error("SAMPLESTRIDE must be positive and no greater than PACE");
   }
@@ -146,14 +160,17 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   int nbasis = 20;
   parse("NBASIS", nbasis);
+  cout << "nbasis " << nbasis << endl;
   if(nbasis <= 0) {
     error("NBASIS must be positive");
   }
   parse("ALPHA", alpha_);
+  cout << "alpha " << alpha_ << endl;
   if(alpha_ <= 0.0 || alpha_ > 1.0) {
     error("ALPHA must be positive and no greater than 1");
   }
   parse("LAMBDA", lambda_);
+  cout << "lambda " << lambda_ << endl;
   if(lambda_ <= 1.0) {
     error("LAMBDA must be greater than 1");
   }
@@ -216,6 +233,27 @@ void TTSketch::calculate() {
 }
 
 void TTSketch::update() {
+  if(getStep() == 1) {
+    samples_.push_back({ -0.9, -0.8, -0.6 });
+    samples_.push_back({ -0.3, 0.1, 0.6 });
+    samples_.push_back({ -0.4, 0.3, -0.7 });
+    paraSketch();
+    setConv(false);
+    cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
+    cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
+    vector<double> dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
+    vector<double> dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
+    cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
+    cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
+    setConv(true)
+    cout << densEval(0, { -0.9, -0.8, -0.6 }) << endl;
+    cout << densEval(0, { -0.95, -0.85, -0.65 }) << endl;
+    dens_grad1 = densGrad(0, { -0.9, -0.8, -0.6 });
+    dens_grad2 = densGrad(0, { -0.95, -0.85, -0.65 });
+    cout << dens_grad1[0] << " " << dens_grad1[1] << " " << dens_grad1[2] << " " << endl;
+    cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
+  }
+
   bool nowAddATT;
   if(getStep() % pace_ == 0 && !isFirstStep_) {
     nowAddATT = true;
@@ -232,13 +270,10 @@ void TTSketch::update() {
     samples_.push_back(cv);
   }
 
-  // cout << 1 << endl;
   if(nowAddATT) {
-    // cout << "step " << getStep() << endl;
     int N = pace_ / stride_;
     vector<pair<double, double>> domain_small(d_);
     log << "Sample limits\n";
-    // cout << 2 << endl;
     for(unsigned i = 0; i < d_; ++i) {
       double max = 0.0, min = numeric_limits<double>::max();
       for(int j = 0; j < N; ++j) {
@@ -253,12 +288,10 @@ void TTSketch::update() {
       log << min << " " << max << "\n";
       domain_small[i] = make_pair(min, max);
     }
-    // cout << 3 << endl;
 
     log << "Forming TT...\n";
     setConv(false);
     paraSketch();
-    // cout << 4 << endl;
 
     double rhomax = 0.0;
     for(vector<double>& sample : samples_) {
@@ -268,7 +301,6 @@ void TTSketch::update() {
         }
     }
     rhomaxlist_.push_back(rhomax);
-    // cout << 5 << endl;
 
     double vtop = 0.0;
     vector<double> gradtop(d_, 0.0);
@@ -284,16 +316,14 @@ void TTSketch::update() {
         }
       }
     }
-    vshift_ = max(vtop - vmax_ * kbt_, 0.0);
+    vshift_ = max(vtop - vmax_, 0.0);
     log << "\nVtop = " << vtop << " Vshift = " << vshift_ << "\n\ngradtop = ";
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
     }
     log << "\n\n";
 
-    // samples_.clear();
     setConv(true);
-    // cout << 6 << endl;
   }
 }
 
@@ -318,27 +348,22 @@ double TTSketch::getBias(const vector<double>& cv) {
   for(unsigned i = 0; i < rholist_.size(); ++i) {
     double rho = densEval(i, cv);
     double rho_adj = max(rho * lambda_ / rhomaxlist_[i], 1.0);
-    bias += std::log(rho_adj);
+    bias += kbt_ * std::log(rho_adj);
   }
-  bias -= vshift_;
-  return kbt_ * (bias < 0.0 ? 0.0 : bias);
+  return max(bias - vshift_, 0.0);
 }
 
 void TTSketch::paraSketch() {
   int N = pace_ / stride_;
   auto coeff = createTTCoeff();
-  // cout << 1 << endl;
   auto [M, is] = intBasisSample(siteInds(coeff));
-  // cout << 2 << endl;
   MPS G(d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
-  // cout << 3 << endl;
   auto links = linkInds(coeff);
   vector<ITensor> V(d_);
   G.ref(1) = Bemp(1);
   for(unsigned core_id = 2; core_id <= d_; ++core_id) {
-    // MatrixXd LMat(N, rc_), RMat(N, rc_);
     Matrix<double> LMat(N, rc_), RMat(N, rc_);
     for(int i = 1; i <= N; ++i) {
       for(int j = 1; j <= rc_; ++j) {
@@ -346,8 +371,6 @@ void TTSketch::paraSketch() {
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
       }
     }
-    // MatrixXd AMat = LMat.transpose() * RMat;
-    // MatrixXd PMat = AMat.completeOrthogonalDecomposition().pseudoInverse();
     Matrix<double> Lt, AMat, PMat;
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
@@ -370,7 +393,6 @@ void TTSketch::paraSketch() {
       svd(A, U, S, V[core_id - 1], {"Cutoff=", cutoff_, "RightTags=", original_link_tags});
     }
   }
-  // cout << 4 << endl;
   log << "Initial ranks ";
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
@@ -388,31 +410,23 @@ void TTSketch::paraSketch() {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
-  // cout << 5 << endl;
 
   rholist_.push_back(G);
 }
 
 MPS TTSketch::createTTCoeff() const {
   int n = basis_[0].nbasis();
-  // cout << d_ << " " << n << endl;
   auto sites = SiteSet(d_, n);
-  // PrintData(sites);
   auto coeff = randomMPS(sites, rc_);
-  // PrintData(coeff);
   for(unsigned i = 1; i <= d_; ++i) {
-    // cout << i << endl;
     auto s = sites(i);
-    // PrintData(s);
     auto sp = prime(s);
     vector<double> Avec(n, alpha_);
     Avec[0] = 1.0;
     auto A = diagITensor(Avec, s, sp);
-    // PrintData(A);
     coeff.ref(i) *= A;
     coeff.ref(i).noPrime();
   }
-  // PrintData(coeff);
   return coeff;
 }
 
@@ -428,7 +442,6 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
     for(int j = 1; j <= N; ++j) {
       int jadj = j + samples_.size() - N;
       for(int k = 1; k <= nb; ++k) {
-        // M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[j - 1][i - 1], k));
         M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[jadj - 1][i - 1], k));
       }
     }
