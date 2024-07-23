@@ -292,6 +292,7 @@ void TTSketch::update() {
     log << "Forming TT...\n";
     setConv(false);
     paraSketch();
+    setConv(true);
 
     double rhomax = 0.0;
     for(vector<double>& sample : samples_) {
@@ -322,8 +323,6 @@ void TTSketch::update() {
       log << gradtop[i] << " ";
     }
     log << "\n\n";
-
-    setConv(true);
 
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
