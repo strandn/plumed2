@@ -223,9 +223,8 @@ void TTSketch::calculate() {
     cv[i] = getArgument(i);
   }
 
-  double ene = 0.0;
   vector<double> der(d_, 0.0);
-  ene = getBiasAndDerivatives(cv, der);
+  double ene = getBiasAndDerivatives(cv, der);
   setBias(ene);
   for(unsigned i = 0; i < d_; ++i) {
     setOutputForce(i, -der[i]);
