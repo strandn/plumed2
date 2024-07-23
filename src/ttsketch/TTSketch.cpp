@@ -271,7 +271,7 @@ void TTSketch::update() {
 
   if(nowAddATT) {
     int N = pace_ / stride_;
-    vector<pair<double, double>> domain_small(d_);
+    // vector<pair<double, double>> domain_small(d_);
     log << "Sample limits\n";
     for(unsigned i = 0; i < d_; ++i) {
       double max = 0.0, min = numeric_limits<double>::max();
@@ -285,7 +285,7 @@ void TTSketch::update() {
         }
       }
       log << min << " " << max << "\n";
-      domain_small[i] = make_pair(min, max);
+      // domain_small[i] = make_pair(min, max);
     }
 
     log << "Forming TT...\n";
