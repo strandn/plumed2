@@ -227,7 +227,9 @@ Histogram::Histogram( const ActionOptions& ao ):
 {
   std::string normflag; parse("NORMALIZATION",normflag);
   std::string lw; parse("LOGWEIGHTS",lw); std::string stride, clearstride; parse("STRIDE",stride); parse("CLEAR",clearstride);
+  log << "lw " << lw << " normflag " << normflag << "\n";
   if( lw.length()>0 && normflag!="ndata" ) {
+    log << "worked?\n";
     readInputLine( getShortcutLabel() + "_wsum: COMBINE ARG=" + lw + " PERIODIC=NO");
     readInputLine( getShortcutLabel() + "_weight: CUSTOM ARG=" + getShortcutLabel() + "_wsum FUNC=exp(x) PERIODIC=NO");
   } else readInputLine( getShortcutLabel() + "_weight: ONES SIZE=1" );
