@@ -255,10 +255,6 @@ void TTSketch::update() {
   //   cout << dens_grad2[0] << " " << dens_grad2[1] << " " << dens_grad2[2] << " " << endl;
   // }
 
-  if(getStep() % pace_ == 0) {
-    log << "Vbias update " << count_ << "...\n";
-  }
-
   bool nowAddATT;
   if(getStep() % pace_ == 0 && !isFirstStep_) {
     nowAddATT = true;
@@ -337,6 +333,9 @@ void TTSketch::update() {
       }
     }
     ++count_;
+  }
+  if(getStep() % pace_ == 0) {
+    log << "Vbias update " << count_ << "...\n\n";
   }
 }
 
