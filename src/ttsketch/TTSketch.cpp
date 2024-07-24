@@ -324,7 +324,7 @@ void TTSketch::update() {
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
     }
-    log << "\n";
+    log << "\n\n";
 
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
