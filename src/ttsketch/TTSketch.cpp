@@ -297,7 +297,7 @@ void TTSketch::update() {
 
     double rhomax = 0.0;
     for(vector<double>& sample : samples_) {
-        double rho = densEval(count_ - 1, sample);
+        double rho = densEval(count_ - 2, sample);
         if(rho > rhomax) {
           rhomax = rho;
         }
