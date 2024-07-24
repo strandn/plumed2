@@ -64,7 +64,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vmax_(numeric_limits<double>::max()),
   vshift_(0.0),
   isFirstStep_(true),
-  count_(0)
+  count_(1)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
@@ -297,7 +297,7 @@ void TTSketch::update() {
 
     double rhomax = 0.0;
     for(vector<double>& sample : samples_) {
-        double rho = densEval(count_ - 1, sample);
+        double rho = densEval(count_, sample);
         if(rho > rhomax) {
           rhomax = rho;
         }
@@ -334,7 +334,7 @@ void TTSketch::update() {
     }
   }
   if(getStep() % pace_ == 0) {
-    log << "Vbias update " << ++count_ << "...\n\n";
+    log << "Vbias update " << count_ << "...\n\n";
   }
 }
 
@@ -343,7 +343,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(bias == 0.0) {
     return 0.0;
   }
-  for(unsigned i = 0; i < count_; ++i) {
+  for(unsigned i = 0; i < count_ - 1; ++i) {
     double rho = densEval(i, cv);
     if(rho * lambda_ / rhomaxlist_[i] > 1.0) {
       auto deri = densGrad(i, cv);
@@ -356,7 +356,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
 
 double TTSketch::getBias(const vector<double>& cv) {
   double bias = 0.0;
-  for(unsigned i = 0; i < count_; ++i) {
+  for(unsigned i = 0; i < count_ - 1; ++i) {
     double rho = densEval(i, cv);
     double rho_adj = max(rho * lambda_ / rhomaxlist_[i], 1.0);
     bias += kbt_ * std::log(rho_adj);
@@ -423,6 +423,7 @@ void TTSketch::paraSketch() {
   log << "\n";
 
   rholist_.push_back(G);
+  ++count_;
 }
 
 MPS TTSketch::createTTCoeff() const {
