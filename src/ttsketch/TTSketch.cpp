@@ -304,6 +304,7 @@ void TTSketch::update() {
     }
     rhomaxlist_.push_back(rhomax);
 
+    vshift_ = 0.0;
     double vtop = 0.0;
     vector<double> gradtop(d_, 0.0);
     for(vector<double>& sample : samples_) {
@@ -319,11 +320,11 @@ void TTSketch::update() {
       }
     }
     vshift_ = max(vtop - vmax_, 0.0);
-    log << "\nVtop = " << vtop << " Vshift = " << vshift_ << "\n\ngradtop = ";
+    log << "Vtop = " << vtop << " Vshift = " << vshift_ << "\ngradtop = ";
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
     }
-    log << "\n\n";
+    log << "\n";
 
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
@@ -333,7 +334,7 @@ void TTSketch::update() {
       }
     }
   }
-  if(getStep() % pace_ == 0) {
+  if(getStep() % pace_ == 1) {
     log << "Vbias update " << count_ << "...\n\n";
   }
 }
