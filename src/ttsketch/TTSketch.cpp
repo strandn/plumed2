@@ -64,7 +64,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vmax_(numeric_limits<double>::max()),
   vshift_(0.0),
   isFirstStep_(true),
-  count(1)
+  count_(1)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
