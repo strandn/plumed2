@@ -345,7 +345,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(bias == 0.0) {
     return 0.0;
   }
-  for(unsigned i = 0; i < count_; ++i) {
+  for(unsigned i = 0; i < count_ - 1; ++i) {
     double rho = densEval(i, cv);
     if(rho * lambda_ / rhomaxlist_[i] > 1.0) {
       auto deri = densGrad(i, cv);
@@ -358,7 +358,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
 
 double TTSketch::getBias(const vector<double>& cv) {
   double bias = 0.0;
-  for(unsigned i = 0; i < count_; ++i) {
+  for(unsigned i = 0; i < count_ - 1; ++i) {
     double rho = densEval(i, cv);
     double rho_adj = max(rho * lambda_ / rhomaxlist_[i], 1.0);
     bias += kbt_ * std::log(rho_adj);
