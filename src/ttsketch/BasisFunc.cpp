@@ -1,6 +1,5 @@
 #include "BasisFunc.h"
 #include <gsl/gsl_integration.h>
-// #include <iostream>
 
 using namespace std;
 
@@ -60,7 +59,6 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
         gsl_function F;
         F.function = &f;
         F.params = &gsl_params;
-        // cout << j + 1 << " " << dom.first + k * (dom.second - dom.first) / (nbins - 1) << " " << gsl_epsabs << " " << gsl_epsrel << "\n";
         gsl_integration_qag(&F, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
         this->grid_[j][k] = result;
         gsl_function DF;
