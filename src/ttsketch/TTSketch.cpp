@@ -267,6 +267,7 @@ void TTSketch::update() {
     vshift_ = 0.0;
     double vtop = 0.0;
     vector<double> gradtop(d_, 0.0);
+    vector<vector<double>> topsamples(d_, vector<double>());
     for(vector<double>& sample : samples_) {
       vector<double> der(d_, 0.0);
       double result = getBiasAndDerivatives(sample, der);
@@ -276,6 +277,7 @@ void TTSketch::update() {
       for(unsigned i = 0; i < d_; ++i) {
         if(abs(der[i]) > gradtop[i]) {
           gradtop[i] = abs(der[i]);
+          topsamples[i] = sample;
         }
       }
     }
@@ -284,7 +286,14 @@ void TTSketch::update() {
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
     }
-    log << "\n\n";
+    log << "\n";
+    for(unsigned i = 0; i < d_; ++i) {
+      for(unsigned j = 0; j < d_; ++j) {
+        log << topsamples[i][j] << " ";
+      }
+      log << "\n";
+    }
+    log << "\n";
 
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
