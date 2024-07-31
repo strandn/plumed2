@@ -40,15 +40,17 @@ double df(double x, void* params) {
 
 BasisFunc::BasisFunc()
   : dom_(make_pair(0.0, 0.0)), nbasis_(0), conv_(false), nbins_(0), L_(0.0),
-    shift_(0.0), w_(0.0) {}
+    shift_(0.0), w_(0.0), isPeriodic_(false) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int gsl_n, double gsl_epsabs,
-                     double gsl_epsrel, int gsl_limit, int gsl_key)
+                     double gsl_epsrel, int gsl_limit, int gsl_key,
+                     bool isPeriodic)
   : dom_(dom), nbasis_(nbasis), conv_(true), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
-    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w)
+    gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
+    isPeriodic_(isPeriodic)
 {
   if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(gsl_n);
@@ -59,12 +61,20 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
         gsl_function F;
         F.function = &f;
         F.params = &gsl_params;
-        gsl_integration_qag(&F, dom.first - L_, dom.second + L_, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        if(isPeriodic) {
+          gsl_integration_qag(&F, dom.first - L_, dom.second + L_, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        } else {
+          gsl_integration_qag(&F, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        }
         this->grid_[j][k] = result;
         gsl_function DF;
         DF.function = &df;
         DF.params = &gsl_params;
-        gsl_integration_qag(&DF, dom.first - L_, dom.second + L_, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        if(isPeriodic) {
+          gsl_integration_qag(&DF, dom.first - L_, dom.second + L_, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        } else {
+          gsl_integration_qag(&DF, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        }
         this->gridd_[j][k] = result;
       }
     }
@@ -77,7 +87,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
 }
 
 double BasisFunc::fourier(double x, int pos) const {
-  if(x < this->dom_.first || x > this->dom_.second) {
+  if(!isPeriodic_ && (x < this->dom_.first || x > this->dom_.second)) {
     return 0.0;
   }
   if(pos == 1) {
@@ -101,7 +111,7 @@ double BasisFunc::grad(double x, int pos) const {
   if(this->conv_ && this->nbins_ > 0) {
     return interpolate(x, pos, true);
   } else {
-    if(x < this->dom_.first || x > this->dom_.second) {
+    if(!isPeriodic_ && (x < this->dom_.first || x > this->dom_.second)) {
       return 0.0;
     }
     if(pos == 1) {

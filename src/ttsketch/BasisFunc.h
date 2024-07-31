@@ -19,6 +19,7 @@ private:
   std::vector<std::vector<double>> gridd_;
   std::vector<double> xdata_;
   double w_;
+  bool isPeriodic_;
 
 public:
   BasisFunc();

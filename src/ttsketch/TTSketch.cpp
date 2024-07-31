@@ -105,7 +105,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
   }
-  double gsl_epsrel = 1.0e-6;
+  double gsl_epsrel = 1.0e-8;
   parse("GSL_EPSREL", gsl_epsrel);
   if(!noconv && gsl_epsrel < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSREL");
@@ -171,7 +171,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
     basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
                                          nbasis, !noconv, nbins, w, gsl_n,
                                          gsl_epsabs, gsl_epsrel, gsl_limit,
-                                         gsl_key));
+                                         gsl_key,
+                                         getPntrToArgument(i)->isPeriodic()));
   }
 }
 
