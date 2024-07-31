@@ -237,7 +237,7 @@ void TTSketch::update() {
     int N = pace_ / stride_;
     log << "Sample limits\n";
     for(unsigned i = 0; i < d_; ++i) {
-      double max = 0.0, min = numeric_limits<double>::max();
+      auto [max, min] = basis[i].dom();
       for(int j = 0; j < N; ++j) {
         int jadj = j + samples_.size() - N;
         if(samples_[jadj][i] > max) {

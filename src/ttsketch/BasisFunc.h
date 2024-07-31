@@ -35,6 +35,7 @@ public:
   const std::pair<double, double>& dom() const { return this->dom_; }
   int nbins() const { return this->nbins_; }
   double w() const { return this->w_; }
+  std::pair<double, double> dom() { return this->dom_; }
 };
 
 }
