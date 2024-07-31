@@ -59,12 +59,12 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
         gsl_function F;
         F.function = &f;
         F.params = &gsl_params;
-        gsl_integration_qag(&F, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        gsl_integration_qag(&F, dom.first - L_, dom.second + L_, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
         this->grid_[j][k] = result;
         gsl_function DF;
         DF.function = &df;
         DF.params = &gsl_params;
-        gsl_integration_qag(&DF, dom.first, dom.second, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        gsl_integration_qag(&DF, dom.first - L_, dom.second + L_, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
         this->gridd_[j][k] = result;
       }
     }
