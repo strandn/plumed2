@@ -25,7 +25,7 @@ public:
   BasisFunc();
   BasisFunc(std::pair<double, double> dom, int nbasis, bool conv, int nbins,
             double w, int gsl_n, double gsl_epsabs, double gsl_epsrel,
-            int gsl_limit, int gsl_key);
+            int gsl_limit, int gsl_key, bool isPeriodic);
   double fourier(double x, int pos) const;
   double operator()(double x, int pos) const;
   double grad(double x, int pos) const;
