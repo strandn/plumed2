@@ -446,20 +446,21 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
   envi_L[1] = L(1) * delta(is(1), is(2));
   for(unsigned i = 2; i < d_; ++i) {
     envi_L[i] = ITensor(is(i + 1), links(i));
+    cout << "i " << i << endl;
     PrintData(envi_L[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rc_; ++k) {
-        ITensor LHS(links(i - 1)), RHS(links(i - 1));
-        PrintData(LHS);
-        PrintData(RHS);
+        // ITensor LHS(links(i - 1)), RHS(links(i - 1));
+        // PrintData(LHS);
+        // PrintData(RHS);
         for(int ii = 1; ii <= rc_; ++ii) {
-          cout << "i " << i << " j " << j << " k " << k << " ii " << ii << endl;
+          // cout << "i " << i << " j " << j << " k " << k << " ii " << ii << endl;
           LHS.set(links(i - 1) = ii, envi_L[i - 1].elt(is(i) = j, links(i - 1) = ii));
           RHS.set(links(i - 1) = ii, L(i).elt(links(i - 1) = ii, is(i) = j, links(i) = k));
         }
-        PrintData(LHS);
-        PrintData(RHS);
-        cout << "i " << i << " j " << j << " k " << k << endl;
+        // PrintData(LHS);
+        // PrintData(RHS);
+        // cout << "i " << i << " j " << j << " k " << k << endl;
         envi_L[i].set(is(i + 1) = j, links(i) = k, elt(LHS * RHS));
       }
     }
