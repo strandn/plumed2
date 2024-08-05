@@ -439,7 +439,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
 
   for(unsigned i = 1; i <= d_; ++i) {
     L.ref(i) *= M[i - 1];
-    PrintData(L(i));
+    println(L(i));
   }
 
   cout << "part 1" << endl;
@@ -448,7 +448,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
   for(unsigned i = 2; i < d_; ++i) {
     envi_L[i] = ITensor(is(i + 1), links(i));
     cout << "i " << i << endl;
-    PrintData(envi_L[i]);
+    println(envi_L[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rc_; ++k) {
         ITensor LHS(links(i - 1)), RHS(links(i - 1));
@@ -465,19 +465,19 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
         envi_L[i].set(is(i + 1) = j, links(i) = k, elt(LHS * RHS));
       }
     }
-    PrintData(envi_L[i]);
+    println(envi_L[i]);
   }
 
   cout << "part 2" << endl;
   // PrintData(L);
-  PrintData(is);
-  PrintData(links);
+  // PrintData(is);
+  // PrintData(links);
   vector<ITensor> envi_R(d_);
   envi_R[d_ - 2] = L(d_) * delta(is(d_), is(d_ - 1));
   for(int i = d_ - 3; i >= 0; --i) {
     cout << "i " << i << endl;
     envi_R[i] = ITensor(is(i + 1), links(i + 1));
-    PrintData(envi_R[i]);
+    println(envi_R[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rc_; ++k) {
         ITensor LHS(links(i + 2)), RHS(links(i + 2));
@@ -488,7 +488,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
         envi_R[i].set(is(i + 1) = j, links(i + 1) = k, elt(LHS * RHS));
       }
     }
-    PrintData(envi_R[i]);
+    println(envi_R[i]);
   }
 
   cout << "part 3" << endl;
