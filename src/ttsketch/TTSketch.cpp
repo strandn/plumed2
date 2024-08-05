@@ -236,7 +236,7 @@ void TTSketch::update() {
 
   if(nowAddATT) {
     int N = pace_ / stride_;
-    log << "Sample limits" << endl;
+    log << "Sample limits\n";
     for(unsigned i = 0; i < d_; ++i) {
       auto [max, min] = basis_[i].dom();
       for(int j = 0; j < N; ++j) {
@@ -248,10 +248,10 @@ void TTSketch::update() {
           min = samples_[jadj][i];
         }
       }
-      log << min << " " << max << endl;
+      log << min << " " << max << "\n";
     }
 
-    log << "Forming TT..." << endl;
+    log << "Forming TT...\n";
     setConv(false);
     paraSketch();
     setConv(true);
@@ -283,18 +283,18 @@ void TTSketch::update() {
       }
     }
     vshift_ = max(vtop - vmax_, 0.0);
-    log << "Vtop = " << vtop << " Vshift = " << vshift_ << endl << "gradtop = ";
+    log << "Vtop = " << vtop << " Vshift = " << vshift_ << "\ngradtop = ";
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
     }
-    log << endl;
+    log << "\n";
     for(unsigned i = 0; i < d_; ++i) {
       for(unsigned j = 0; j < d_; ++j) {
         log << topsamples[i][j] << " ";
       }
-      log << endl;
+      log << "\n";
     }
-    log << endl;
+    log << "\n";
 
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
@@ -305,7 +305,7 @@ void TTSketch::update() {
     }
   }
   if(getStep() % pace_ == 1) {
-    log << "Vbias update " << count_ << "..." << endl << endl;
+    log << "Vbias update " << count_ << "...\n\n";
   }
 }
 
@@ -379,7 +379,7 @@ void TTSketch::paraSketch() {
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
-  log << endl;
+  log << "\n";
 
   G.ref(1) *= V[1];
   for(unsigned core_id = 2; core_id < d_; ++core_id) {
@@ -391,7 +391,7 @@ void TTSketch::paraSketch() {
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
-  log << endl;
+  log << "\n";
 
   rholist_.push_back(G);
   ++count_;
