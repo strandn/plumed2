@@ -1,4 +1,3 @@
-
 #include "BasisFunc.h"
 #include "bias/Bias.h"
 #include "core/ActionRegister.h"
@@ -347,9 +346,10 @@ void TTSketch::paraSketch() {
   vector<ITensor> V(d_);
   G.ref(1) = Bemp(1);
   for(unsigned core_id = 2; core_id <= d_; ++core_id) {
-    Matrix<double> LMat(N, rc_), RMat(N, rc_);
+    int rank = dim(links(core_id - 1));
+    Matrix<double> LMat(N, rank), RMat(N, rank);
     for(int i = 1; i <= N; ++i) {
-      for(int j = 1; j <= rc_; ++j) {
+      for(int j = 1; j <= rank; ++j) {
         LMat(i - 1, j - 1) = envi_L[core_id - 1].elt(is(core_id) = i, links(core_id - 1) = j);
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
       }
@@ -360,8 +360,8 @@ void TTSketch::paraSketch() {
     pseudoInvert(AMat, PMat);
 
     ITensor A(prime(links(core_id - 1)), links(core_id - 1)), Pinv(prime(links(core_id - 1)), links(core_id - 1));
-    for(int i = 1; i <= rc_; ++i) {
-      for(int j = 1; j <= rc_; ++j) {
+    for(int i = 1; i <= rank; ++i) {
+      for(int j = 1; j <= rank; ++j) {
         A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
         Pinv.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
       }
@@ -440,46 +440,68 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
 
   for(unsigned i = 1; i <= d_; ++i) {
     L.ref(i) *= M[i - 1];
+    // println(L(i));
   }
 
+  // cout << "part 1" << endl;
   vector<ITensor> envi_L(d_);
   envi_L[1] = L(1) * delta(is(1), is(2));
   for(unsigned i = 2; i < d_; ++i) {
+    int rankl = dim(links(i - 1));
+    int rankr = dim(links(i));
     envi_L[i] = ITensor(is(i + 1), links(i));
+    // cout << "i " << i << endl;
+    // println(envi_L[i]);
     for(int j = 1; j <= N; ++j) {
-      for(int k = 1; k <= rc_; ++k) {
+      for(int k = 1; k <= rankr; ++k) {
+        // cout << "j " << j << " k " << k << endl;
         ITensor LHS(links(i - 1)), RHS(links(i - 1));
-        for(int ii = 1; ii <= rc_; ++ii) {
+        // println(envi_L[i - 1]);
+        // println(LHS);
+        // println(RHS);
+        for(int ii = 1; ii <= rankl; ++ii) {
           LHS.set(links(i - 1) = ii, envi_L[i - 1].elt(is(i) = j, links(i - 1) = ii));
           RHS.set(links(i - 1) = ii, L(i).elt(links(i - 1) = ii, is(i) = j, links(i) = k));
         }
+        // println(LHS);
+        // println(RHS);
         envi_L[i].set(is(i + 1) = j, links(i) = k, elt(LHS * RHS));
       }
     }
+    // println(envi_L[i]);
   }
 
+  // cout << "part 2" << endl;
   vector<ITensor> envi_R(d_);
   envi_R[d_ - 2] = L(d_) * delta(is(d_), is(d_ - 1));
   for(int i = d_ - 3; i >= 0; --i) {
+    int rankl = dim(links(i + 1));
+    int rankr = dim(links(i + 2));
+    // cout << "i " << i << endl;
     envi_R[i] = ITensor(is(i + 1), links(i + 1));
+    // println(envi_R[i]);
     for(int j = 1; j <= N; ++j) {
-      for(int k = 1; k <= rc_; ++k) {
+      for(int k = 1; k <= rankl; ++k) {
         ITensor LHS(links(i + 2)), RHS(links(i + 2));
-        for(int ii = 1; ii <= rc_; ++ii) {
+        for(int ii = 1; ii <= rankr; ++ii) {
           LHS.set(links(i + 2) = ii, envi_R[i + 1].elt(is(i + 2) = j, links(i + 2) = ii));
           RHS.set(links(i + 2) = ii, L(i + 2).elt(links(i + 2) = ii, is(i + 2) = j, links(i + 1) = k));
         }
         envi_R[i].set(is(i + 1) = j, links(i + 1) = k, elt(LHS * RHS));
       }
     }
+    // println(envi_R[i]);
   }
 
+  // cout << "part 3" << endl;
   MPS B(d_);
   B.ref(1) = envi_R[0] * M[0];
   for(unsigned core_id = 2; core_id < d_; ++core_id) {
+    int rankl = dim(links(core_id - 1));
+    int rankr = dim(links(core_id));
     B.ref(core_id) = ITensor(links(core_id - 1), is(core_id), links(core_id));
-    for(int i = 1; i <= rc_; ++i) {
-      for(int j = 1; j <= rc_; ++j) {
+    for(int i = 1; i <= rankl; ++i) {
+      for(int j = 1; j <= rankr; ++j) {
         for(int k = 1; k <= N; ++k) {
           double Lelt = envi_L[core_id - 1].elt(is(core_id) = k, links(core_id - 1) = i);
           double Relt = envi_R[core_id - 1].elt(is(core_id) = k, links(core_id) = j);
