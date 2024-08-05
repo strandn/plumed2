@@ -450,7 +450,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
     PrintData(envi_L[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rc_; ++k) {
-        // ITensor LHS(links(i - 1)), RHS(links(i - 1));
+        ITensor LHS(links(i - 1)), RHS(links(i - 1));
         // PrintData(LHS);
         // PrintData(RHS);
         for(int ii = 1; ii <= rc_; ++ii) {
