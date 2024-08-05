@@ -236,7 +236,7 @@ void TTSketch::update() {
 
   if(nowAddATT) {
     int N = pace_ / stride_;
-    log << "Sample limits\n";
+    log << "Sample limits" << endl;
     for(unsigned i = 0; i < d_; ++i) {
       auto [max, min] = basis_[i].dom();
       for(int j = 0; j < N; ++j) {
@@ -248,10 +248,10 @@ void TTSketch::update() {
           min = samples_[jadj][i];
         }
       }
-      log << min << " " << max << "\n";
+      log << min << " " << max << endl;
     }
 
-    log << "Forming TT...\n";
+    log << "Forming TT..." << endl;
     setConv(false);
     paraSketch();
     setConv(true);
@@ -283,18 +283,18 @@ void TTSketch::update() {
       }
     }
     vshift_ = max(vtop - vmax_, 0.0);
-    log << "Vtop = " << vtop << " Vshift = " << vshift_ << "\ngradtop = ";
+    log << "Vtop = " << vtop << " Vshift = " << vshift_ << endl << "gradtop = ";
     for(unsigned i = 0; i < d_; ++i) {
       log << gradtop[i] << " ";
     }
-    log << "\n";
+    log << endl;
     for(unsigned i = 0; i < d_; ++i) {
       for(unsigned j = 0; j < d_; ++j) {
         log << topsamples[i][j] << " ";
       }
-      log << "\n";
+      log << endl;
     }
-    log << "\n";
+    log << endl;
 
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
@@ -305,7 +305,7 @@ void TTSketch::update() {
     }
   }
   if(getStep() % pace_ == 1) {
-    log << "Vbias update " << count_ << "...\n\n";
+    log << "Vbias update " << count_ << "..." << endl << endl;
   }
 }
 
@@ -379,7 +379,7 @@ void TTSketch::paraSketch() {
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
-  log << "\n";
+  log << endl;
 
   G.ref(1) *= V[1];
   for(unsigned core_id = 2; core_id < d_; ++core_id) {
@@ -391,7 +391,7 @@ void TTSketch::paraSketch() {
   for(unsigned i = 1; i < d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
-  log << "\n";
+  log << endl;
 
   rholist_.push_back(G);
   ++count_;
@@ -441,22 +441,32 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
     L.ref(i) *= M[i - 1];
   }
 
+  cout << "part 1" << endl;
   vector<ITensor> envi_L(d_);
   envi_L[1] = L(1) * delta(is(1), is(2));
   for(unsigned i = 2; i < d_; ++i) {
     envi_L[i] = ITensor(is(i + 1), links(i));
+    PrintData(envi_L[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rc_; ++k) {
         ITensor LHS(links(i - 1)), RHS(links(i - 1));
+        PrintData(LHS);
+        PrintData(RHS);
         for(int ii = 1; ii <= rc_; ++ii) {
+          cout << "i " << i << " j " << j << " k " << k << " ii " << ii << endl;
           LHS.set(links(i - 1) = ii, envi_L[i - 1].elt(is(i) = j, links(i - 1) = ii));
           RHS.set(links(i - 1) = ii, L(i).elt(links(i - 1) = ii, is(i) = j, links(i) = k));
         }
+        PrintData(LHS);
+        PrintData(RHS);
+        cout << "i " << i << " j " << j << " k " << k << endl;
         envi_L[i].set(is(i + 1) = j, links(i) = k, elt(LHS * RHS));
       }
     }
+    PrintData(envi_L[i]);
   }
 
+  cout << "part 2" << endl;
   vector<ITensor> envi_R(d_);
   envi_R[d_ - 2] = L(d_) * delta(is(d_), is(d_ - 1));
   for(int i = d_ - 3; i >= 0; --i) {
@@ -473,6 +483,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
     }
   }
 
+  cout << "part 3" << endl;
   MPS B(d_);
   B.ref(1) = envi_R[0] * M[0];
   for(unsigned core_id = 2; core_id < d_; ++core_id) {
