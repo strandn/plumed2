@@ -95,27 +95,27 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && (w <= 0.0 || w > 1.0)) {
     error("Gaussian smoothing requires positive WIDTH no greater than 1");
   }
-  int gsl_n = 1000;
+  int gsl_n = 10000000;
   parse("GSL_N", gsl_n);
   if(!noconv && gsl_n <= 0) {
     error("Gaussian smoothing requires positive GSL_N");
   }
-  double gsl_epsabs = 1.0e-10;
+  double gsl_epsabs = 0.;
   parse("GSL_EPSABS", gsl_epsabs);
   if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
   }
   double gsl_epsrel = 1.0e-8;
   parse("GSL_EPSREL", gsl_epsrel);
-  if(!noconv && gsl_epsrel < 0.0) {
-    error("Gaussian smoothing requires nonnegative GSL_EPSREL");
+  if(!noconv && gsl_epsrel <= 0.0) {
+    error("Gaussian smoothing requires positive GSL_EPSREL");
   }
-  int gsl_limit = 1000;
+  int gsl_limit = 10000000;
   parse("GSL_LIMIT", gsl_limit);
   if(!noconv && (gsl_limit <= 0 || gsl_limit > gsl_n)) {
     error("Gaussian smoothing requires positive GSL_LIMIT no greater than GSL_N");
   }
-  int gsl_key = 2;
+  int gsl_key = 6;
   parse("GSL_KEY", gsl_key);
   if(!noconv && (gsl_key < 1 || gsl_key > 6)) {
     error("Gaussian smoothing requires GSL_KEY between 1 and 6");
