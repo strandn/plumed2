@@ -85,22 +85,22 @@ TTSketch::TTSketch(const ActionOptions& ao):
   } else if(vmax_ != numeric_limits<double>::max()) {
     vmax_ *= kbt_;
   }
-  int nbins = 100;
+  int nbins = 1000;
   parse("NBINS", nbins);
   if(!noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
-  double w = 0.02;
+  double w = 0.1;
   parse("WIDTH", w);
-  if(!noconv && (w <= 0.0 || w > 1.0)) {
-    error("Gaussian smoothing requires positive WIDTH no greater than 1");
+  if(!noconv && w <= 0.0) {
+    error("Gaussian smoothing requires positive WIDTH");
   }
   int gsl_n = 10000000;
   parse("GSL_N", gsl_n);
   if(!noconv && gsl_n <= 0) {
     error("Gaussian smoothing requires positive GSL_N");
   }
-  double gsl_epsabs = 0.;
+  double gsl_epsabs = 1.0e-12;
   parse("GSL_EPSABS", gsl_epsabs);
   if(!noconv && gsl_epsabs < 0.0) {
     error("Gaussian smoothing requires nonnegative GSL_EPSABS");
@@ -171,8 +171,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
                                          nbasis, !noconv, nbins, w, gsl_n,
                                          gsl_epsabs, gsl_epsrel, gsl_limit,
-                                         gsl_key,
-                                         getPntrToArgument(i)->isPeriodic()));
+                                         gsl_key));
   }
 }
 
@@ -252,6 +251,7 @@ void TTSketch::update() {
     }
 
     log << "Forming TT...\n";
+    log.flush();
     setConv(false);
     paraSketch();
     setConv(true);
@@ -295,6 +295,7 @@ void TTSketch::update() {
       log << "\n";
     }
     log << "\n";
+    log.flush();
 
     // for(int i = 0; i < 100; ++i) {
     //   double x = -M_PI + 2 * i * M_PI / 100;
@@ -306,6 +307,7 @@ void TTSketch::update() {
   }
   if(getStep() % pace_ == 1) {
     log << "Vbias update " << count_ << "...\n\n";
+    log.flush();
   }
 }
 
@@ -381,6 +383,7 @@ void TTSketch::paraSketch() {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
+  log.flush();
 
   G.ref(1) *= V[1];
   for(unsigned core_id = 2; core_id < d_; ++core_id) {
@@ -393,6 +396,7 @@ void TTSketch::paraSketch() {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
+  log.flush();
 
   rholist_.push_back(G);
   ++count_;
@@ -440,46 +444,32 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
 
   for(unsigned i = 1; i <= d_; ++i) {
     L.ref(i) *= M[i - 1];
-    // println(L(i));
   }
 
-  // cout << "part 1" << endl;
   vector<ITensor> envi_L(d_);
   envi_L[1] = L(1) * delta(is(1), is(2));
   for(unsigned i = 2; i < d_; ++i) {
     int rankl = dim(links(i - 1));
     int rankr = dim(links(i));
     envi_L[i] = ITensor(is(i + 1), links(i));
-    // cout << "i " << i << endl;
-    // println(envi_L[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rankr; ++k) {
-        // cout << "j " << j << " k " << k << endl;
         ITensor LHS(links(i - 1)), RHS(links(i - 1));
-        // println(envi_L[i - 1]);
-        // println(LHS);
-        // println(RHS);
         for(int ii = 1; ii <= rankl; ++ii) {
           LHS.set(links(i - 1) = ii, envi_L[i - 1].elt(is(i) = j, links(i - 1) = ii));
           RHS.set(links(i - 1) = ii, L(i).elt(links(i - 1) = ii, is(i) = j, links(i) = k));
         }
-        // println(LHS);
-        // println(RHS);
         envi_L[i].set(is(i + 1) = j, links(i) = k, elt(LHS * RHS));
       }
     }
-    // println(envi_L[i]);
   }
 
-  // cout << "part 2" << endl;
   vector<ITensor> envi_R(d_);
   envi_R[d_ - 2] = L(d_) * delta(is(d_), is(d_ - 1));
   for(int i = d_ - 3; i >= 0; --i) {
     int rankl = dim(links(i + 1));
     int rankr = dim(links(i + 2));
-    // cout << "i " << i << endl;
     envi_R[i] = ITensor(is(i + 1), links(i + 1));
-    // println(envi_R[i]);
     for(int j = 1; j <= N; ++j) {
       for(int k = 1; k <= rankl; ++k) {
         ITensor LHS(links(i + 2)), RHS(links(i + 2));
@@ -490,10 +480,8 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
         envi_R[i].set(is(i + 1) = j, links(i + 1) = k, elt(LHS * RHS));
       }
     }
-    // println(envi_R[i]);
   }
 
-  // cout << "part 3" << endl;
   MPS B(d_);
   B.ref(1) = envi_R[0] * M[0];
   for(unsigned core_id = 2; core_id < d_; ++core_id) {
