@@ -185,7 +185,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "TEMP", "The system temperature");
   keys.add("optional", "VMAX", "Upper limit of Vbias across all CV space, in units of kT");
   keys.add("optional", "NBINS", "Number of bins per dimension for storing convolution integrals");
-  keys.add("optional", "WIDTH", "Width of Gaussian kernels - fraction of domains for all dimensions");
+  keys.add("optional", "WIDTH", "Width of Gaussian kernels");
   keys.add("optional", "GSL_N", "Size of integration workspace");
   keys.add("optional", "GSL_EPSABS", "Absolute error limit for integration");
   keys.add("optional", "GSL_EPSREL", "Relative error limit for integration");
