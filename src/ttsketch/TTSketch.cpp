@@ -42,9 +42,9 @@ private:
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
-  double densEval(int step, const vector<double>& elements, bool conv) const;
-  vector<double> densGrad(int step, const vector<double>& elements, bool conv) const;
-  void setConv(bool status);
+  // double densEval(int step, const vector<double>& elements, bool conv) const;
+  // vector<double> densGrad(int step, const vector<double>& elements, bool conv) const;
+  // void setConv(bool status);
 
 public:
   explicit TTSketch(const ActionOptions&);
@@ -70,20 +70,20 @@ TTSketch::TTSketch(const ActionOptions& ao):
   // cout << "noconv " << noconv << endl;
   // bool walkers_mpi = false;
   // parseFlag("WALKERS_MPI", walkers_mpi);
-  parse("RANK", r_);
-  parse("CUTOFF", cutoff_);
-  if(r_ <= 0 && (cutoff_ <= 0.0 || cutoff_ > 1.0)) {
+  parse("RANK", this->r_);
+  parse("CUTOFF", this->cutoff_);
+  if(this->r_ <= 0 && (this->cutoff_ <= 0.0 || this->cutoff_ > 1.0)) {
     error("Valid RANK or CUTOFF needs to be specified");
   }
-  kbt_ = getkBT();
-  if(kbt_ == 0.0) {
+  this->kbt_ = getkBT();
+  if(this->kbt_ == 0.0) {
     error("Unless the MD engine passes the temperature to plumed, you must specify it using TEMP");
   }
   parse("VMAX", vmax_);
   if(vmax_ <= 0.0) {
     error("VMAX must be positive");
   } else if(vmax_ != numeric_limits<double>::max()) {
-    vmax_ *= kbt_;
+    vmax_ *= this->kbt_;
   }
   int nbins = 1000;
   parse("NBINS", nbins);
@@ -120,30 +120,30 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && (conv_key < 1 || conv_key > 6)) {
     error("Gaussian smoothing requires CONV_KEY between 1 and 6");
   }
-  parse("INITRANK", rc_);
-  if(rc_ <= 0) {
+  parse("INITRANK", this->rc_);
+  if(this->rc_ <= 0) {
     error("INITRANK must be positive");
   }
-  parse("PACE", pace_);
-  if(pace_ <= 0) {
+  parse("PACE", this->pace_);
+  if(this->pace_ <= 0) {
     error("PACE must be positive");
   }
-  parse("SAMPLESTRIDE", stride_);
-  if(stride_ <= 0 || stride_ > pace_) {
+  parse("SAMPLESTRIDE", this->stride_);
+  if(this->stride_ <= 0 || this->stride_ > this->pace_) {
     error("SAMPLESTRIDE must be positive and no greater than PACE");
   }
-  d_ = getNumberOfArguments();
-  if(d_ < 2) {
+  this->d_ = getNumberOfArguments();
+  if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
   }
   vector<double> interval_min;
   parseVector("INTERVAL_MIN", interval_min);
-  if(interval_min.size() != d_) {
+  if(interval_min.size() != this->d_) {
     error("Number of arguments does not match number of INTERVAL_MIN parameters");
   }
   vector<double> interval_max;
   parseVector("INTERVAL_MAX", interval_max);
-  if(interval_max.size() != d_) {
+  if(interval_max.size() != this->d_) {
     error("Number of arguments does not match number of INTERVAL_MAX parameters");
   }
   int nbasis = 20;
@@ -164,7 +164,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   // if(file.length() == 0) {
   //   error("No TTSketch file name was specified");
   // }
-  for(unsigned i = 0; i < d_; ++i) {
+  for(unsigned i = 0; i < this->d_; ++i) {
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
@@ -203,40 +203,40 @@ void TTSketch::registerKeywords(Keywords& keys) {
 }
 
 void TTSketch::calculate() {
-  vector<double> cv(d_);
-  for(unsigned i = 0; i < d_; ++i) {
+  vector<double> cv(this->d_);
+  for(unsigned i = 0; i < this->d_; ++i) {
     cv[i] = getArgument(i);
   }
 
-  vector<double> der(d_, 0.0);
+  vector<double> der(this->d_, 0.0);
   double ene = getBiasAndDerivatives(cv, der);
   setBias(ene);
-  for(unsigned i = 0; i < d_; ++i) {
+  for(unsigned i = 0; i < this->d_; ++i) {
     setOutputForce(i, -der[i]);
   }
 }
 
 void TTSketch::update() {
   bool nowAddATT;
-  if(getStep() % pace_ == 0 && !isFirstStep_) {
+  if(getStep() % this->pace_ == 0 && !isFirstStep_) {
     nowAddATT = true;
   } else {
     nowAddATT = false;
     isFirstStep_ = false;
   }
 
-  vector<double> cv(d_);
-  for(unsigned i = 0; i < d_; ++i) {
+  vector<double> cv(this->d_);
+  for(unsigned i = 0; i < this->d_; ++i) {
     cv[i] = getArgument(i);
   }
-  if(getStep() % stride_ == 0) {
+  if(getStep() % this->stride_ == 0) {
     samples_.push_back(cv);
   }
 
   if(nowAddATT) {
-    int N = pace_ / stride_;
+    int N = this->pace_ / this->stride_;
     log << "Sample limits\n";
-    for(unsigned i = 0; i < d_; ++i) {
+    for(unsigned i = 0; i < this->d_; ++i) {
       auto [max, min] = basis_[i].dom();
       for(int j = 0; j < N; ++j) {
         int jadj = j + samples_.size() - N;
@@ -267,15 +267,15 @@ void TTSketch::update() {
 
     vshift_ = 0.0;
     double vtop = 0.0;
-    vector<double> gradtop(d_, 0.0);
-    vector<vector<double>> topsamples(d_, vector<double>());
+    vector<double> gradtop(this->d_, 0.0);
+    vector<vector<double>> topsamples(this->d_, vector<double>());
     for(vector<double>& sample : samples_) {
-      vector<double> der(d_, 0.0);
+      vector<double> der(this->d_, 0.0);
       double result = getBiasAndDerivatives(sample, der);
       if(result > vtop) {
         vtop = result;
       }
-      for(unsigned i = 0; i < d_; ++i) {
+      for(unsigned i = 0; i < this->d_; ++i) {
         if(abs(der[i]) > gradtop[i]) {
           gradtop[i] = abs(der[i]);
           topsamples[i] = sample;
@@ -284,12 +284,12 @@ void TTSketch::update() {
     }
     vshift_ = max(vtop - vmax_, 0.0);
     log << "Vtop = " << vtop << " Vshift = " << vshift_ << "\ngradtop = ";
-    for(unsigned i = 0; i < d_; ++i) {
+    for(unsigned i = 0; i < this->d_; ++i) {
       log << gradtop[i] << " ";
     }
     log << "\n";
-    for(unsigned i = 0; i < d_; ++i) {
-      for(unsigned j = 0; j < d_; ++j) {
+    for(unsigned i = 0; i < this->d_; ++i) {
+      for(unsigned j = 0; j < this->d_; ++j) {
         log << topsamples[i][j] << " ";
       }
       log << "\n";
@@ -305,7 +305,7 @@ void TTSketch::update() {
     //   }
     // }
   }
-  if(getStep() % pace_ == 1) {
+  if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << count_ << "...\n\n";
     log.flush();
   }
@@ -320,7 +320,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
     double rho = densEval(i, cv);
     if(rho * lambda_ / rhomaxlist_[i] > 1.0) {
       auto deri = densGrad(i, cv);
-      transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, kbt_ / rho));
+      transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, this->kbt_ / rho));
       transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
     }
   }
@@ -332,22 +332,22 @@ double TTSketch::getBias(const vector<double>& cv) {
   for(unsigned i = 0; i < count_ - 1; ++i) {
     double rho = densEval(i, cv);
     double rho_adj = max(rho * lambda_ / rhomaxlist_[i], 1.0);
-    bias += kbt_ * std::log(rho_adj);
+    bias += this->kbt_ * std::log(rho_adj);
   }
   return max(bias - vshift_, 0.0);
 }
 
 void TTSketch::paraSketch() {
-  int N = pace_ / stride_;
+  int N = this->pace_ / this->stride_;
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
-  MPS G(d_);
+  MPS G(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
   auto links = linkInds(coeff);
-  vector<ITensor> V(d_);
+  vector<ITensor> V(this->d_);
   G.ref(1) = Bemp(1);
-  for(unsigned core_id = 2; core_id <= d_; ++core_id) {
+  for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
     int rank = dim(links(core_id - 1));
     Matrix<double> LMat(N, rank), RMat(N, rank);
     for(int i = 1; i <= N; ++i) {
@@ -372,27 +372,27 @@ void TTSketch::paraSketch() {
     auto original_link_tags = tags(links(core_id - 1));
     ITensor U, S;
     V[core_id - 1] = ITensor(links(core_id - 1));
-    if(r_ > 0) {
-      svd(A, U, S, V[core_id - 1], {"Cutoff=", cutoff_, "RightTags=", original_link_tags, "MaxDim=", r_});
+    if(this->r_ > 0) {
+      svd(A, U, S, V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->r_});
     } else {
-      svd(A, U, S, V[core_id - 1], {"Cutoff=", cutoff_, "RightTags=", original_link_tags});
+      svd(A, U, S, V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags});
     }
   }
   log << "Initial ranks ";
-  for(unsigned i = 1; i < d_; ++i) {
+  for(unsigned i = 1; i < this->d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
   log.flush();
 
   G.ref(1) *= V[1];
-  for(unsigned core_id = 2; core_id < d_; ++core_id) {
+  for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
     G.ref(core_id) *= V[core_id - 1];
     G.ref(core_id) *= V[core_id];
   }
-  G.ref(d_) *= V[d_ - 1];
+  G.ref(this->d_) *= V[this->d_ - 1];
   log << "Final ranks ";
-  for(unsigned i = 1; i < d_; ++i) {
+  for(unsigned i = 1; i < this->d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";
   }
   log << "\n";
@@ -404,9 +404,9 @@ void TTSketch::paraSketch() {
 
 MPS TTSketch::createTTCoeff() const {
   int n = basis_[0].nbasis();
-  auto sites = SiteSet(d_, n);
-  auto coeff = randomMPS(sites, rc_);
-  for(unsigned i = 1; i <= d_; ++i) {
+  auto sites = SiteSet(this->d_, n);
+  auto coeff = randomMPS(sites, this->rc_);
+  for(unsigned i = 1; i <= this->d_; ++i) {
     auto s = sites(i);
     auto sp = prime(s);
     vector<double> Avec(n, alpha_);
@@ -419,18 +419,18 @@ MPS TTSketch::createTTCoeff() const {
 }
 
 pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) const {
-  int N = pace_ / stride_;
+  int N = this->pace_ / this->stride_;
   int nb = basis_[0].nbasis();
-  auto sites_new = SiteSet(d_, N);
+  auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
   vector<Index> is_new;
-  for(unsigned i = 1; i <= d_; ++i) {
+  for(unsigned i = 1; i <= this->d_; ++i) {
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(int j = 1; j <= N; ++j) {
       int jadj = j + samples_.size() - N;
       for(int k = 1; k <= nb; ++k) {
-        M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / d_) * basis_[i - 1](samples_[jadj - 1][i - 1], k));
+        M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / this->d_) * basis_[i - 1](samples_[jadj - 1][i - 1], k));
       }
     }
   }
@@ -442,13 +442,13 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
   auto links = linkInds(coeff);
   auto L = coeff;
 
-  for(unsigned i = 1; i <= d_; ++i) {
+  for(unsigned i = 1; i <= this->d_; ++i) {
     L.ref(i) *= M[i - 1];
   }
 
-  vector<ITensor> envi_L(d_);
+  vector<ITensor> envi_L(this->d_);
   envi_L[1] = L(1) * delta(is(1), is(2));
-  for(unsigned i = 2; i < d_; ++i) {
+  for(unsigned i = 2; i < this->d_; ++i) {
     int rankl = dim(links(i - 1));
     int rankr = dim(links(i));
     envi_L[i] = ITensor(is(i + 1), links(i));
@@ -464,9 +464,9 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
     }
   }
 
-  vector<ITensor> envi_R(d_);
-  envi_R[d_ - 2] = L(d_) * delta(is(d_), is(d_ - 1));
-  for(int i = d_ - 3; i >= 0; --i) {
+  vector<ITensor> envi_R(this->d_);
+  envi_R[this->d_ - 2] = L(this->d_) * delta(is(this->d_), is(this->d_ - 1));
+  for(int i = this->d_ - 3; i >= 0; --i) {
     int rankl = dim(links(i + 1));
     int rankr = dim(links(i + 2));
     envi_R[i] = ITensor(is(i + 1), links(i + 1));
@@ -482,9 +482,9 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
     }
   }
 
-  MPS B(d_);
+  MPS B(this->d_);
   B.ref(1) = envi_R[0] * M[0];
-  for(unsigned core_id = 2; core_id < d_; ++core_id) {
+  for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
     int rankl = dim(links(core_id - 1));
     int rankr = dim(links(core_id));
     B.ref(core_id) = ITensor(links(core_id - 1), is(core_id), links(core_id));
@@ -499,55 +499,55 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
     }
     B.ref(core_id) *= M[core_id - 1];
   }
-  B.ref(d_) = envi_L[d_ - 1] * M[d_ - 1];
+  B.ref(this->d_) = envi_L[this->d_ - 1] * M[this->d_ - 1];
 
   return make_tuple(B, envi_L, envi_R);
 }
 
-double TTSketch::densEval(int step, const vector<double>& elements, bool conv) const {
-  const MPS& G = rholist_[step];
-  auto s = siteInds(G);
-  vector<ITensor> basis_evals(d_);
-  for(unsigned i = 1; i <= d_; ++i) {
-    basis_evals[i - 1] = ITensor(s(i));
-    for(int j = 1; j <= dim(s(i)); ++j) {
-      basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j, conv));
-    }
-  }
-  auto result = G(1) * basis_evals[0];
-  for(unsigned i = 2; i <= d_; ++i) {
-    result *= G(i) * basis_evals[i - 1];
-  }
-  return elt(result);
-}
+// double TTSketch::densEval(int step, const vector<double>& elements, bool conv) const {
+//   const MPS& G = rholist_[step];
+//   auto s = siteInds(G);
+//   vector<ITensor> basis_evals(d_);
+//   for(unsigned i = 1; i <= d_; ++i) {
+//     basis_evals[i - 1] = ITensor(s(i));
+//     for(int j = 1; j <= dim(s(i)); ++j) {
+//       basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j, conv));
+//     }
+//   }
+//   auto result = G(1) * basis_evals[0];
+//   for(unsigned i = 2; i <= d_; ++i) {
+//     result *= G(i) * basis_evals[i - 1];
+//   }
+//   return elt(result);
+// }
 
-vector<double> TTSketch::densGrad(int step, const vector<double>& elements, bool conv) const {
-  const MPS& G = rholist_[step];
-  auto s = siteInds(G);
-  vector<double> grad(d_, 0.0);
-  vector<ITensor> basis_evals(d_), basisd_evals(d_);
-  for(unsigned i = 1; i <= d_; ++i) {
-    basis_evals[i - 1] = basisd_evals[i - 1] = ITensor(s(i));
-    for(int j = 1; j <= dim(s(i)); ++j) {
-      basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j));
-      basisd_evals[i - 1].set(s(i) = j, basis_[i - 1].grad(elements[i - 1], j, conv));
-    }
-  }
-  for(unsigned k = 1; k <= d_; ++k) {
-    auto result = G(1) * (k == 1 ? basisd_evals[0] : basis_evals[0]);
-    for(unsigned i = 2; i <= d_; ++i) {
-      result *= G(i) * (k == i ? basisd_evals[i - 1] : basis_evals[i - 1]);
-    }
-    grad[k - 1] = elt(result);
-  }
-  return grad;
-}
+// vector<double> TTSketch::densGrad(int step, const vector<double>& elements, bool conv) const {
+//   const MPS& G = rholist_[step];
+//   auto s = siteInds(G);
+//   vector<double> grad(d_, 0.0);
+//   vector<ITensor> basis_evals(d_), basisd_evals(d_);
+//   for(unsigned i = 1; i <= d_; ++i) {
+//     basis_evals[i - 1] = basisd_evals[i - 1] = ITensor(s(i));
+//     for(int j = 1; j <= dim(s(i)); ++j) {
+//       basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j));
+//       basisd_evals[i - 1].set(s(i) = j, basis_[i - 1].grad(elements[i - 1], j, conv));
+//     }
+//   }
+//   for(unsigned k = 1; k <= d_; ++k) {
+//     auto result = G(1) * (k == 1 ? basisd_evals[0] : basis_evals[0]);
+//     for(unsigned i = 2; i <= d_; ++i) {
+//       result *= G(i) * (k == i ? basisd_evals[i - 1] : basis_evals[i - 1]);
+//     }
+//     grad[k - 1] = elt(result);
+//   }
+//   return grad;
+// }
 
-void TTSketch::setConv(bool status) {
-  for(unsigned i = 0; i < d_; ++i) {
-    basis_[i].setConv(status);
-  }
-}
+// void TTSketch::setConv(bool status) {
+//   for(unsigned i = 0; i < d_; ++i) {
+//     basis_[i].setConv(status);
+//   }
+// }
 
 }
 }

@@ -80,9 +80,6 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
 }
 
 double BasisFunc::fourier(double x, int pos) const {
-  // if(!isPeriodic_ && (x < this->dom_.first || x > this->dom_.second)) {
-  //   return 0.0;
-  // }
   if(pos == 1) {
     return 1 / sqrt(2 * this->L_);
   } else if(pos % 2 == 0) {
@@ -104,9 +101,6 @@ double BasisFunc::grad(double x, int pos, bool conv) const {
   if(conv && this->nbins_ > 0) {
     return interpolate(x, pos, true);
   } else {
-    // if(!isPeriodic_ && (x < this->dom_.first || x > this->dom_.second)) {
-    //   return 0.0;
-    // }
     if(pos == 1) {
       return 0.0;
     } else if(pos % 2 == 0) {

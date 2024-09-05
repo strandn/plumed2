@@ -5,6 +5,7 @@
 #include <gsl/gsl_integration.h>
 
 using namespace std;
+using namespace itensor;
 
 namespace PLMD {
 namespace ttsketch {
@@ -53,9 +54,12 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    result = this->kbt_ * log(max(eval(x, true), 0.1))
+    // result = this->kbt_ * log(max(eval(x, true), 0.1))
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, true), 0.1))
   } else {
-    result = max(eval(x, false) + this->kbt_ * log(max(eval(x, true), 1.0)) - this->vshift_, -2 * this->kbt_);
+    // result = max(eval(x, false) + this->kbt_ * log(max(eval(x, true), 1.0)) - this->vshift_, -2 * this->kbt_);
+    result = max(ttEval(this->vb_, this->basis_, x, true) +
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, true), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
   return result;
 }
@@ -234,8 +238,65 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   this->vb_ = psi;
 }
 
-double TTCross::eval(const vector<double>& elements, bool isG) const {
-  
+double TTCross::vtop(const vector<vector<double>>& samples) const {
+  double max = 0.0;
+  for(auto& s : samples) {
+    if(f(s) > max) {
+      max = f(s);
+    }
+  }
+  return max;
+}
+
+void TTCross::reset() {
+  for(auto& pivots : this->I_) {
+    pivots.clear();
+  }
+  I_[0].push_back(vector<double>());
+  for(auto& pivots : this->J_) {
+    pivots.clear();
+  }
+  J_[0].push_back(vector<double>());
+  this->resfirst_.clear();
+}
+
+double ttEval(const MPS& tt, const vector<BasisFunc>& basis, const vector<double>& elements, bool conv) {
+  int d = length(tt);
+  auto s = siteInds(tt);
+  vector<ITensor> basis_evals(d);
+  for(unsigned i = 1; i <= d; ++i) {
+    basis_evals[i - 1] = ITensor(s(i));
+    for(int j = 1; j <= dim(s(i)); ++j) {
+      basis_evals[i - 1].set(s(i) = j, basis[i - 1](elements[i - 1], j, conv));
+    }
+  }
+  auto result = tt(1) * basis_evals[0];
+  for(unsigned i = 2; i <= d; ++i) {
+    result *= tt(i) * basis_evals[i - 1];
+  }
+  return elt(result);
+}
+
+vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, int step, const vector<double>& elements, bool conv) {
+  int d = length(tt);
+  auto s = siteInds(tt);
+  vector<double> grad(d, 0.0);
+  vector<ITensor> basis_evals(d), basisd_evals(d);
+  for(unsigned i = 1; i <= d; ++i) {
+    basis_evals[i - 1] = basisd_evals[i - 1] = ITensor(s(i));
+    for(int j = 1; j <= dim(s(i)); ++j) {
+      basis_evals[i - 1].set(s(i) = j, basis[i - 1](elements[i - 1], j));
+      basisd_evals[i - 1].set(s(i) = j, basis[i - 1].grad(elements[i - 1], j, conv));
+    }
+  }
+  for(unsigned k = 1; k <= d; ++k) {
+    auto result = tt(1) * (k == 1 ? basisd_evals[0] : basis_evals[0]);
+    for(unsigned i = 2; i <= d; ++i) {
+      result *= tt(i) * (k == i ? basisd_evals[i - 1] : basis_evals[i - 1]);
+    }
+    grad[k - 1] = elt(result);
+  }
+  return grad;
 }
 
 }

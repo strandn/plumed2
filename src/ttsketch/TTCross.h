@@ -10,8 +10,8 @@ namespace ttsketch {
 class TTCross {
 
 private:
-  MPS vb_;
-  const MPS* G_;
+  itensor::MPS vb_;
+  const itensor::MPS* G_;
   const std::vector<BasisFunc>& basis_;
   int n_;
   double kbt_;
@@ -40,10 +40,9 @@ public:
   void updateIJ(const std::vector<double>& ij);
   std::pair<double, int> diagACA(const std::vector<std::vector<double>>& samples, const std::vector<double>& Rk);
   void continuousACA(const std::vector<std::vector<double>>& samples);
-  void updateG(const MPS& G) { this->G_ = &G; }
+  void updateG(const itensor::MPS& G) { this->G_ = &G; }
   void updateVshift(double vshift) { this->vshift_ = vshift; }
   void updateVb(const std::vector<std::vector<double>>& samples);
-  double eval(const std::vector<double>& elements, bool isG) const;
   double vtop(const std::vector<std::vector<double>>& samples) const;
   const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
   const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
@@ -51,6 +50,10 @@ public:
   const BasisFunc& basisi(int i) const { return basis_[i]; }
   void reset();
 };
+
+double ttEval(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, const std::vector<double>& elements, bool conv);
+
+std::vector<double> ttGrad(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, int step, const std::vector<double>& elements, bool conv);
 
 }
 }
