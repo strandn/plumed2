@@ -31,11 +31,12 @@ private:
   double aca_epsrel_;
   int aca_limit_;
   int aca_key_;
+  bool conv_;
 
 public:
   TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
           int maxrank, Log& log, int aca_n, int aca_epsabs, double aca_epsrel,
-          int aca_limit, int aca_key);
+          int aca_limit, int aca_key, bool conv);
   double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
   std::pair<double, int> diagACA(const std::vector<std::vector<double>>& samples, const std::vector<double>& Rk);

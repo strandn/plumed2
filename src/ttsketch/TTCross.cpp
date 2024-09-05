@@ -38,13 +38,13 @@ double aca_f(double x, void* params) {
 
 TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
                  int maxrank, Log& log, int aca_n, int aca_epsabs,
-                 double aca_epsrel, int aca_limit, int aca_key)
+                 double aca_epsrel, int aca_limit, int aca_key, bool conv)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt), cutoff_(cutoff),
     maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
     I_(vector<vector<vector<double>>>(vector<vector<double>>(), basis.size())),
     J_(vector<vector<vector<double>>>(vector<vector<double>>(), basis.size())),
     log_(log), aca_n_(aca_n), aca_epsabs_(aca_epsabs), aca_epsrel_(aca_epsrel),
-    aca_limit_(aca_limit), aca_key_(aca_key)
+    aca_limit_(aca_limit), aca_key_(aca_key), conv_(conv)
 {
   I_[0].push_back(vector<double>());
   J_[0].push_back(vector<double>());
@@ -54,12 +54,10 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    // result = this->kbt_ * log(max(eval(x, true), 0.1))
-    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, true), 0.1))
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 0.1))
   } else {
-    // result = max(eval(x, false) + this->kbt_ * log(max(eval(x, true), 1.0)) - this->vshift_, -2 * this->kbt_);
-    result = max(ttEval(this->vb_, this->basis_, x, true) +
-                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, true), 1.0)) - this->vshift_, -2 * this->kbt_);
+    result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
   return result;
 }
