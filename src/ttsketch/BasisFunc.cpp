@@ -6,32 +6,32 @@ using namespace std;
 namespace PLMD {
 namespace ttsketch {
 
-struct GSLParams {
-  BasisFunc* instance;
+struct ConvParams {
+  const BasisFunc* instance;
   int j;
   int k;
 };
 
-double f(double x, void* params) {
-  GSLParams* gsl_params = (GSLParams*)params;
-  auto dom = gsl_params->instance->dom();
-  int nbins = gsl_params->instance->nbins();
-  int j = gsl_params->j;
-  int k = gsl_params->k;
-  double fourier = gsl_params->instance->fourier(x, j);
-  double sigma = gsl_params->instance->w();
+double conv_f(double x, void* params) {
+  ConvParams* conv_params = (ConvParams*)params;
+  auto& dom = conv_params->instance->dom();
+  int nbins = conv_params->instance->nbins();
+  int j = conv_params->j;
+  int k = conv_params->k;
+  double fourier = conv_params->instance->fourier(x, j);
+  double sigma = conv_params->instance->w();
   double s = dom.first + (k - 1) * (dom.second - dom.first) / (nbins - 1);
   return fourier * (1 / (sqrt(2 * M_PI) * sigma)) * exp(-pow(s - x, 2) / (2 * pow(sigma, 2)));
 }
 
-double df(double x, void* params) {
-  GSLParams* gsl_params = (GSLParams*)params;
-  auto dom = gsl_params->instance->dom();
-  int nbins = gsl_params->instance->nbins();
-  int j = gsl_params->j;
-  int k = gsl_params->k;
-  double fourier = gsl_params->instance->fourier(x, j);
-  double sigma = gsl_params->instance->w();
+double conv_df(double x, void* params) {
+  ConvParams* conv_params = (ConvParams*)params;
+  auto& dom = conv_params->instance->dom();
+  int nbins = conv_params->instance->nbins();
+  int j = conv_params->j;
+  int k = conv_params->k;
+  double fourier = conv_params->instance->fourier(x, j);
+  double sigma = conv_params->instance->w();
   double s = dom.first + (k - 1) * (dom.second - dom.first) / (nbins - 1);
   return fourier * ((x - s) / (sqrt(2 * M_PI) * pow(sigma, 3))) * exp(-pow(s - x, 2) / (2 * pow(sigma, 2)));
 }
@@ -40,28 +40,34 @@ BasisFunc::BasisFunc()
   : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
-                     int nbins, double w, int gsl_n, double gsl_epsabs,
-                     double gsl_epsrel, int gsl_limit, int gsl_key)
+                     int nbins, double w, int conv_n, double conv_epsabs,
+                     double conv_epsrel, int conv_limit, int conv_key)
   : dom_(dom), nbasis_(nbasis), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
     gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w)
 {
   if(nbins > 0) {
-    gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(gsl_n);
+    gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
     for(int j = 0; j < nbasis; ++j) {
       for(int k = 0; k < nbins; ++k) {
-        GSLParams gsl_params = { this, j + 1, k + 1 };
+        ConvParams conv_params = { this, j + 1, k + 1 };
         gsl_function F;
-        F.function = &f;
-        F.params = &gsl_params;
-        gsl_integration_qag(&F, dom.first - this->L_ / 4, dom.second + this->L_ / 4, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        F.function = &conv_f;
+        F.params = &conv_params;
+        gsl_integration_qag(&F, dom.first - this->L_ / 4,
+                            dom.second + this->L_ / 4, conv_epsabs,
+                            conv_epsrel, conv_limit, conv_key, workspace,
+                            &result, &error);
         this->grid_[j][k] = result;
         gsl_function DF;
-        DF.function = &df;
-        DF.params = &gsl_params;
-        gsl_integration_qag(&DF, dom.first - this->L_ / 4, dom.second + this->L_ / 4, gsl_epsabs, gsl_epsrel, gsl_limit, gsl_key, workspace, &result, &error);
+        DF.function = &conv_df;
+        DF.params = &conv_params;
+        gsl_integration_qag(&DF, dom.first - this->L_ / 4,
+                            dom.second + this->L_ / 4, conv_epsabs,
+                            conv_epsrel, conv_limit, conv_key, workspace,
+                            &result, &error);
         this->gridd_[j][k] = result;
       }
     }

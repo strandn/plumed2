@@ -42,8 +42,8 @@ private:
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
-  double densEval(int step, const vector<double>& elements) const;
-  vector<double> densGrad(int step, const vector<double>& elements) const;
+  double densEval(int step, const vector<double>& elements, bool conv) const;
+  vector<double> densGrad(int step, const vector<double>& elements, bool conv) const;
   void setConv(bool status);
 
 public:
@@ -95,30 +95,30 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && w <= 0.0) {
     error("Gaussian smoothing requires positive WIDTH");
   }
-  int gsl_n = 10000000;
-  parse("GSL_N", gsl_n);
-  if(!noconv && gsl_n <= 0) {
-    error("Gaussian smoothing requires positive GSL_N");
+  int conv_n = 10000000;
+  parse("CONV_N", conv_n);
+  if(!noconv && conv_n <= 0) {
+    error("Gaussian smoothing requires positive CONV_N");
   }
-  double gsl_epsabs = 1.0e-12;
-  parse("GSL_EPSABS", gsl_epsabs);
-  if(!noconv && gsl_epsabs < 0.0) {
-    error("Gaussian smoothing requires nonnegative GSL_EPSABS");
+  double conv_epsabs = 1.0e-12;
+  parse("CONV_EPSABS", conv_epsabs);
+  if(!noconv &conv_epsabs < 0.0) {
+    error("Gaussian smoothing requires nonnegative CONV_EPSABS");
   }
-  double gsl_epsrel = 1.0e-8;
-  parse("GSL_EPSREL", gsl_epsrel);
-  if(!noconv && gsl_epsrel <= 0.0) {
-    error("Gaussian smoothing requires positive GSL_EPSREL");
+  double conv_epsrel = 1.0e-8;
+  parse("CONV_EPSREL", conv_epsrel);
+  if(!noconv && conv_epsrel <= 0.0) {
+    error("Gaussian smoothing requires positive CONV_EPSREL");
   }
-  int gsl_limit = 10000000;
-  parse("GSL_LIMIT", gsl_limit);
-  if(!noconv && (gsl_limit <= 0 || gsl_limit > gsl_n)) {
-    error("Gaussian smoothing requires positive GSL_LIMIT no greater than GSL_N");
+  int conv_limit = 10000000;
+  parse("CONV_LIMIT", conv_limit);
+  if(!noconv && (conv_limit <= 0 || conv_limit > conv_n)) {
+    error("Gaussian smoothing requires positive CONV_LIMIT no greater than CONV_N");
   }
-  int gsl_key = 6;
-  parse("GSL_KEY", gsl_key);
-  if(!noconv && (gsl_key < 1 || gsl_key > 6)) {
-    error("Gaussian smoothing requires GSL_KEY between 1 and 6");
+  int conv_key = 6;
+  parse("CONV_KEY", conv_key);
+  if(!noconv && (conv_key < 1 || conv_key > 6)) {
+    error("Gaussian smoothing requires CONV_KEY between 1 and 6");
   }
   parse("INITRANK", rc_);
   if(rc_ <= 0) {
@@ -169,9 +169,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
     basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
-                                         nbasis, !noconv, nbins, w, gsl_n,
-                                         gsl_epsabs, gsl_epsrel, gsl_limit,
-                                         gsl_key));
+                                         nbasis, !noconv, nbins, w, conv_n,
+                                         conv_epsabs, conv_epsrel, conv_limit,
+                                         conv_key));
   }
 }
 
@@ -186,11 +186,11 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "VMAX", "Upper limit of Vbias across all CV space, in units of kT");
   keys.add("optional", "NBINS", "Number of bins per dimension for storing convolution integrals");
   keys.add("optional", "WIDTH", "Width of Gaussian kernels");
-  keys.add("optional", "GSL_N", "Size of integration workspace");
-  keys.add("optional", "GSL_EPSABS", "Absolute error limit for integration");
-  keys.add("optional", "GSL_EPSREL", "Relative error limit for integration");
-  keys.add("optional", "GSL_LIMIT", "Maximum number of subintervals for integration");
-  keys.add("optional", "GSL_KEY", "Integration rule");
+  keys.add("optional", "CONV_N", "Size of integration workspace");
+  keys.add("optional", "CONV_EPSABS", "Absolute error limit for integration");
+  keys.add("optional", "CONV_EPSREL", "Relative error limit for integration");
+  keys.add("optional", "CONV_LIMIT", "Maximum number of subintervals for integration");
+  keys.add("optional", "CONV_KEY", "Integration rule");
   keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
   keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
   keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
@@ -504,14 +504,14 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTSketch::formTensorMoment(const ve
   return make_tuple(B, envi_L, envi_R);
 }
 
-double TTSketch::densEval(int step, const vector<double>& elements) const {
+double TTSketch::densEval(int step, const vector<double>& elements, bool conv) const {
   const MPS& G = rholist_[step];
   auto s = siteInds(G);
   vector<ITensor> basis_evals(d_);
   for(unsigned i = 1; i <= d_; ++i) {
     basis_evals[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
-      basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j));
+      basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j, conv));
     }
   }
   auto result = G(1) * basis_evals[0];
@@ -521,7 +521,7 @@ double TTSketch::densEval(int step, const vector<double>& elements) const {
   return elt(result);
 }
 
-vector<double> TTSketch::densGrad(int step, const vector<double>& elements) const {
+vector<double> TTSketch::densGrad(int step, const vector<double>& elements, bool conv) const {
   const MPS& G = rholist_[step];
   auto s = siteInds(G);
   vector<double> grad(d_, 0.0);
@@ -530,7 +530,7 @@ vector<double> TTSketch::densGrad(int step, const vector<double>& elements) cons
     basis_evals[i - 1] = basisd_evals[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
       basis_evals[i - 1].set(s(i) = j, basis_[i - 1](elements[i - 1], j));
-      basisd_evals[i - 1].set(s(i) = j, basis_[i - 1].grad(elements[i - 1], j));
+      basisd_evals[i - 1].set(s(i) = j, basis_[i - 1].grad(elements[i - 1], j, conv));
     }
   }
   for(unsigned k = 1; k <= d_; ++k) {

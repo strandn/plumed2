@@ -22,8 +22,8 @@ private:
 public:
   BasisFunc();
   BasisFunc(std::pair<double, double> dom, int nbasis, bool conv, int nbins,
-            double w, int gsl_n, double gsl_epsabs, double gsl_epsrel,
-            int gsl_limit, int gsl_key);
+            double w, int conv_n, double conv_epsabs, double conv_epsrel,
+            int conv_limit, int conv_key);
   double fourier(double x, int pos) const;
   double operator()(double x, int pos, bool conv) const;
   double grad(double x, int pos, bool conv) const;
@@ -32,7 +32,6 @@ public:
   const std::pair<double, double>& dom() const { return this->dom_; }
   int nbins() const { return this->nbins_; }
   double w() const { return this->w_; }
-  std::pair<double, double> dom() { return this->dom_; }
 };
 
 }
