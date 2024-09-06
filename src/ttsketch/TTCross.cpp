@@ -155,8 +155,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
 
   auto sites = SiteSet(this->d_, this->n_);
   vector<Index> l(this->d_ - 1);
-  auto& psi = this->vb_;
-  psi = MPS(this->d_);
+  MPS psi(this->d_)
   vector<int> ranks(this->d_ - 1);
   for(int i = 1; i < this->d_; ++i) {
     ranks[i - 1] = this->I_[i].size();
@@ -264,6 +263,8 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
     this->log_->flush();
   }
   gsl_integration_workspace_free(workspace);
+
+  this->vb_ = psi;
 }
 
 double TTCross::vtop(const vector<vector<double>>& samples) const {
