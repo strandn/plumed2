@@ -186,6 +186,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
           cout << ii << " " << ss << " " << lr << endl;
+          cout << this->aca_epsabs_ << " " << this->aca_epsrel_ << " " << this->aca_limit_ << " " << this->aca_key_ << endl;
           ACAParams aca_params = { this, 1, ss, 0, lr };
           gsl_function F;
           F.function = &aca_f;
