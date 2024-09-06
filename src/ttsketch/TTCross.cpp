@@ -36,14 +36,19 @@ double aca_f(double x, void* params) {
   return aca_params->instance->f(elements) * aca_params->instance->basisi(ii - 1)(x, ss, false);
 }
 
+TTCross::TTCross()
+  : G_(nullptr), n_(0), kbt_(0.0), cutoff_(0.0), maxrank_(0), d_(0), pos_(0),
+    vshift_(0.0), log_(nullptr), aca_n_(0), aca_epsabs_(0.0), aca_epsrel_(0.0),
+    aca_limit_(0), aca_key_(0), conv_(false) { }
+
 TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
                  int maxrank, Log& log, int aca_n, int aca_epsabs,
                  double aca_epsrel, int aca_limit, int aca_key, bool conv)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt), cutoff_(cutoff),
     maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
-    I_(vector<vector<vector<double>>>(vector<vector<double>>(), basis.size())),
-    J_(vector<vector<vector<double>>>(vector<vector<double>>(), basis.size())),
-    log_(log), aca_n_(aca_n), aca_epsabs_(aca_epsabs), aca_epsrel_(aca_epsrel),
+    I_(vector<vector<vector<double>>>(basis.size(), vector<vector<double>>())),
+    J_(vector<vector<vector<double>>>(basis.size(), vector<vector<double>>())),
+    log_(&log), aca_n_(aca_n), aca_epsabs_(aca_epsabs), aca_epsrel_(aca_epsrel),
     aca_limit_(aca_limit), aca_key_(aca_key), conv_(conv)
 {
   I_[0].push_back(vector<double>());
@@ -54,7 +59,7 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 0.1))
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 0.1));
   } else {
     result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
@@ -63,12 +68,12 @@ double TTCross::f(const vector<double>& x) const {
 }
 
 void TTCross::updateIJ(const vector<double>& ij) {
-  this->I_[this->pos_].push_back(ij.begin(), ij.begin() + this->pos_);
-  this->J_[this->pos_].push_back(ij.begin() + this->pos_, ij.end());
+  this->I_[this->pos_].push_back(vector<double>(ij.begin(), ij.begin() + this->pos_));
+  this->J_[this->pos_].push_back(vector<double>(ij.begin() + this->pos_, ij.end()));
 }
 
 pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const vector<double>& Rk) {
-  int k = this->I_[this->pos_];
+  int k = this->I_[this->pos_].size() + 1;
   int ik = 0;
   double dk = 0.0;
   for(int i = 0; i < samples.size(); ++i) {
@@ -105,8 +110,8 @@ void TTCross::continuousACA(const vector<vector<double>>& samples) {
 
   this->pos_ = 0;
   for(int i = 0; i < order - 1; ++i) {
-    this->log_ << "pos = " << i + 1 << "\n";
-    this->log_.flush();
+    *this->log_ << "pos = " << i + 1 << "\n";
+    this->log_->flush();
     ++this->pos_;
 
     double res_new = 0.0;
@@ -131,19 +136,19 @@ void TTCross::continuousACA(const vector<vector<double>>& samples) {
       vector<double> uv(samples.size());
       transform(this->u_[r - 1].begin(), this->u_[r - 1].end(), this->v_[r - 1].begin(), uv.begin(), multiplies<double>());
       transform(Rk.begin(), Rk.end(), uv.begin(), Rk.begin(), minus<double>());
-      this->log_ << "rank = " << r << " res = " << res_new << " xy = ( ";
+      *this->log_ << "rank = " << r << " res = " << res_new << " xy = ( ";
       for(double elt : xy) {
-        this->log_ << elt << " ";
+        *this->log_ << elt << " ";
       }
-      this->log_ << ")\n";
-      this->log_.flush();
+      *this->log_ << ")\n";
+      this->log_->flush();
     }
   }
 }
 
 void TTCross::updateVb(const vector<vector<double>>& samples) {
   reset();
-  this->log_ << "\nStarting TT-cross ACA...\n";
+  *this->log_ << "\nStarting TT-cross ACA...\n";
   continuousACA(samples);
 
   auto sites = SiteSet(this->d_, this->n_);
@@ -153,8 +158,8 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   for(int i = 1; i < this->d_; ++i) {
     ranks[i] = this->I_[i].size();
   }
-  this->log_ << "Computing Galerkin projection...\n";
-  this->log_.flush();
+  *this->log_ << "Computing Galerkin projection...\n";
+  this->log_->flush();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
   for(int ii = 1; ii <= this->d_; ++ii) {
@@ -283,7 +288,7 @@ vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, const vecto
   for(unsigned i = 1; i <= d; ++i) {
     basis_evals[i - 1] = basisd_evals[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
-      basis_evals[i - 1].set(s(i) = j, basis[i - 1](elements[i - 1], j));
+      basis_evals[i - 1].set(s(i) = j, basis[i - 1](elements[i - 1], j, conv));
       basisd_evals[i - 1].set(s(i) = j, basis[i - 1].grad(elements[i - 1], j, conv));
     }
   }

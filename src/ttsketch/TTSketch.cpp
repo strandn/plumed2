@@ -183,7 +183,7 @@ TTSketch::TTSketch(const ActionOptions& ao)
   }
   int aca_n = 10000000;
   parse("ACA_N", aca_n);
-  if(ada_n <= 0) {
+  if(aca_n <= 0) {
     error("ACA_N must be positive");
   }
   double aca_epsabs = 1.0e-8;
@@ -322,7 +322,7 @@ void TTSketch::update() {
     double vshift = max(vpeak - this->vmax_, 0.0);
     this->aca_.updateVshift(vshift);
     if(this->bf_ > 1.0) {
-      log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(this->lambda_ ^ this->bf_) << "\n";
+      log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
     }
     log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n";
 
@@ -376,7 +376,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(bias > 0.0) {
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->conv_);
   }
-  return bias
+  return bias;
 }
 
 double TTSketch::getBias(const vector<double>& cv) {

@@ -12,7 +12,7 @@ class TTCross {
 private:
   itensor::MPS vb_;
   const itensor::MPS* G_;
-  const std::vector<BasisFunc>& basis_;
+  std::vector<BasisFunc> basis_;
   int n_;
   double kbt_;
   double cutoff_;
@@ -25,7 +25,7 @@ private:
   std::vector<std::vector<double>> u_;
   std::vector<std::vector<double>> v_;
   std::vector<double> resfirst_;
-  Log& log_;
+  Log* log_;
   int aca_n_;
   double aca_epsabs_;
   double aca_epsrel_;
@@ -34,6 +34,7 @@ private:
   bool conv_;
 
 public:
+  TTCross();
   TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
           int maxrank, Log& log, int aca_n, int aca_epsabs, double aca_epsrel,
           int aca_limit, int aca_key, bool conv);
@@ -49,7 +50,7 @@ public:
   const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
   int d() const { return this->d_; }
   const BasisFunc& basisi(int i) const { return this->basis_[i]; }
-  const MPS& vb() const { return this->vb_; }
+  const itensor::MPS& vb() const { return this->vb_; }
   void reset();
 };
 
