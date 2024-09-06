@@ -164,19 +164,24 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   }
   *this->log_ << "Computing Galerkin projection...\n";
   this->log_->flush();
-  unsigned nt = OpenMP::getNumThreads();
+  // unsigned nt = OpenMP::getNumThreads();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
+  cout << "Debugging updateVb" << endl;
   for(int ii = 1; ii <= this->d_; ++ii) {
+    cout << 1 << endl;
     auto& dom = basisi(ii - 1).dom();
+    cout << 2 << endl;
     auto s = sites(ii);
+    cout << 3 << endl;
     if(ii != this->d_) {
       l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     }
 
     if(ii == 1) {
+      cout << 4 << endl;
       psi.ref(1) = ITensor(s, prime(l[0]));
-      #pragma omp parallel for num_threads(nt)
+      // #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
           cout << ii << " " << ss << " " << lr << endl;
@@ -192,7 +197,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
-      #pragma omp parallel for num_threads(nt)
+      // #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
           cout << ii << " " << ss << " " << ll << endl;
@@ -208,7 +213,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
     } else {
       psi.ref(ii) = ITensor(s, l[ii - 2], prime(l[ii - 1]));
-      #pragma omp parallel for num_threads(nt)
+      // #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
           for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
