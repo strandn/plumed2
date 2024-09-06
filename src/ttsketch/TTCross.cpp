@@ -275,7 +275,7 @@ double ttEval(const MPS& tt, const vector<BasisFunc>& basis, const vector<double
   return elt(result);
 }
 
-vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, int step, const vector<double>& elements, bool conv) {
+vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, const vector<double>& elements, bool conv) {
   int d = length(tt);
   auto s = siteInds(tt);
   vector<double> grad(d, 0.0);

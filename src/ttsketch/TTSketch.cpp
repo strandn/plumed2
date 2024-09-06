@@ -37,10 +37,11 @@ private:
   bool isFirstStep_;
   unsigned count_;
   double bf_;
+  bool conv_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
-  MPS paraSketch();
+  void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
@@ -54,12 +55,11 @@ public:
 
 PLUMED_REGISTER_ACTION(TTSketch, "TTSKETCH")
 
-TTSketch::TTSketch(const ActionOptions& ao):
-  PLUMED_BIAS_INIT(ao), r_(0), cutoff_(0.0), kbt_(0.0), vmax_(numeric_limits<double>::max()), isFirstStep_(true), count_(1), bf_(1.0)
+TTSketch::TTSketch(const ActionOptions& ao)
+  : PLUMED_BIAS_INIT(ao), r_(0), cutoff_(0.0), kbt_(0.0), vmax_(numeric_limits<double>::max()), isFirstStep_(true), count_(1), bf_(1.0), conv_(true)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
-  // cout << "noconv " << noconv << endl;
   // bool walkers_mpi = false;
   // parseFlag("WALKERS_MPI", walkers_mpi);
   parse("RANK", this->r_);
@@ -169,6 +169,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
                                          conv_epsabs, conv_epsrel, conv_limit,
                                          conv_key));
   }
+  this->conv_ = !noconv;
 
   int aca_rank = 30;
   parse("ACA_RANK", aca_rank);
@@ -278,39 +279,40 @@ void TTSketch::update() {
     int N = this->pace_ / this->stride_;
     log << "Sample limits\n";
     for(unsigned i = 0; i < this->d_; ++i) {
-      auto [max, min] = this->basis_[i].dom();
+      auto [large, small] = this->basis_[i].dom();
       for(int j = 0; j < N; ++j) {
         int jadj = j + this->samples_.size() - N;
-        if(this->samples_[jadj][i] > max) {
-          max = this->samples_[jadj][i];
+        if(this->samples_[jadj][i] > large) {
+          large = this->samples_[jadj][i];
         }
-        if(this->samples_[jadj][i] < min) {
-          min = this->samples_[jadj][i];
+        if(this->samples_[jadj][i] < small) {
+          small = this->samples_[jadj][i];
         }
       }
-      log << min << " " << max << "\n";
+      log << small << " " << large << "\n";
     }
 
     log << "Forming TT...\n";
     log.flush();
-    this->rho_ = paraSketch();
+    paraSketch();
 
     double rhomax = 0.0;
     for(auto& s : this->samples_) {
-      double rho = ttEval(this->rho_, this->basis_, s, true);
+      double rho = ttEval(this->rho_, this->basis_, s, this->conv_);
       if(rho > rhomax) {
         rhomax = rho;
       }
     }
     //TODO: figure out if arithmetic or geometric mean
     double hf = 0.0;
+    double vmean = 0.0;
     if(this->bf_ > 1.0) {
       int N = this->pace_ / this->stride_;
       vector<double> vlist(N);
       for(int i = 0; i < N; ++i) {
         vlist[i] = getBias(this->samples_[i + this->samples_.size() - N]);
       }
-      double vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
+      vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
       hf = exp(-vmean / (this->kbt_ * (this->bf_ - 1)));
     }
     this->rho_ *= pow(this->lambda_, hf) / rhomax;
@@ -318,10 +320,11 @@ void TTSketch::update() {
 
     double vpeak = this->aca_.vtop(this->samples_);
     double vshift = max(vpeak - this->vmax_, 0.0);
+    this->aca_.updateVshift(vshift);
     if(this->bf_ > 1.0) {
       log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(this->lambda_ ^ this->bf_) << "\n";
     }
-    log << "Vtop = " << vpeak << " Vshift = " << vshift_ << "\n";
+    log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n";
 
     this->aca_.updateVb(this->samples_);
 
@@ -352,13 +355,15 @@ void TTSketch::update() {
     log << "\n";
     log.flush();
 
-    // for(int i = 0; i < 100; ++i) {
-    //   double x = -M_PI + 2 * i * M_PI / 100;
-    //   for(int j = 0; j < 100; ++j) {
-    //     double y = -M_PI + 2 * j * M_PI / 100;
-    //     cout << x << " " << y << " " << getBias({ x, y }) << endl;
-    //   }
-    // }
+    this->aca_.reset();
+
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        cout << x << " " << y << " " << getBias({ x, y }) << endl;
+      }
+    }
   }
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
@@ -368,35 +373,25 @@ void TTSketch::update() {
 
 double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
   double bias = getBias(cv);
-  if(bias == 0.0) {
-    return 0.0;
+  if(bias > 0.0) {
+    der = ttGrad(this->aca_.vb(), this->basis_, cv, this->conv_);
   }
-  for(unsigned i = 0; i < this->count_ - 1; ++i) {
-    double rho = densEval(i, cv);
-    if(rho * this->lambda_ / rhomaxlist_[i] > 1.0) {
-      auto deri = densGrad(i, cv);
-      transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, this->kbt_ / rho));
-      transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
-    }
-  }
-  return bias;
+  return bias
 }
 
 double TTSketch::getBias(const vector<double>& cv) {
-  double bias = 0.0;
-  for(unsigned i = 0; i < this->count_ - 1; ++i) {
-    double rho = densEval(i, cv);
-    double rho_adj = max(rho * this->lambda_ / rhomaxlist_[i], 1.0);
-    bias += this->kbt_ * std::log(rho_adj);
+  if(length(this->aca_.vb()) == 0) {
+    return 0.0;
   }
-  return max(bias - vshift_, 0.0);
+  return max(ttEval(this->aca_.vb(), this->basis_, cv, this->conv_), 0.0);
 }
 
-MPS TTSketch::paraSketch() {
+void TTSketch::paraSketch() {
   int N = this->pace_ / this->stride_;
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
-  MPS G(this->d_);
+  auto& G = this->rho_;
+  G = MPS(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
   auto links = linkInds(coeff);
@@ -453,7 +448,6 @@ MPS TTSketch::paraSketch() {
   log << "\n";
   log.flush();
 
-  return G;
   ++this->count_;
 }
 

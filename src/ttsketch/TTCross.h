@@ -48,13 +48,14 @@ public:
   const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
   const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
   int d() const { return this->d_; }
-  const BasisFunc& basisi(int i) const { return basis_[i]; }
+  const BasisFunc& basisi(int i) const { return this->basis_[i]; }
+  const MPS& vb() const { return this->vb_; }
   void reset();
 };
 
 double ttEval(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, const std::vector<double>& elements, bool conv);
 
-std::vector<double> ttGrad(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, int step, const std::vector<double>& elements, bool conv);
+std::vector<double> ttGrad(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, const std::vector<double>& elements, bool conv);
 
 }
 }
