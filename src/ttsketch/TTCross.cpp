@@ -98,7 +98,7 @@ pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const 
     Rj[i] = f(arg);
   }
   cout << 4 << endl;
-  for(int l = 0; l < k; ++l) {
+  for(int l = 0; l < k - 1; ++l) {
     auto ul = this->u_[l];
     transform(ul.begin(), ul.end(), ul.begin(), bind(multiplies<double>(), placeholders::_1, this->v_[l][ik]));
     transform(Ri.begin(), Ri.end(), ul.begin(), Ri.begin(), minus<double>());
