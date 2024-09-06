@@ -1,5 +1,6 @@
 #include "TTCross.h"
 #include "tools/Matrix.h"
+#include "tools/OpenMP.h"
 #include <algorithm>
 #include <cmath>
 #include <gsl/gsl_integration.h>
@@ -160,6 +161,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   }
   *this->log_ << "Computing Galerkin projection...\n";
   this->log_->flush();
+  unsigned nt = OpenMP::getNumThreads();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
   for(int ii = 1; ii <= this->d_; ++ii) {
@@ -171,6 +173,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
 
     if(ii == 1) {
       psi.ref(1) = ITensor(s, prime(l[0]));
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
           ACAParams aca_params = { this, 1, ss, 0, lr };
@@ -185,6 +188,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
           ACAParams aca_params = { this, this->d_, ss, ll, 0 };
@@ -199,6 +203,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
     } else {
       psi.ref(ii) = ITensor(s, l[ii - 2], prime(l[ii - 1]));
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
           for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {

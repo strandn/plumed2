@@ -55,8 +55,51 @@ public:
 
 PLUMED_REGISTER_ACTION(TTSketch, "TTSKETCH")
 
-TTSketch::TTSketch(const ActionOptions& ao)
-  : PLUMED_BIAS_INIT(ao), r_(0), cutoff_(0.0), kbt_(0.0), vmax_(numeric_limits<double>::max()), isFirstStep_(true), count_(1), bf_(1.0), conv_(true)
+void TTSketch::registerKeywords(Keywords& keys) {
+  Bias::registerKeywords(keys);
+  keys.use("ARG");
+  keys.addFlag("NOCONV", false, "Specifies that densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
+  // keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
+  keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
+  keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
+  keys.add("optional", "TEMP", "The system temperature");
+  keys.add("optional", "VMAX", "Upper limit of Vbias across all CV space, in units of kT");
+  keys.add("optional", "NBINS", "Number of bins per dimension for storing convolution integrals");
+  keys.add("optional", "WIDTH", "Width of Gaussian kernels");
+  keys.add("optional", "CONV_N", "Size of integration workspace");
+  keys.add("optional", "CONV_EPSABS", "Absolute error limit for integration");
+  keys.add("optional", "CONV_EPSREL", "Relative error limit for integration");
+  keys.add("optional", "CONV_LIMIT", "Maximum number of subintervals for integration");
+  keys.add("optional", "CONV_KEY", "Integration rule");
+  keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
+  keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
+  keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
+  keys.add("compulsory", "INTERVAL_MIN", "Lower limits, outside the limits the system will not feel the biasing force");
+  keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
+  keys.add("compulsory", "NBASIS", "20", "Number of Fourier basis functions per dimension");
+  keys.add("compulsory", "ALPHA", "0.05", "Weight coefficient for random tensor train construction");
+  keys.add("compulsory", "LAMBDA", "100.0", "Ratio of largest to smallest allowed density magnitudes");
+  keys.add("optional", "BIASFACTOR", "For well-tempering");
+  // keys.add("compulsory", "FILE", "name of the file where tensor trains and related data are stored");
+  keys.add("compulsory", "ACA_CUTOFF", "0.05", "Convergence threshold for TT-cross calculations");
+  keys.add("compulsory", "ACA_RANK", "30", "Largest possible rank for TT-cross calculations");
+  keys.add("compulsory", "ACA_N", "10000000", "Size of integration workspace");
+  keys.add("compulsory", "ACA_EPSABS", "1.0e-8", "Absolute error limit for integration");
+  keys.add("compulsory", "ACA_EPSREL", "1.0e-6", "Relative error limit for integration");
+  keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
+  keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
+}
+
+TTSketch::TTSketch(const ActionOptions& ao):
+  PLUMED_BIAS_INIT(ao),
+  r_(0),
+  cutoff_(0.0),
+  kbt_(0.0),
+  vmax_(numeric_limits<double>::max()),
+  isFirstStep_(true),
+  count_(1),
+  bf_(1.0),
+  conv_(true)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
@@ -207,41 +250,6 @@ TTSketch::TTSketch(const ActionOptions& ao)
     error("ACA_KEY must be between 1 and 6");
   }
   this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, aca_n, aca_epsabs, aca_epsrel, aca_limit, aca_key, !noconv);
-}
-
-void TTSketch::registerKeywords(Keywords& keys) {
-  Bias::registerKeywords(keys);
-  keys.use("ARG");
-  keys.addFlag("NOCONV", false, "Specifies that densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
-  // keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
-  keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
-  keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
-  keys.add("optional", "TEMP", "The system temperature");
-  keys.add("optional", "VMAX", "Upper limit of Vbias across all CV space, in units of kT");
-  keys.add("optional", "NBINS", "Number of bins per dimension for storing convolution integrals");
-  keys.add("optional", "WIDTH", "Width of Gaussian kernels");
-  keys.add("optional", "CONV_N", "Size of integration workspace");
-  keys.add("optional", "CONV_EPSABS", "Absolute error limit for integration");
-  keys.add("optional", "CONV_EPSREL", "Relative error limit for integration");
-  keys.add("optional", "CONV_LIMIT", "Maximum number of subintervals for integration");
-  keys.add("optional", "CONV_KEY", "Integration rule");
-  keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
-  keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
-  keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
-  keys.add("compulsory", "INTERVAL_MIN", "Lower limits, outside the limits the system will not feel the biasing force");
-  keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
-  keys.add("compulsory", "NBASIS", "20", "Number of Fourier basis functions per dimension");
-  keys.add("compulsory", "ALPHA", "0.05", "Weight coefficient for random tensor train construction");
-  keys.add("compulsory", "LAMBDA", "100.0", "Ratio of largest to smallest allowed density magnitudes");
-  keys.add("optional", "BIASFACTOR", "For well-tempering");
-  // keys.add("compulsory", "FILE", "name of the file where tensor trains and related data are stored");
-  keys.add("compulsory", "ACA_CUTOFF", "0.05", "Convergence threshold for TT-cross calculations");
-  keys.add("compulsory", "ACA_RANK", "30", "Largest possible rank for TT-cross calculations");
-  keys.add("compulsory", "ACA_N", "10000000", "Size of integration workspace");
-  keys.add("compulsory", "ACA_EPSABS", "1.0e-8", "Absolute error limit for integration");
-  keys.add("compulsory", "ACA_EPSREL", "1.0e-6", "Relative error limit for integration");
-  keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
-  keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
 }
 
 void TTSketch::calculate() {
