@@ -188,6 +188,13 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           cout << ii << " " << ss << " " << lr << endl;
           cout << this->aca_epsabs_ << " " << this->aca_epsrel_ << " " << this->aca_limit_ << " " << this->aca_key_ << endl;
           ACAParams aca_params = { this, 1, ss, 0, lr };
+
+          int nbins = 100;
+          for(int i = 0; i < nbins; ++i) {
+            cout << aca_f(dom.first + i * (dom.second - dom.first) / nbins, &aca_params) << ", ";
+          }
+          cout << endl;
+          
           gsl_function F;
           F.function = &aca_f;
           F.params = &aca_params;
