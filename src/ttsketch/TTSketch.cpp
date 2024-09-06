@@ -362,9 +362,7 @@ void TTSketch::update() {
     }
     log << "\n";
     log.flush();
-
-    this->aca_.reset();
-
+    
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {

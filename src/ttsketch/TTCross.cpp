@@ -160,7 +160,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   psi = MPS(this->d_);
   vector<int> ranks(this->d_ - 1);
   for(int i = 1; i < this->d_; ++i) {
-    ranks[i] = this->I_[i].size();
+    ranks[i - 1] = this->I_[i].size();
   }
   *this->log_ << "Computing Galerkin projection...\n";
   this->log_->flush();
