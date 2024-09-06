@@ -67,7 +67,6 @@ double TTCross::f(const vector<double>& x) const {
     result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
-  // cout << ttEval(*this->G_, this->basis_, x, this->conv_) << " " << result << endl;
   return result;
 }
 
@@ -167,22 +166,22 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   // unsigned nt = OpenMP::getNumThreads();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
-  cout << "Debugging updateVb" << endl;
+  // cout << "Debugging updateVb" << endl;
   for(int ii = 1; ii <= this->d_; ++ii) {
-    cout << 1 << endl;
+    // cout << 1 << endl;
     auto& dom = basisi(ii - 1).dom();
-    cout << 2 << endl;
+    // cout << 2 << endl;
     auto s = sites(ii);
-    cout << 3 << endl;
+    // cout << 3 << endl;
     if(ii != this->d_) {
       l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     }
 
     if(ii == 1) {
-      cout << 4 << endl;
-      PrintData(s);
-      PrintData(prime(l[0]));
-      PrintData(ITensor(s, prime(l[0])));
+      // cout << 4 << endl;
+      // PrintData(s);
+      // PrintData(prime(l[0]));
+      // PrintData(ITensor(s, prime(l[0])));
       psi.ref(1) = ITensor(s, prime(l[0]));
       // #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
@@ -195,7 +194,14 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
+          cout << result << " " << error << endl;
+          PrintData(psi(1));
+          PrintData(s);
+          cout << ss << endl;
+          PrintData(prime(l[0]));
+          cout << lr << endl;
           psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
+          cout << "wtf" << endl;
         }
       }
     } else if(ii == this->d_) {
@@ -254,12 +260,13 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
       psi.ref(ii) *= Ainv;
     }
+    *this->log_ << "Core " << ii << " done!\n";
+    this->log_->flush();
   }
   gsl_integration_workspace_free(workspace);
 }
 
 double TTCross::vtop(const vector<vector<double>>& samples) const {
-  // cout << "Debugging vtop" << endl;
   double max = 0.0;
   for(auto& s : samples) {
     if(f(s) > max) {
