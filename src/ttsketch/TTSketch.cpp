@@ -312,7 +312,7 @@ void TTSketch::update() {
       }
     }
     //TODO: figure out if arithmetic or geometric mean
-    double hf = 0.0;
+    double hf = 1.0;
     double vmean = 0.0;
     if(this->bf_ > 1.0) {
       int N = this->pace_ / this->stride_;
