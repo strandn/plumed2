@@ -76,14 +76,14 @@ pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const 
   int k = this->I_[this->pos_].size() + 1;
   int ik = 0;
   double dk = 0.0;
-  for(int i = 0; i < samples.size(); ++i) {
+  for(unsigned i = 0; i < samples.size(); ++i) {
     if(abs(Rk[i]) > dk) {
       ik = i;
       dk = Rk[i];
     }
   }
   vector<double> Ri(samples.size()), Rj(samples.size());
-  for(int i = 0; i < samples.size(); ++i) {
+  for(unsigned i = 0; i < samples.size(); ++i) {
     vector<double> arg(samples[i].begin(), samples[i].begin() + this->pos_);
     arg.insert(arg.end(), samples[ik].begin() + this->pos_, samples[ik].end());
     Ri[i] = f(arg);
@@ -114,9 +114,8 @@ void TTCross::continuousACA(const vector<vector<double>>& samples) {
     this->log_->flush();
     ++this->pos_;
 
-    double res_new = 0.0;
     vector<double> Rk(samples.size());
-    for(int i = 0; i < samples.size(); ++i) {
+    for(unsigned i = 0; i < samples.size(); ++i) {
       Rk[i] = f(samples[i]);
     }
     this->u_.clear();
@@ -267,14 +266,14 @@ double ttEval(const MPS& tt, const vector<BasisFunc>& basis, const vector<double
   int d = length(tt);
   auto s = siteInds(tt);
   vector<ITensor> basis_evals(d);
-  for(unsigned i = 1; i <= d; ++i) {
+  for(int i = 1; i <= d; ++i) {
     basis_evals[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
       basis_evals[i - 1].set(s(i) = j, basis[i - 1](elements[i - 1], j, conv));
     }
   }
   auto result = tt(1) * basis_evals[0];
-  for(unsigned i = 2; i <= d; ++i) {
+  for(int i = 2; i <= d; ++i) {
     result *= tt(i) * basis_evals[i - 1];
   }
   return elt(result);
@@ -285,16 +284,16 @@ vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, const vecto
   auto s = siteInds(tt);
   vector<double> grad(d, 0.0);
   vector<ITensor> basis_evals(d), basisd_evals(d);
-  for(unsigned i = 1; i <= d; ++i) {
+  for(int i = 1; i <= d; ++i) {
     basis_evals[i - 1] = basisd_evals[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
       basis_evals[i - 1].set(s(i) = j, basis[i - 1](elements[i - 1], j, conv));
       basisd_evals[i - 1].set(s(i) = j, basis[i - 1].grad(elements[i - 1], j, conv));
     }
   }
-  for(unsigned k = 1; k <= d; ++k) {
+  for(int k = 1; k <= d; ++k) {
     auto result = tt(1) * (k == 1 ? basisd_evals[0] : basis_evals[0]);
-    for(unsigned i = 2; i <= d; ++i) {
+    for(int i = 2; i <= d; ++i) {
       result *= tt(i) * (k == i ? basisd_evals[i - 1] : basis_evals[i - 1]);
     }
     grad[k - 1] = elt(result);
