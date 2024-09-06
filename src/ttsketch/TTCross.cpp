@@ -45,7 +45,7 @@ TTCross::TTCross()
     aca_limit_(0), aca_key_(0), conv_(false) { }
 
 TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
-                 int maxrank, Log& log, int aca_n, int aca_epsabs,
+                 int maxrank, Log& log, int aca_n, double aca_epsabs,
                  double aca_epsrel, int aca_limit, int aca_key, bool conv)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt), cutoff_(cutoff),
     maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),

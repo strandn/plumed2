@@ -36,7 +36,7 @@ private:
 public:
   TTCross();
   TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
-          int maxrank, Log& log, int aca_n, int aca_epsabs, double aca_epsrel,
+          int maxrank, Log& log, int aca_n, double aca_epsabs, double aca_epsrel,
           int aca_limit, int aca_key, bool conv);
   double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
