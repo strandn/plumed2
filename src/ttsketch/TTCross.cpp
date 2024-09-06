@@ -201,9 +201,9 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           // gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
           //                     this->aca_epsrel_, this->aca_limit_,
           //                     this->aca_key_, workspace, &result, &error);
-          gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
-                              this->aca_epsrel_, this->aca_limit_,
-                              4, workspace, &result, &error);
+          gsl_integration_qag(&F, dom.first, dom.second, 1.0e-6,
+                              1.0e-4, this->aca_limit_,
+                              this->aca_key_, workspace, &result, &error);
           cout << result << " " << error << endl;
           PrintData(psi(1));
           PrintData(s);
