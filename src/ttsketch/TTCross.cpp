@@ -180,6 +180,9 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
 
     if(ii == 1) {
       cout << 4 << endl;
+      PrintData(s);
+      PrintData(prime(l[0]));
+      PrintData(ITensor(s, prime(l[0])));
       psi.ref(1) = ITensor(s, prime(l[0]));
       // #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
