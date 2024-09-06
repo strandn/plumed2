@@ -300,7 +300,7 @@ void TTSketch::update() {
       log << small << " " << large << "\n";
     }
 
-    log << "Forming TT...\n";
+    log << "Forming TT-sketch density...\n";
     log.flush();
     paraSketch();
 
