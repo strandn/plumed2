@@ -67,6 +67,7 @@ double TTCross::f(const vector<double>& x) const {
     result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
+  cout << ttEval(*this->G_, this->basis_, x, this->conv_) << endl;
   return result;
 }
 
@@ -76,11 +77,11 @@ void TTCross::updateIJ(const vector<double>& ij) {
 }
 
 pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const vector<double>& Rk) {
-  cout << 1 << endl;
+  // cout << 1 << endl;
   int k = this->I_[this->pos_].size() + 1;
   int ik = 0;
   double dk = 0.0;
-  cout << 2 << endl;
+  // cout << 2 << endl;
   for(unsigned i = 0; i < samples.size(); ++i) {
     if(abs(Rk[i]) > dk) {
       ik = i;
@@ -88,7 +89,7 @@ pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const 
     }
   }
   vector<double> Ri(samples.size()), Rj(samples.size());
-  cout << 3 << endl;
+  // cout << 3 << endl;
   for(unsigned i = 0; i < samples.size(); ++i) {
     vector<double> arg(samples[i].begin(), samples[i].begin() + this->pos_);
     arg.insert(arg.end(), samples[ik].begin() + this->pos_, samples[ik].end());
@@ -97,7 +98,7 @@ pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const 
     arg.insert(arg.end(), samples[i].begin() + this->pos_, samples[i].end());
     Rj[i] = f(arg);
   }
-  cout << 4 << endl;
+  // cout << 4 << endl;
   for(int l = 0; l < k - 1; ++l) {
     auto ul = this->u_[l];
     transform(ul.begin(), ul.end(), ul.begin(), bind(multiplies<double>(), placeholders::_1, this->v_[l][ik]));
@@ -107,10 +108,10 @@ pair<double, int> TTCross::diagACA(const vector<vector<double>>& samples, const 
     transform(Rj.begin(), Rj.end(), vl.begin(), Rj.begin(), minus<double>());
   }
   this->u_.push_back(Ri);
-  cout << 5 << endl;
+  // cout << 5 << endl;
   transform(Rj.begin(), Rj.end(), Rj.begin(), bind(multiplies<double>(), placeholders::_1, 1 / dk));
   this->v_.push_back(Rj);
-  cout << 6 << endl;
+  // cout << 6 << endl;
   return make_pair(abs(dk), ik);
 }
 
@@ -253,6 +254,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
 }
 
 double TTCross::vtop(const vector<vector<double>>& samples) const {
+  cout << "Debugging vtop" << endl;
   double max = 0.0;
   for(auto& s : samples) {
     if(f(s) > max) {
