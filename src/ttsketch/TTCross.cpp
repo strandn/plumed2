@@ -240,6 +240,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
         }
       }
     }
+    PrintData(psi(ii));
 
     if(ii != this->d_) {
       Matrix<double> Ahat(ranks[ii - 1], ranks[ii - 1]);
@@ -248,6 +249,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           vector<double> arg = this->I_[ii][jj];
           arg.insert(arg.end(), this->J_[ii][kk].begin(), this->J_[ii][kk].end());
           Ahat(jj, kk) = f(arg);
+          cout << jj << " " << kk << " " << f(arg) << endl;
         }
       }
       
@@ -259,8 +261,10 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           Ainv.set(prime(l[ii - 1]) = jj - 1, l[ii - 1] = kk - 1, AinvMat(jj, kk));
         }
       }
+      PrintData(Ainv);
       psi.ref(ii) *= Ainv;
     }
+    PrintData(psi(ii));
     *this->log_ << "Core " << ii << " done!\n";
     this->log_->flush();
   }
