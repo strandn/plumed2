@@ -201,7 +201,8 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           // cout << ss << endl;
           // PrintData(prime(l[0]));
           // cout << lr << endl;
-          // psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
+          cout << result << " " << error << endl;
+          psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
           // cout << "wtf" << endl;
         }
       }
@@ -218,6 +219,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
+          cout << result << " " << error << endl;
           psi.ref(this->d_).set(s = ss, l[this->d_ - 2] = ll, result);
         }
       }
@@ -235,6 +237,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
             gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                                 this->aca_epsrel_, this->aca_limit_,
                                 this->aca_key_, workspace, &result, &error);
+            cout << result << " " << error << endl;
             psi.ref(ii).set(s = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
           }
         }
@@ -258,7 +261,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       ITensor Ainv(prime(l[ii - 1]), l[ii - 1]);
       for(int jj = 0; jj < ranks[ii - 1]; ++jj) {
         for(int kk = 0; kk < ranks[ii - 1]; ++kk) {
-          Ainv.set(prime(l[ii - 1]) = jj - 1, l[ii - 1] = kk - 1, AinvMat(jj, kk));
+          Ainv.set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
         }
       }
       PrintData(Ainv);
