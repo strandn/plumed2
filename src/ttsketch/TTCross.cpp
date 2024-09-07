@@ -163,7 +163,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   }
   *this->log_ << "Computing Galerkin projection...\n";
   this->log_->flush();
-  // unsigned nt = OpenMP::getNumThreads();
+  unsigned nt = OpenMP::getNumThreads();
   gsl_set_error_handler_off();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
@@ -176,10 +176,10 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
 
     if(ii == 1) {
       psi.ref(1) = ITensor(s, prime(l[0]));
-      // #pragma omp parallel for num_threads(nt)
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
-          cout << ii << " " << ss << " " << lr << endl;
+          // cout << ii << " " << ss << " " << lr << endl;
           // cout << this->aca_epsabs_ << " " << this->aca_epsrel_ << " " << this->aca_limit_ << " " << this->aca_key_ << endl;
           ACAParams aca_params = { this, 1, ss, 0, lr };
 
@@ -201,17 +201,17 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           // cout << ss << endl;
           // PrintData(prime(l[0]));
           // cout << lr << endl;
-          cout << result << " " << error << endl;
+          // cout << result << " " << error << endl;
           psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
           // cout << "wtf" << endl;
         }
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
-      // #pragma omp parallel for num_threads(nt)
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
-          cout << ii << " " << ss << " " << ll << endl;
+          // cout << ii << " " << ss << " " << ll << endl;
           ACAParams aca_params = { this, this->d_, ss, ll, 0 };
           gsl_function F;
           F.function = &aca_f;
@@ -219,17 +219,17 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
-          cout << result << " " << error << endl;
+          // cout << result << " " << error << endl;
           psi.ref(this->d_).set(s = ss, l[this->d_ - 2] = ll, result);
         }
       }
     } else {
       psi.ref(ii) = ITensor(s, l[ii - 2], prime(l[ii - 1]));
-      // #pragma omp parallel for num_threads(nt)
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
           for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
-            cout << ii << " " << ss << " " << ll  << " " << lr << endl;
+            // cout << ii << " " << ss << " " << ll  << " " << lr << endl;
             ACAParams aca_params = { this, ii, ss, ll, lr };
             gsl_function F;
             F.function = &aca_f;
@@ -237,13 +237,13 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
             gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                                 this->aca_epsrel_, this->aca_limit_,
                                 this->aca_key_, workspace, &result, &error);
-            cout << result << " " << error << endl;
+            // cout << result << " " << error << endl;
             psi.ref(ii).set(s = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
           }
         }
       }
     }
-    PrintData(psi(ii));
+    // PrintData(psi(ii));
 
     if(ii != this->d_) {
       Matrix<double> Ahat(ranks[ii - 1], ranks[ii - 1]);
@@ -252,7 +252,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           vector<double> arg = this->I_[ii][jj];
           arg.insert(arg.end(), this->J_[ii][kk].begin(), this->J_[ii][kk].end());
           Ahat(jj, kk) = f(arg);
-          cout << jj << " " << kk << " " << f(arg) << endl;
+          // cout << jj << " " << kk << " " << f(arg) << endl;
         }
       }
       
@@ -264,10 +264,10 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           Ainv.set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
         }
       }
-      PrintData(Ainv);
+      // PrintData(Ainv);
       psi.ref(ii) *= Ainv;
     }
-    PrintData(psi(ii));
+    // PrintData(psi(ii));
     *this->log_ << "Core " << ii << " done!\n";
     this->log_->flush();
   }
