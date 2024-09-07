@@ -84,7 +84,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_CUTOFF", "0.05", "Convergence threshold for TT-cross calculations");
   keys.add("compulsory", "ACA_RANK", "30", "Largest possible rank for TT-cross calculations");
   keys.add("compulsory", "ACA_N", "10000000", "Size of integration workspace");
-  keys.add("compulsory", "ACA_EPSABS", "1.0e-6", "Absolute error limit for integration");
+  keys.add("compulsory", "ACA_EPSABS", "1.0e-8", "Absolute error limit for integration");
   keys.add("compulsory", "ACA_EPSREL", "1.0e-6", "Relative error limit for integration");
   keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
@@ -229,7 +229,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(aca_n <= 0) {
     error("ACA_N must be positive");
   }
-  double aca_epsabs = 1.0e-6;
+  double aca_epsabs = 1.0e-8;
   parse("ACA_EPSABS", aca_epsabs);
   if(aca_epsabs < 0.0) {
     error("ACA_EPSABS must be nonnegative");
