@@ -42,7 +42,7 @@ double aca_f(double x, void* params) {
 TTCross::TTCross()
   : G_(nullptr), n_(0), kbt_(0.0), cutoff_(0.0), maxrank_(0), d_(0), pos_(0),
     vshift_(0.0), log_(nullptr), aca_n_(0), aca_epsabs_(0.0), aca_epsrel_(0.0),
-    aca_limit_(0), aca_key_(0), conv_(false) { }
+    aca_limit_(0), aca_key_(0), conv_(true) { }
 
 TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
                  int maxrank, Log& log, int aca_n, double aca_epsabs,
@@ -198,12 +198,12 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           gsl_function F;
           F.function = &aca_f;
           F.params = &aca_params;
-          gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
-                              this->aca_epsrel_, this->aca_limit_,
-                              this->aca_key_, workspace, &result, &error);
-          // gsl_integration_qag(&F, dom.first, dom.second, 1.0e-6,
-          //                     1.0e-4, this->aca_limit_,
+          // gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
+          //                     this->aca_epsrel_, this->aca_limit_,
           //                     this->aca_key_, workspace, &result, &error);
+          gsl_integration_qags(&F, dom.first, dom.second, this->aca_epsabs_,
+                              this->aca_epsrel_, this->aca_limit_,
+                              workspace, &result, &error);
           cout << result << " " << error << endl;
           PrintData(psi(1));
           PrintData(s);
