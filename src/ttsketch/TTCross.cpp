@@ -3,6 +3,7 @@
 #include "tools/OpenMP.h"
 #include <algorithm>
 #include <cmath>
+#include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 
 #include <iostream>
@@ -163,7 +164,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   *this->log_ << "Computing Galerkin projection...\n";
   this->log_->flush();
   // unsigned nt = OpenMP::getNumThreads();
-  gsl_set_error_handler_off()
+  gsl_set_error_handler_off();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
   // cout << "Debugging updateVb" << endl;
