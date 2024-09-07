@@ -207,7 +207,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
-      #pragma omp parallel for num_threads(nt)/
+      // #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
           cout << ii << " " << ss << " " << ll << endl;
