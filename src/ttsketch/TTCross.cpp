@@ -50,8 +50,8 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
                  double aca_epsrel, int aca_limit, int aca_key, bool conv)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt), cutoff_(cutoff),
     maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
-    I_(vector<vector<vector<double>>>(basis.size(), vector<vector<double>>())),
-    J_(vector<vector<vector<double>>>(basis.size(), vector<vector<double>>())),
+    I_(vector<vector<vector<double>>>(basis.size())),
+    J_(vector<vector<vector<double>>>(basis.size())),
     log_(&log), aca_n_(aca_n), aca_epsabs_(aca_epsabs), aca_epsrel_(aca_epsrel),
     aca_limit_(aca_limit), aca_key_(aca_key), conv_(conv)
 {
@@ -163,39 +163,31 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   }
   *this->log_ << "Computing Galerkin projection...\n";
   this->log_->flush();
-  // unsigned nt = OpenMP::getNumThreads();
+  unsigned nt = OpenMP::getNumThreads();
   gsl_set_error_handler_off();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
-  // cout << "Debugging updateVb" << endl;
   for(int ii = 1; ii <= this->d_; ++ii) {
-    // cout << 1 << endl;
     auto& dom = basisi(ii - 1).dom();
-    // cout << 2 << endl;
     auto s = sites(ii);
-    // cout << 3 << endl;
     if(ii != this->d_) {
       l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     }
 
     if(ii == 1) {
-      // cout << 4 << endl;
-      // PrintData(s);
-      // PrintData(prime(l[0]));
-      // PrintData(ITensor(s, prime(l[0])));
       psi.ref(1) = ITensor(s, prime(l[0]));
-      // #pragma omp parallel for num_threads(nt)
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
-          cout << ii << " " << ss << " " << lr << endl;
-          cout << this->aca_epsabs_ << " " << this->aca_epsrel_ << " " << this->aca_limit_ << " " << this->aca_key_ << endl;
+          // cout << ii << " " << ss << " " << lr << endl;
+          // cout << this->aca_epsabs_ << " " << this->aca_epsrel_ << " " << this->aca_limit_ << " " << this->aca_key_ << endl;
           ACAParams aca_params = { this, 1, ss, 0, lr };
 
-          int nbins = 1000;
-          for(int i = 0; i < nbins; ++i) {
-            cout << aca_f(dom.first + i * (dom.second - dom.first) / nbins, &aca_params) << ", ";
-          }
-          cout << endl;
+          // int nbins = 1000;
+          // for(int i = 0; i < nbins; ++i) {
+          //   cout << aca_f(dom.first + i * (dom.second - dom.first) / nbins, &aca_params) << ", ";
+          // }
+          // cout << endl;
           
           gsl_function F;
           F.function = &aca_f;
@@ -203,25 +195,22 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
-          // gsl_integration_qag(&F, dom.first, dom.second, 1.0e-6,
-          //                     1.0e-5, this->aca_limit_,
-          //                     this->aca_key_, workspace, &result, &error);
-          cout << result << " " << error << endl;
-          PrintData(psi(1));
-          PrintData(s);
-          cout << ss << endl;
-          PrintData(prime(l[0]));
-          cout << lr << endl;
-          psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
-          cout << "wtf" << endl;
+          // cout << result << " " << error << endl;
+          // PrintData(psi(1));
+          // PrintData(s);
+          // cout << ss << endl;
+          // PrintData(prime(l[0]));
+          // cout << lr << endl;
+          // psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
+          // cout << "wtf" << endl;
         }
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
-      // #pragma omp parallel for num_threads(nt)
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
-          cout << ii << " " << ss << " " << ll << endl;
+          // cout << ii << " " << ss << " " << ll << endl;
           ACAParams aca_params = { this, this->d_, ss, ll, 0 };
           gsl_function F;
           F.function = &aca_f;
@@ -234,11 +223,11 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       }
     } else {
       psi.ref(ii) = ITensor(s, l[ii - 2], prime(l[ii - 1]));
-      // #pragma omp parallel for num_threads(nt)
+      #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
           for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
-            cout << ii << " " << ss << " " << ll  << " " << lr << endl;
+            // cout << ii << " " << ss << " " << ll  << " " << lr << endl;
             ACAParams aca_params = { this, ii, ss, ll, lr };
             gsl_function F;
             F.function = &aca_f;
