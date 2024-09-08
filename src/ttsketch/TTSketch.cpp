@@ -366,13 +366,16 @@ void TTSketch::update() {
     log << "\n";
     log.flush();
     
+    ofstream file;
+    file.open("F.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
         double y = -M_PI + 2 * j * M_PI / 100;
-        cout << x << " " << y << " " << getBias({ x, y }) << endl;
+        file << x << " " << y << " " << getBias({ x, y }) << endl;
       }
     }
+    file.close();
   }
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
