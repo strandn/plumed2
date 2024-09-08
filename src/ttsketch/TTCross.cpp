@@ -165,7 +165,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   this->log_->flush();
   unsigned nt = OpenMP::getNumThreads();
   gsl_set_error_handler_off();
-  gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
+  // gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
   for(int ii = 1; ii <= this->d_; ++ii) {
     auto& dom = basisi(ii - 1).dom();
@@ -178,40 +178,25 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
       psi.ref(1) = ITensor(s, prime(l[0]));
       #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
+        gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
-          // cout << ii << " " << ss << " " << lr << endl;
-          // cout << this->aca_epsabs_ << " " << this->aca_epsrel_ << " " << this->aca_limit_ << " " << this->aca_key_ << endl;
           ACAParams aca_params = { this, 1, ss, 0, lr };
-
-          // int nbins = 1000;
-          // for(int i = 0; i < nbins; ++i) {
-          //   cout << aca_f(dom.first + i * (dom.second - dom.first) / nbins, &aca_params) << ", ";
-          // }
-          // cout << endl;
-          
           gsl_function F;
           F.function = &aca_f;
           F.params = &aca_params;
           gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
-          // cout << result << " " << error << endl;
-          // PrintData(psi(1));
-          // PrintData(s);
-          // cout << ss << endl;
-          // PrintData(prime(l[0]));
-          // cout << lr << endl;
-          // cout << result << " " << error << endl;
           psi.ref(1).set(s = ss, prime(l[0]) = lr, result);
-          // cout << "wtf" << endl;
         }
+        gsl_integration_workspace_free(workspace);
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
       #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
+        gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
-          // cout << ii << " " << ss << " " << ll << endl;
           ACAParams aca_params = { this, this->d_, ss, ll, 0 };
           gsl_function F;
           F.function = &aca_f;
@@ -219,17 +204,17 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
-          // cout << result << " " << error << endl;
           psi.ref(this->d_).set(s = ss, l[this->d_ - 2] = ll, result);
         }
+        gsl_integration_workspace_free(workspace);
       }
     } else {
       psi.ref(ii) = ITensor(s, l[ii - 2], prime(l[ii - 1]));
       #pragma omp parallel for num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
+        gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
         for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
           for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
-            // cout << ii << " " << ss << " " << ll  << " " << lr << endl;
             ACAParams aca_params = { this, ii, ss, ll, lr };
             gsl_function F;
             F.function = &aca_f;
@@ -237,13 +222,12 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
             gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
                                 this->aca_epsrel_, this->aca_limit_,
                                 this->aca_key_, workspace, &result, &error);
-            // cout << result << " " << error << endl;
             psi.ref(ii).set(s = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
           }
         }
+        gsl_integration_workspace_free(workspace);
       }
     }
-    // PrintData(psi(ii));
 
     if(ii != this->d_) {
       Matrix<double> Ahat(ranks[ii - 1], ranks[ii - 1]);
@@ -252,7 +236,6 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           vector<double> arg = this->I_[ii][jj];
           arg.insert(arg.end(), this->J_[ii][kk].begin(), this->J_[ii][kk].end());
           Ahat(jj, kk) = f(arg);
-          // cout << jj << " " << kk << " " << f(arg) << endl;
         }
       }
       
@@ -264,14 +247,12 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
           Ainv.set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
         }
       }
-      // PrintData(Ainv);
       psi.ref(ii) *= Ainv;
     }
-    // PrintData(psi(ii));
     *this->log_ << "Core " << ii << " done!\n";
     this->log_->flush();
   }
-  gsl_integration_workspace_free(workspace);
+  // gsl_integration_workspace_free(workspace);
 
   this->vb_ = psi;
 }
