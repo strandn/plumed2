@@ -367,7 +367,7 @@ void TTSketch::update() {
     log.flush();
     
     ofstream file;
-    file.open("F.txt");
+    file.open("F.txt", ios_base::app);
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
