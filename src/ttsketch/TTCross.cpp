@@ -119,6 +119,7 @@ void TTCross::continuousACA(const vector<vector<double>>& samples) {
     ++this->pos_;
 
     vector<double> Rk(samples.size());
+    //TODO: parallelize
     for(unsigned i = 0; i < samples.size(); ++i) {
       Rk[i] = f(samples[i]);
     }
@@ -259,6 +260,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
 
 double TTCross::vtop(const vector<vector<double>>& samples) const {
   double max = 0.0;
+  //TODO: parallelize
   for(auto& s : samples) {
     if(f(s) > max) {
       max = f(s);

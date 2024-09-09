@@ -305,6 +305,7 @@ void TTSketch::update() {
     paraSketch();
 
     double rhomax = 0.0;
+    //TODO: parallelize
     for(auto& s : this->samples_) {
       double rho = ttEval(this->rho_, this->basis_, s, this->conv_);
       if(rho > rhomax) {
@@ -339,7 +340,6 @@ void TTSketch::update() {
 
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);
-    // cout << 1 << endl;
     for(auto& s : this->samples_) {
       vector<double> der(this->d_, 0.0);
       getBiasAndDerivatives(s, der);
@@ -351,13 +351,11 @@ void TTSketch::update() {
       }
     }
     log << "gradtop ";
-    // cout << 2 << endl;
     for(unsigned i = 0; i < this->d_; ++i) {
       log << gradtop[i] << " ";
     }
     log << "\n";
     
-    // cout << 3 << endl;
     for(unsigned i = 0; i < this->d_; ++i) {
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsamples[i][j] << " ";
