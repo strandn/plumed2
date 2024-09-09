@@ -376,7 +376,7 @@ void TTSketch::update() {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
         double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << max(ttEval(this->aca_.vb(), this->basis_, cv, false), 0.0) << endl;
+        file << x << " " << y << " " << max(ttEval(this->aca_.vb(), this->basis_, { x, y }, false), 0.0) << endl;
       }
     }
     file.close();
