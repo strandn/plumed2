@@ -367,7 +367,7 @@ void TTSketch::update() {
     log.flush();
     
     ofstream file;
-    if(count == 2) {
+    if(this->count_ == 2) {
       file.open("F.txt");
     } else {
       file.open("F.txt", ios_base::app);
