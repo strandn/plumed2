@@ -369,7 +369,7 @@ void TTSketch::update() {
     ofstream file;
     if(count == 2) {
       file.open("F.txt");
-    { else {
+    } else {
       file.open("F.txt", ios_base::app);
     }
     for(int i = 0; i < 100; ++i) {
