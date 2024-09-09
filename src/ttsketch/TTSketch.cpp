@@ -326,6 +326,7 @@ void TTSketch::update() {
     this->rho_ *= pow(this->lambda_, hf) / rhomax;
     this->aca_.updateG(this->rho_);
 
+    this->aca_.updateVshift(0.0);
     double vpeak = this->aca_.vtop(this->samples_);
     double vshift = max(vpeak - this->vmax_, 0.0);
     this->aca_.updateVshift(vshift);
