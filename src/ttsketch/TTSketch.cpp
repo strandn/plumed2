@@ -41,6 +41,7 @@ private:
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
+  double vtop(const vector<vector<double>>& samples) const;
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -297,7 +298,7 @@ void TTSketch::update() {
           small = this->samples_[jadj][i];
         }
       }
-      log << small << " " << large << "\n";
+      log << small << " " << large << "\n\n";
     }
 
     log << "Forming TT-sketch density...\n";
@@ -328,15 +329,21 @@ void TTSketch::update() {
     this->aca_.updateG(this->rho_);
 
     this->aca_.updateVshift(0.0);
-    double vpeak = this->aca_.vtop(this->samples_);
-    double vshift = max(vpeak - this->vmax_, 0.0);
+    double vpeak = this->aca_.fmax(this->samples_);
+    double vshift = max(vpeak - this->vmax_ - 5 * this->kbt_, 0.0);
     this->aca_.updateVshift(vshift);
+    log << "\n";
     if(this->bf_ > 1.0) {
       log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
     }
     log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n";
 
     this->aca_.updateVb(this->samples_);
+
+    double vpeak = vtop(this->samples_);
+    double vshift = max(vpeak - this->vmax_, 0.0);
+    this->aca_.updateVshift(vshift);
+    log << "\nVtop = " << vpeak << " Vshift = " << vshift << "\n";
 
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);
@@ -398,7 +405,19 @@ double TTSketch::getBias(const vector<double>& cv) {
   if(length(this->aca_.vb()) == 0) {
     return 0.0;
   }
-  return max(ttEval(this->aca_.vb(), this->basis_, cv, this->conv_), 0.0);
+  return max(ttEval(this->aca_.vb(), this->basis_, cv, this->conv_) - this->aca_.vshift(), 0.0);
+}
+
+double TTSketch::vtop(const vector<vector<double>>& samples) const {
+  double max = 0.0;
+  //TODO: parallelize
+  for(auto& s : samples) {
+    result = ttEval(this->aca_.vb(), this->basis_, cv, this->conv_);
+    if(result > max) {
+      max = result;
+    }
+  }
+  return max;
 }
 
 void TTSketch::paraSketch() {

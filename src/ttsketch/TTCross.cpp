@@ -63,10 +63,10 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 0.1));
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0));
   } else {
     result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
-                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, 0);
   }
   return result;
 }
@@ -152,7 +152,7 @@ void TTCross::continuousACA(const vector<vector<double>>& samples) {
 
 void TTCross::updateVb(const vector<vector<double>>& samples) {
   reset();
-  *this->log_ << "\nStarting TT-cross ACA...\n";
+  *this->log_ << "Starting TT-cross ACA...\n";
   continuousACA(samples);
 
   auto sites = SiteSet(this->d_, this->n_);
@@ -166,7 +166,6 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   this->log_->flush();
   unsigned nt = OpenMP::getNumThreads();
   gsl_set_error_handler_off();
-  // gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
   for(int ii = 1; ii <= this->d_; ++ii) {
     auto& dom = basisi(ii - 1).dom();
@@ -253,12 +252,11 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
     *this->log_ << "Core " << ii << " done!\n";
     this->log_->flush();
   }
-  // gsl_integration_workspace_free(workspace);
 
   this->vb_ = psi;
 }
 
-double TTCross::vtop(const vector<vector<double>>& samples) const {
+double TTCross::fmax(const vector<vector<double>>& samples) const {
   double max = 0.0;
   //TODO: parallelize
   for(auto& s : samples) {
