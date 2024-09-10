@@ -340,8 +340,8 @@ void TTSketch::update() {
 
     this->aca_.updateVb(this->samples_);
 
-    double vpeak = vtop(this->samples_);
-    double vshift = max(vpeak - this->vmax_, 0.0);
+    vpeak = vtop(this->samples_);
+    vshift = max(vpeak - this->vmax_, 0.0);
     this->aca_.updateVshift(vshift);
     log << "\nVtop = " << vpeak << " Vshift = " << vshift << "\n";
 
@@ -412,7 +412,7 @@ double TTSketch::vtop(const vector<vector<double>>& samples) const {
   double max = 0.0;
   //TODO: parallelize
   for(auto& s : samples) {
-    result = ttEval(this->aca_.vb(), this->basis_, cv, this->conv_);
+    double result = ttEval(this->aca_.vb(), this->basis_, s, this->conv_);
     if(result > max) {
       max = result;
     }
