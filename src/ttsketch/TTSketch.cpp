@@ -298,10 +298,10 @@ void TTSketch::update() {
           small = this->samples_[jadj][i];
         }
       }
-      log << small << " " << large << "\n\n";
+      log << small << " " << large << "\n";
     }
 
-    log << "Forming TT-sketch density...\n";
+    log << "\nForming TT-sketch density...\n";
     log.flush();
     paraSketch();
 
@@ -336,7 +336,7 @@ void TTSketch::update() {
     if(this->bf_ > 1.0) {
       log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
     }
-    log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n";
+    log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n\n";
 
     this->aca_.updateVb(this->samples_);
 
