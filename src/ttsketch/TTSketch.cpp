@@ -351,7 +351,7 @@ void TTSketch::update() {
         }
       }
     }
-    log << "gradtop ";
+    log << "\ngradtop ";
     for(unsigned i = 0; i < this->d_; ++i) {
       log << gradtop[i] << " ";
     }
