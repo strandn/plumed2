@@ -63,10 +63,10 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0));
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 0.1));
   } else {
     result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
-                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, 0.0);
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
   return result;
 }
@@ -256,7 +256,7 @@ void TTCross::updateVb(const vector<vector<double>>& samples) {
   this->vb_ = psi;
 }
 
-double TTCross::fmax(const vector<vector<double>>& samples) const {
+double TTCross::vtop(const vector<vector<double>>& samples) const {
   double max = 0.0;
   //TODO: parallelize
   for(auto& s : samples) {

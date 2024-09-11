@@ -45,13 +45,12 @@ public:
   void updateG(const itensor::MPS& G) { this->G_ = &G; }
   void updateVshift(double vshift) { this->vshift_ = vshift; }
   void updateVb(const std::vector<std::vector<double>>& samples);
-  double fmax(const std::vector<std::vector<double>>& samples) const;
+  double vtop(const std::vector<std::vector<double>>& samples) const;
   const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
   const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
   int d() const { return this->d_; }
   const BasisFunc& basisi(int i) const { return this->basis_[i]; }
   const itensor::MPS& vb() const { return this->vb_; }
-  double vshift() const { return this->vshift_; }
   void reset();
 };
 
