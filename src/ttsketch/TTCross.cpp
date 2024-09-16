@@ -63,9 +63,9 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 0.1));
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0));
   } else {
-    result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
+    result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
   return result;
