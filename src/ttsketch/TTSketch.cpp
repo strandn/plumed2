@@ -254,9 +254,19 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
   if(getRestart()) {
     this->count_ = this->aca_.readVb();
-    log << "Restarting from step " << this->count_ << "...\n\n";
+    log << "  restarting from step " << this->count_ << "\n";
     log.flush();
   }
+
+  vector<Value*> arg;
+  vector<string> labels(this->d_);
+  parseArgumentList("ARG", arg);
+  for(unsigned i = 0; i < this->d_; ++i) {
+    labels[i] = arg[i]->getName();
+  }
+  auto f = h5_open("ttsketch.h5", 'w');
+  h5_write(f, "arg", labels);
+  close(f);
 }
 
 void TTSketch::calculate() {
