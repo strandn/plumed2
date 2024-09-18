@@ -260,16 +260,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
   vector<Value*> arg;
   vector<string> labels(this->d_);
-  cout << 1 << endl;
   parseArgumentList("ARG", arg);
-  cout << 2 << endl;
   for(unsigned i = 0; i < this->d_; ++i) {
-    cout << 3 << " " << i << endl;
+    cout << arg[i]->getName() << endl;
     labels[i] = arg[i]->getName();
   }
-  cout << 4 << endl;
   auto f = h5_open("ttsketch.h5", 'w');
-  cout << 5 << endl;
   h5_write(f, "arg", labels);
   close(f);
 }
