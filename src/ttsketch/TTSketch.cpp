@@ -7,7 +7,6 @@
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
 #include "tools/Matrix.h"
-#include "itensor/all.h"
 #include <numeric>
 
 using namespace std;
@@ -254,13 +253,18 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
   if(getRestart()) {
     this->count_ = this->aca_.readVb();
+    auto f = h5_open("ttsketch.h5", 'r');
+    for(int i = 2; i <= this->count_; ++i) {
+      auto sample_block = h5_read<vector<vector<double>>>(f, "samples" + to_string(i));
+      this->samples_.insert(this->samples_.begin(), sample_block.begin(), sample_block.end());
+    }
+    close(f);
     log << "  restarting from step " << this->count_ << "\n";
-    log.flush();
   }
+  cout << this->sample_.size() << endl;
 
   vector<string> arg(this->d_);
   for(unsigned i = 0; i < this->d_; ++i) {
-    cout << getPntrToArgument(i)->getName()<< endl;
     arg[i] = getPntrToArgument(i)->getName();
   }
   auto f = h5_open("ttsketch.h5", 'w');
@@ -331,8 +335,8 @@ void TTSketch::update() {
     //TODO: figure out if arithmetic or geometric mean
     double hf = 1.0;
     double vmean = 0.0;
+    int N = this->pace_ / this->stride_;
     if(this->bf_ > 1.0) {
-      int N = this->pace_ / this->stride_;
       vector<double> vlist(N);
       for(int i = 0; i < N; ++i) {
         vlist[i] = getBias(this->samples_[i + this->samples_.size() - N]);
@@ -355,6 +359,10 @@ void TTSketch::update() {
 
     this->aca_.updateVb(this->samples_);
     this->aca_.writeVb(this->count_);
+    auto f = h5_open("ttsketch.h5", 'w');
+    auto first = this->samples_.begin() + this->samples_.size() - N, last = this->samples_.end();
+    h5_write(f, "samples" + to_string(this->count_), vector<vector<double>>(first, last));
+    close(f);
 
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);
