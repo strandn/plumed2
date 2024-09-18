@@ -88,6 +88,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_EPSREL", "1.0e-6", "Relative error limit for integration");
   keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
+  keys.use("RESTART");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -250,6 +251,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("ACA_KEY must be between 1 and 6");
   }
   this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, aca_n, aca_epsabs, aca_epsrel, aca_limit, aca_key, !noconv);
+
+  if(getRestart()) {
+    this->count_ = this->aca_.readVb();
+    log << "Restarting from step " << this->count_ << "...\n\n";
+    log.flush();
+  }
 }
 
 void TTSketch::calculate() {
@@ -338,6 +345,7 @@ void TTSketch::update() {
     log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n\n";
 
     this->aca_.updateVb(this->samples_);
+    this->aca_.writeVb(this->count_);
 
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);

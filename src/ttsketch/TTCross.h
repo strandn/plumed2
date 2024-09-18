@@ -52,6 +52,8 @@ public:
   const BasisFunc& basisi(int i) const { return this->basis_[i]; }
   const itensor::MPS& vb() const { return this->vb_; }
   void reset();
+  void writeVb(unsigned count) const;
+  unsigned readVb();
 };
 
 double ttEval(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, const std::vector<double>& elements, bool conv);

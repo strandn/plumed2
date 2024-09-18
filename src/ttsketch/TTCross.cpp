@@ -279,6 +279,20 @@ void TTCross::reset() {
   this->resfirst_.clear();
 }
 
+void TTCross::writeVb(unsigned count) const {
+  auto f = h5_open("ttsketch.h5", 'w');
+  h5_write(f, "vb_" + to_string(count), this->vb_);
+  h5_write(f, "count", count);
+  close(f);
+ }
+unsigned TTCross::readVb() {
+  auto f = h5_open("ttsketch.h5", 'r');
+  unsigned count = h5_read<unsigned>(f, "count");
+  this->vb_ = h5_read<MPS>(f, "vb_" + to_string(count));
+  close(f);
+  return count;
+}
+
 double ttEval(const MPS& tt, const vector<BasisFunc>& basis, const vector<double>& elements, bool conv) {
   int d = length(tt);
   auto s = siteInds(tt);
