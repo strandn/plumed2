@@ -258,15 +258,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
     log.flush();
   }
 
-  vector<Value*> arg;
-  vector<string> labels(this->d_);
-  parseArgumentList("ARG", arg);
+  vector<string> arg(this->d_);
   for(unsigned i = 0; i < this->d_; ++i) {
-    cout << arg[i]->getName() << endl;
-    labels[i] = arg[i]->getName();
+    cout << getPntrToArgument(i)->getName()<< endl;
+    arg[i] = getPntrToArgument(i)->getName();
   }
   auto f = h5_open("ttsketch.h5", 'w');
-  h5_write(f, "arg", labels);
+  h5_write(f, "arg", arg);
   close(f);
 }
 
