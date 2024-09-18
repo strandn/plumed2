@@ -254,14 +254,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(getRestart()) {
     this->count_ = this->aca_.readVb();
     auto f = h5_open("ttsketch.h5", 'r');
-    for(int i = 2; i <= this->count_; ++i) {
+    for(unsigned i = 2; i <= this->count_; ++i) {
       auto sample_block = h5_read<vector<vector<double>>>(f, "samples" + to_string(i));
       this->samples_.insert(this->samples_.begin(), sample_block.begin(), sample_block.end());
     }
     close(f);
     log << "  restarting from step " << this->count_ << "\n";
   }
-  cout << this->sample_.size() << endl;
+  cout << this->samples_.size() << endl;
 
   vector<string> arg(this->d_);
   for(unsigned i = 0; i < this->d_; ++i) {
@@ -335,7 +335,6 @@ void TTSketch::update() {
     //TODO: figure out if arithmetic or geometric mean
     double hf = 1.0;
     double vmean = 0.0;
-    int N = this->pace_ / this->stride_;
     if(this->bf_ > 1.0) {
       vector<double> vlist(N);
       for(int i = 0; i < N; ++i) {
