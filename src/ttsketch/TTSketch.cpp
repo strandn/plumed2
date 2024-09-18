@@ -256,7 +256,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     auto f = h5_open("ttsketch.h5", 'r');
     for(unsigned i = 2; i <= this->count_; ++i) {
       auto sample_block = h5_read<vector<vector<double>>>(f, "samples" + to_string(i));
-      this->samples_.insert(this->samples_.begin(), sample_block.begin(), sample_block.end());
+      this->samples_.insert(this->samples_.end(), sample_block.begin(), sample_block.end());
     }
     close(f);
     log << "  restarting from step " << this->count_ << "\n";
