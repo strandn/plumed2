@@ -42,7 +42,7 @@ public:
 PLUMED_REGISTER_ACTION(TTFreeEnergy,"TT_FES")
 
 void TTFreeEnergy::registerKeywords(Keywords& keys) {
-  ActionShortcut::registerKeywords(keys);
+  Action::registerKeywords(keys);
   keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
   keys.add("compulsory", "TEMP", "The system temperature");
   keys.add("compulsory", "GRID_MIN", "The minimum to use for the grid");
