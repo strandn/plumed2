@@ -272,14 +272,20 @@ TTSketch::TTSketch(const ActionOptions& ao):
     while(true) {
       double dummy;
       for(int i = 0; i < every; ++i) {
+        cout << 1 << " " << i << 1 << endl;
         ifile.scanField();
+        cout << 1 << " " << i << 2 << endl;
         if(!ifile.scanField("time", dummy)) {
           break;
         }
       }
+      cout << 2 << endl;
       if(ifile.scanField("time", dummy)) {
         for(unsigned i = 0; i < this->d_; ++i) {
+          cout << 3 << " " << i << endl;
           ifile.scanField(&tmpvalues[i]);
+          cout << 3 << " " << tmpvalues[i].getName() << endl;
+          cout << 3 << " " << tmpvalues[i].get() << endl;
           // if(tmpvalues[i].isPeriodic() && !getPntrToArgument(i)->isPeriodic()) {
           //   error("Periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
           // } else if(tmpvalues[i].isPeriodic()) {
@@ -292,6 +298,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
           //   }
           // }
           cv[i]=tmpvalues[i].get();
+      
         }
         this->samples_.push_back(cv);
       } else {
