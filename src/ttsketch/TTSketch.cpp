@@ -280,18 +280,20 @@ TTSketch::TTSketch(const ActionOptions& ao):
       //     break;
       //   }
       // }
-      cout << nsamples << endl;
+      // cout << nsamples << endl;
       if(ifile.scanField("time", dummy)) {
         for(unsigned i = 0; i < this->d_; ++i) {
-          cout << nsamples << " " << i << endl;
+          // cout << nsamples << " " << i << endl;
           ifile.scanField(&tmpvalues[i]);
-          cout << nsamples << " " << tmpvalues[i].getName() << endl;
-          cout << nsamples << " " << tmpvalues[i].get() << endl;
+          // cout << nsamples << " " << tmpvalues[i].getName() << endl;
+          // cout << nsamples << " " << tmpvalues[i].get() << endl;
           cv[i]=tmpvalues[i].get();
         }
         if(nsamples % every == 0) {
           this->samples_.push_back(cv);
         }
+        ifile.scanField("ttsketch.bias", dummy);
+        ifile.scanField();
       } else {
         break;
       }
