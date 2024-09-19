@@ -272,21 +272,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     while(true) {
       double dummy;
-      // for(int i = 0; i < every; ++i) {
-      //   // cout << 1 << " " << i << " " << 1 << endl;
-      //   ifile.scanField();
-      //   // cout << 1 << " " << i << " " << 2 << endl;
-      //   if(!ifile.scanField("time", dummy)) {
-      //     break;
-      //   }
-      // }
-      // cout << nsamples << endl;
       if(ifile.scanField("time", dummy)) {
         for(unsigned i = 0; i < this->d_; ++i) {
-          // cout << nsamples << " " << i << endl;
           ifile.scanField(&tmpvalues[i]);
-          // cout << nsamples << " " << tmpvalues[i].getName() << endl;
-          // cout << nsamples << " " << tmpvalues[i].get() << endl;
           cv[i]=tmpvalues[i].get();
         }
         if(nsamples % every == 0) {
@@ -305,15 +293,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->aca_.readVb(this->count_);
     log << "  restarting from step " << this->count_ << "\n";
   }
-  cout << this->samples_.size() << endl;
-  cout << this->samples_.front()[0] << " ";
-  cout << this->samples_.front()[1] << " ";
-  cout << this->samples_.front()[2] << " ";
-  cout << this->samples_.front()[3] << endl;
-  cout << this->samples_.back()[0] << " ";
-  cout << this->samples_.back()[1] << " ";
-  cout << this->samples_.back()[2] << " ";
-  cout << this->samples_.back()[3] << endl;
 }
 
 void TTSketch::calculate() {
