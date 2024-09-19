@@ -7,6 +7,7 @@
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
 #include "tools/Matrix.h"
+#include "tools/File.h"
 #include <numeric>
 
 using namespace std;
@@ -79,7 +80,6 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("compulsory", "LAMBDA", "100.0", "Ratio of largest to smallest allowed density magnitudes");
   keys.add("optional", "BIASFACTOR", "For well-tempering");
-  // keys.add("compulsory", "FILE", "name of the file where tensor trains and related data are stored");
   keys.add("compulsory", "ACA_CUTOFF", "0.05", "Convergence threshold for TT-cross calculations");
   keys.add("compulsory", "ACA_RANK", "30", "Largest possible rank for TT-cross calculations");
   keys.add("compulsory", "ACA_N", "10000000", "Size of integration workspace");
@@ -88,6 +88,8 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
   keys.use("RESTART");
+  keys.add("optional", "FILE", "Name of the file where samples are stored");
+  keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -198,11 +200,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->bf_ < 1.0) {
     error("LAMBDA must be greater than 1");
   }
-  // string file;
-  // parse("FILE", file);
-  // if(file.length() == 0) {
-  //   error("No TTSketch file name was specified");
-  // }
   for(unsigned i = 0; i < this->d_; ++i) {
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
@@ -252,24 +249,62 @@ TTSketch::TTSketch(const ActionOptions& ao):
   this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, aca_n, aca_epsabs, aca_epsrel, aca_limit, aca_key, !noconv);
 
   if(getRestart()) {
-    this->count_ = this->aca_.readVb();
-    auto f = h5_open("ttsketch.h5", 'r');
-    for(unsigned i = 2; i <= this->count_; ++i) {
-      auto sample_block = h5_read<vector<vector<double>>>(f, "samples" + to_string(i));
-      this->samples_.insert(this->samples_.end(), sample_block.begin(), sample_block.end());
+    string filename = "COLVAR";
+    parse("FILE", filename);
+    IFile ifile;
+    if(ifile.FileExist(filename)) {
+        ifile.open(filename);
+    } else {
+      error("The file " + acc_rfilename + " cannot be found!");
     }
-    close(f);
+    int printstride = 100;
+    parse("PRINTSTRIDE", printstride);
+    if(printstride <= 0 || printstride > this->pace_) {
+      error("PRINTSTRIDE must be positive and no greater than PACE");
+    }
+    int every = this->stride_ / printstride;
+
+    vector<double> cv(this->d_);
+    vector<Value> tmpvalues;
+    for(unsigned i = 0; i < this->d_; ++i) {
+      tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
+    }
+    while(true) {
+      double dummy;
+      for(int i = 0; i < every; ++i) {
+        ifile->scanField();
+        if(!ifile.scanField("time", dummy)) {
+          break;
+        }
+      }
+      if(ifile.scanField("time", dummy)) {
+        for(unsigned i = 0; i < this->d_; ++i) {
+          ifile.scanField(&tmpvalues[i]);
+          // if(tmpvalues[i].isPeriodic() && !getPntrToArgument(i)->isPeriodic()) {
+          //   error("Periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
+          // } else if(tmpvalues[i].isPeriodic()) {
+          //   string imin, imax;
+          //   tmpvalues[i].getDomain(imin, imax);
+          //   string rmin, rmax;
+          //   getPntrToArgument(i)->getDomain(rmin, rmax);
+          //   if( imin != rmin || imax != rmax ) {
+          //     error("Periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
+          //   }
+          // }
+          cv[i]=tmpvalues[i].get();
+        }
+        this->samples_.push_back(cv);
+      } else {
+        break;
+      }
+    }
+    ifile.close();
+    this->count_ = this->samples_.size() / this->pace_ + 1;
+    
+    this->aca_.readVb(this->count_);
     log << "  restarting from step " << this->count_ << "\n";
   }
   cout << this->samples_.size() << endl;
-
-  vector<string> arg(this->d_);
-  for(unsigned i = 0; i < this->d_; ++i) {
-    arg[i] = getPntrToArgument(i)->getName();
-  }
-  auto f = h5_open("ttsketch.h5", 'w');
-  h5_write(f, "arg", arg);
-  close(f);
 }
 
 void TTSketch::calculate() {
@@ -358,10 +393,6 @@ void TTSketch::update() {
 
     this->aca_.updateVb(this->samples_);
     this->aca_.writeVb(this->count_);
-    auto f = h5_open("ttsketch.h5", 'w');
-    auto first = this->samples_.begin() + this->samples_.size() - N, last = this->samples_.end();
-    h5_write(f, "samples" + to_string(this->count_), vector<vector<double>>(first, last));
-    close(f);
 
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);

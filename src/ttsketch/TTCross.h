@@ -53,7 +53,7 @@ public:
   const itensor::MPS& vb() const { return this->vb_; }
   void reset();
   void writeVb(unsigned count) const;
-  unsigned readVb();
+  void readVb(unsigned count);
 };
 
 double ttEval(const itensor::MPS& tt, const std::vector<BasisFunc>& basis, const std::vector<double>& elements, bool conv);
