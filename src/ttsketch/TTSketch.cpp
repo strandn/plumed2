@@ -266,44 +266,36 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
     vector<double> cv(this->d_);
     vector<Value> tmpvalues;
+    int nsamples = 1;
     for(unsigned i = 0; i < this->d_; ++i) {
       tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
     }
     while(true) {
       double dummy;
-      for(int i = 0; i < every; ++i) {
-        cout << 1 << " " << i << 1 << endl;
-        ifile.scanField();
-        cout << 1 << " " << i << 2 << endl;
-        if(!ifile.scanField("time", dummy)) {
-          break;
-        }
-      }
-      cout << 2 << endl;
+      // for(int i = 0; i < every; ++i) {
+      //   // cout << 1 << " " << i << " " << 1 << endl;
+      //   ifile.scanField();
+      //   // cout << 1 << " " << i << " " << 2 << endl;
+      //   if(!ifile.scanField("time", dummy)) {
+      //     break;
+      //   }
+      // }
+      // cout << 2 << endl;
       if(ifile.scanField("time", dummy)) {
         for(unsigned i = 0; i < this->d_; ++i) {
-          cout << 3 << " " << i << endl;
+          // cout << 3 << " " << i << endl;
           ifile.scanField(&tmpvalues[i]);
-          cout << 3 << " " << tmpvalues[i].getName() << endl;
-          cout << 3 << " " << tmpvalues[i].get() << endl;
-          // if(tmpvalues[i].isPeriodic() && !getPntrToArgument(i)->isPeriodic()) {
-          //   error("Periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
-          // } else if(tmpvalues[i].isPeriodic()) {
-          //   string imin, imax;
-          //   tmpvalues[i].getDomain(imin, imax);
-          //   string rmin, rmax;
-          //   getPntrToArgument(i)->getDomain(rmin, rmax);
-          //   if( imin != rmin || imax != rmax ) {
-          //     error("Periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
-          //   }
-          // }
+          // cout << 3 << " " << tmpvalues[i].getName() << endl;
+          // cout << 3 << " " << tmpvalues[i].get() << endl;
           cv[i]=tmpvalues[i].get();
-      
         }
-        this->samples_.push_back(cv);
+        if(nsamples % every == 0) {
+          this->samples_.push_back(cv);
+        }
       } else {
         break;
       }
+      ++nsamples;
     }
     ifile.close();
     this->count_ = this->samples_.size() / this->pace_ + 1;
