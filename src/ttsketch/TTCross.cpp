@@ -280,7 +280,7 @@ void TTCross::reset() {
 }
 
 void TTCross::writeVb(unsigned count) const {
-  auto f = h5_open("ttsketch.h5", 'w');
+  auto f = count == 2 ? h5_open("ttsketch.h5", 'w') : h5_open("ttsketch.h5", 'a');
   h5_write(f, "vb_" + to_string(count - 1), this->vb_);
   close(f);
  }
