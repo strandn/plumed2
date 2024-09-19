@@ -275,7 +275,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       if(ifile.scanField("time", dummy)) {
         for(unsigned i = 0; i < this->d_; ++i) {
           ifile.scanField(&tmpvalues[i]);
-          cv[i]=tmpvalues[i].get();
+          cv[i] = tmpvalues[i].get();
         }
         if(nsamples % every == 0) {
           this->samples_.push_back(cv);
