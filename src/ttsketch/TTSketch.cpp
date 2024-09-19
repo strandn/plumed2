@@ -305,6 +305,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
     log << "  restarting from step " << this->count_ << "\n";
   }
   cout << this->samples_.size() << endl;
+  cout << this->samples_.front()[0] << " ";
+  cout << this->samples_.front()[1] << " ";
+  cout << this->samples_.front()[2] << " ";
+  cout << this->samples_.front()[3] << endl;
+  cout << this->samples_.back()[0] << " ";
+  cout << this->samples_.back()[1] << " ";
+  cout << this->samples_.back()[2] << " ";
+  cout << this->samples_.back()[3] << endl;
 }
 
 void TTSketch::calculate() {
