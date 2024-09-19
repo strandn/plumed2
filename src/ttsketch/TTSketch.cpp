@@ -272,7 +272,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     while(true) {
       double dummy;
       for(int i = 0; i < every; ++i) {
-        ifile->scanField();
+        ifile.scanField();
         if(!ifile.scanField("time", dummy)) {
           break;
         }
