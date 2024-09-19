@@ -58,8 +58,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
 }
 
 TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
-  Action(ao),
-  ActionShortcut(ao)
+  Action(ao)
 {
   
 }
