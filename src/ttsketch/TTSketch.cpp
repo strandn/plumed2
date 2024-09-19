@@ -280,13 +280,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
       //     break;
       //   }
       // }
-      // cout << 2 << endl;
+      cout << nsamples << endl;
       if(ifile.scanField("time", dummy)) {
         for(unsigned i = 0; i < this->d_; ++i) {
-          // cout << 3 << " " << i << endl;
+          cout << nsamples << " " << i << endl;
           ifile.scanField(&tmpvalues[i]);
-          // cout << 3 << " " << tmpvalues[i].getName() << endl;
-          // cout << 3 << " " << tmpvalues[i].get() << endl;
+          cout << nsamples << " " << tmpvalues[i].getName() << endl;
+          cout << nsamples << " " << tmpvalues[i].get() << endl;
           cv[i]=tmpvalues[i].get();
         }
         if(nsamples % every == 0) {
