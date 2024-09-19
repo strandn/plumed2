@@ -255,7 +255,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(ifile.FileExist(filename)) {
         ifile.open(filename);
     } else {
-      error("The file " + acc_rfilename + " cannot be found!");
+      error("The file " + filename + " cannot be found!");
     }
     int printstride = 100;
     parse("PRINTSTRIDE", printstride);
