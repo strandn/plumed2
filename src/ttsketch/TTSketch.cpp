@@ -292,6 +292,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     
     this->aca_.readVb(this->count_);
     log << "  restarting from step " << this->count_ << "\n";
+    log << "  " << this->samples_.size() << " samples retrieved\n";
   }
 }
 
