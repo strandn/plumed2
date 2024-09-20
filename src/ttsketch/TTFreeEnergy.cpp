@@ -254,6 +254,13 @@ void TTFreeEnergy::doTask() {
   log << "Starting TT-cross ACA...\n";
   continuousACA();
 
+  vector<vector<double>> xlist(this->d_, vector<double>(this->grid_bin_, 0.0));
+  for(unsigned i = 0; i < this->d_; ++i) {
+    for(int j = 0; j < this->grid_bin_; ++j) {
+      xlist[i][j] = this->grid_min_[i] + j * (this->grid_max_[i] - this->grid_min_[i]) / this->grid_bin_;
+    }
+  }
+
   auto sites = SiteSet(this->d_, this->grid_bin_);
   vector<Index> l(this->d_ - 1);
   vector<ITensor> intevals(this->d_);
@@ -284,8 +291,7 @@ void TTFreeEnergy::doTask() {
                             this->aca_key_, workspace, &result, &error);
         intevals[0].set(prime(l[0]) = lr, result);
         for(int ss = 1; ss <= dim(s); ++ss) {
-          double x = this->grid_min_[0] + (ss - 1) * (this->grid_max_[0] - this->grid_min_[0]) / this->grid_bin_;
-          vector<double> elements = { x };
+          vector<double> elements = { xlist[0][ss - 1] };
           auto& right = this->J_[ii][lr - 1];
           elements.insert(elements.end(), right.begin(), right.end());
           gridevals[0].set(s = ss, prime(l[0]) = lr, f(elements));
@@ -304,8 +310,7 @@ void TTFreeEnergy::doTask() {
                             this->aca_key_, workspace, &result, &error);
         intevals[this->d_ - 1].set(l[this->d_ - 2] = ll, result);
         for(int ss = 1; ss <= dim(s); ++ss) {
-          double x = this->grid_min_[this->d_ - 1] + (ss - 1) * (this->grid_max_[this->d_ - 1] - this->grid_min_[this->d_ - 1]) / this->grid_bin_;
-          vector<double> elements = { x };
+          vector<double> elements = { xlist[this->d_  - 1][ss - 1] };
           auto& left = this->I_[ii - 1][ll - 1];
           elements.insert(elements.begin(), left.begin(), left.end());
           gridevals[this->d_ - 1].set(s = ss, l[this->d_ - 2] = ll, f(elements));
@@ -325,8 +330,7 @@ void TTFreeEnergy::doTask() {
                               this->aca_key_, workspace, &result, &error);
           intevals[ii - 1].set(l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
           for(int ss = 1; ss <= dim(s); ++ss) {
-            double x = this->grid_min_[ii - 1] + (ss - 1) * (this->grid_max_[ii - 1] - this->grid_min_[ii - 1]) / this->grid_bin_;
-            vector<double> elements = { x };
+            vector<double> elements = { xlist[ii - 1][ss - 1] };
             auto& left = this->I_[ii - 1][ll - 1];
             elements.insert(elements.begin(), left.begin(), left.end());
             auto& right = this->J_[ii][lr - 1];
@@ -360,6 +364,21 @@ void TTFreeEnergy::doTask() {
     }
   }
   gsl_integration_workspace_free(workspace);
+
+  for(unsigned i = 0; i < this->d_; ++i) {
+    ITensor grid1d = i == 0 ? gridevals[0] : intevals[0];
+    for(unsigned k = 1; k < this->d_; ++k) {
+      grid1d *= i == k ? gridevals[k] : intevals[k];
+    }
+
+    for(unsigned j = i + 1; j < this->d_; ++j) {
+      ITensor grid2d = i == 0 ? gridevals[0] : intevals[0];
+      for(unsigned k = 1; k < this->d_; ++k) {
+        grid2d *= i == k || j == k ? gridevals[k] : intevals[k];
+      }
+
+    }
+  }
 }
 
 double TTFreeEnergy::f(const std::vector<double>& x) const {
