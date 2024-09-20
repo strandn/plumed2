@@ -288,7 +288,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
       ++nsamples;
     }
     ifile.close();
-    this->count_ = this->samples_.size() * this->stride_ / this->pace_ + 1;
+    if(nsamples != 1 && nsamples % (this->pace_ / printstride) == 1) {
+      nsamples -= 2;
+    }
+    this->count_ = nsamples * printstride / this->pace_ + 1;
     
     this->aca_.readVb(this->count_);
     log << "  restarting from step " << this->count_ << "\n";
