@@ -288,9 +288,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       ++nsamples;
     }
     ifile.close();
-    if(nsamples % (this->pace_ / printstride) == 1) {
-      nsamples -= 2;
-    }
+    // if(nsamples % (this->pace_ / printstride) == 1) {
+    //   nsamples -= 2;
+    // }
     this->count_ = nsamples * printstride / this->pace_ + 1;
     
     this->aca_.readVb(this->count_);
