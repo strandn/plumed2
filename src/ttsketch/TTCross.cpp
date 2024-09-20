@@ -55,8 +55,8 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
     log_(&log), aca_n_(aca_n), aca_epsabs_(aca_epsabs), aca_epsrel_(aca_epsrel),
     aca_limit_(aca_limit), aca_key_(aca_key), conv_(conv)
 {
-  I_[0].push_back(vector<double>());
-  J_[0].push_back(vector<double>());
+  this->I_[0].push_back(vector<double>());
+  this->J_[0].push_back(vector<double>());
 }
 
 //TODO: figure out if convolution should be used for vb
