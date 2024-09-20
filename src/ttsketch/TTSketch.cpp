@@ -266,7 +266,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
     vector<double> cv(this->d_);
     vector<Value> tmpvalues;
-    int nsamples = 1;
+    int nsamples = 0;
     for(unsigned i = 0; i < this->d_; ++i) {
       tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
     }
