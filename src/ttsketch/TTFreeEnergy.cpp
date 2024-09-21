@@ -38,8 +38,9 @@ private:
   // vector<int> whichpos_;
   vector<double> grid_min_;
   vector<double> grid_max_;
-  int grid_bin_;
-  // string filename_;
+  int grid_bin_1d_;
+  int grid_bin_2d_;
+  string filename_;
 
   void doTask();
   double f(const std::vector<double>& x) const;
@@ -68,7 +69,8 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "TEMP", "The system temperature");
   keys.add("compulsory", "GRID_MIN", "The minimum to use for the grid");
   keys.add("compulsory", "GRID_MAX", "The maximum to use for the grid");
-  keys.add("compulsory", "GRID_BIN", "100", "The number of bins to use for the grid");
+  keys.add("compulsory", "GRID_BIN_1D", "100", "The number of bins to use for the 1D grid");
+  keys.add("compulsory", "GRID_BIN_2D", "100", "The number of bins to use for the 2D grid");
   keys.add("compulsory", "ACA_CUTOFF", "1.0e-6", "Convergence threshold for TT-cross calculations");
   keys.add("compulsory", "ACA_RANK", "50", "Largest possible rank for TT-cross calculations");
   keys.add("compulsory", "ACA_N", "10000000", "Size of integration workspace");
@@ -77,8 +79,8 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
   keys.add("compulsory", "STRIDE", "1", "Frequency of reading samples");
-  keys.add("compulsory", "FILE", "COLVAR", "Name of the file where samples are stored");
-  // keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
+  keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
+  keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
   keys.add("compulsory", "ITER", "20", "TT bias update number");
 }
 
@@ -103,13 +105,17 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   if(this->grid_max_.size() != this->d_) {
     error("Number of arguments does not match number of GRID_MAX parameters");
   }
-  parse("GRID_BIN", this->grid_bin_);
-  if(this->grid_bin_ <= 0) {
-    error("GRID_BIN must be positive")
+  parse("GRID_BIN_1D", this->grid_bin_1d_);
+  if(this->grid_bin_1d_ <= 0) {
+    error("GRID_BIN_1D must be positive")
+  }
+  parse("GRID_BIN_2D", this->grid_bin_2d_);
+  if(this->grid_bin_2d_ <= 0) {
+    error("GRID_BIN_2D must be positive")
   }
 
   string filename = "COLVAR";
-  parse("FILE", filename);
+  parse("SAMPLEFILE", filename);
   IFile ifile;
   if(ifile.FileExist(filename)) {
     ifile.open(filename);
@@ -221,7 +227,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   //     error("Variable " + whichnames[i] + " does not match any of the arguments");
   //   }
   // }
-  // parse("FILE", this->filename_);
+  parse("FILE", this->filename_);
 
   doTask();
 }
@@ -254,17 +260,23 @@ void TTFreeEnergy::doTask() {
   log << "Starting TT-cross ACA...\n";
   continuousACA();
 
-  vector<vector<double>> xlist(this->d_, vector<double>(this->grid_bin_, 0.0));
+  vector<vector<double>> xlist_1d(this->d_, vector<double>(this->grid_bin_1d_, 0.0));
+  vector<vector<double>> xlist_2d(this->d_, vector<double>(this->grid_bin_2d_, 0.0));
   for(unsigned i = 0; i < this->d_; ++i) {
-    for(int j = 0; j < this->grid_bin_; ++j) {
-      xlist[i][j] = this->grid_min_[i] + j * (this->grid_max_[i] - this->grid_min_[i]) / this->grid_bin_;
+    for(int j = 0; j < this->grid_bin_1d_; ++j) {
+      xlist_1d[i][j] = this->grid_min_[i] + j * (this->grid_max_[i] - this->grid_min_[i]) / this->grid_bin_1d_;
+    }
+    for(int j = 0; j < this->grid_bin_2d_; ++j) {
+      xlist_2d[i][j] = this->grid_min_[i] + j * (this->grid_max_[i] - this->grid_min_[i]) / this->grid_bin_2d_;
     }
   }
 
-  auto sites = SiteSet(this->d_, this->grid_bin_);
+  auto sites_1d = SiteSet(this->d_, this->grid_bin_1d_);
+  auto sites_2d = SiteSet(this->d_, this->grid_bin_2d_);
   vector<Index> l(this->d_ - 1);
   vector<ITensor> intevals(this->d_);
-  vector<ITensor> gridevals(this->d_);
+  vector<ITensor> gridevals_1d(this->d_);
+  vector<ITensor> gridevals_2d(this->d_);
   vector<int> ranks(this->d_ - 1);
   gsl_set_error_handler_off();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
@@ -273,14 +285,16 @@ void TTFreeEnergy::doTask() {
     ranks[i - 1] = this->I_[i].size();
   }
   for(int ii = 1; ii <= this->d_; ++ii) {
-    auto s = sites(ii);
+    auto s1d = sites_1d(ii);
+    auto s2d = sites_2d(ii);
     if(ii != this->d_) {
       l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     }
 
     if(ii == 1) {
       intevals[0] = ITensor(prime(l[0]));
-      gridevals[0] = ITensor(s, prime(l[0]));
+      gridevals_1d[0] = ITensor(s1d, prime(l[0]));
+      gridevals_2d[0] = ITensor(s2d, prime(l[0]));
       for(int lr = 1; lr <= dim(l[0]); ++lr) {
         TTFESParams ttfes_params = { this, 1, 0, lr };
         gsl_function F;
@@ -290,16 +304,23 @@ void TTFreeEnergy::doTask() {
                             this->aca_epsrel_, this->aca_limit_,
                             this->aca_key_, workspace, &result, &error);
         intevals[0].set(prime(l[0]) = lr, result);
-        for(int ss = 1; ss <= dim(s); ++ss) {
-          vector<double> elements = { xlist[0][ss - 1] };
+        for(int ss = 1; ss <= dim(s1d); ++ss) {
+          vector<double> elements = { xlist_1d[0][ss - 1] };
           auto& right = this->J_[ii][lr - 1];
           elements.insert(elements.end(), right.begin(), right.end());
-          gridevals[0].set(s = ss, prime(l[0]) = lr, f(elements));
+          gridevals_1d[0].set(s1d = ss, prime(l[0]) = lr, f(elements));
+        }
+        for(int ss = 1; ss <= dim(s2d); ++ss) {
+          vector<double> elements = { xlist_2d[0][ss - 1] };
+          auto& right = this->J_[ii][lr - 1];
+          elements.insert(elements.end(), right.begin(), right.end());
+          gridevals_2d[0].set(s2d = ss, prime(l[0]) = lr, f(elements));
         }
       }
     } else if(ii == this->d_) {
       intevals[this->d_ - 1] = ITensor(l[this->d_ - 2]);
-      gridevals[this->d_ - 1] = ITensor(s, l[this->d_ - 2]);
+      gridevals_1d[this->d_ - 1] = ITensor(s1d, l[this->d_ - 2]);
+      gridevals_2d[this->d_ - 1] = ITensor(s2d, l[this->d_ - 2]);
       for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
         TTFESParams aca_params = { this, this->d_, ll, 0 };
         gsl_function F;
@@ -309,16 +330,23 @@ void TTFreeEnergy::doTask() {
                             this->aca_epsrel_, this->aca_limit_,
                             this->aca_key_, workspace, &result, &error);
         intevals[this->d_ - 1].set(l[this->d_ - 2] = ll, result);
-        for(int ss = 1; ss <= dim(s); ++ss) {
-          vector<double> elements = { xlist[this->d_  - 1][ss - 1] };
+        for(int ss = 1; ss <= dim(s1d); ++ss) {
+          vector<double> elements = { xlist_1d[this->d_  - 1][ss - 1] };
           auto& left = this->I_[ii - 1][ll - 1];
           elements.insert(elements.begin(), left.begin(), left.end());
-          gridevals[this->d_ - 1].set(s = ss, l[this->d_ - 2] = ll, f(elements));
+          gridevals_1d[this->d_ - 1].set(s1d = ss, l[this->d_ - 2] = ll, f(elements));
+        }
+        for(int ss = 1; ss <= dim(s2d); ++ss) {
+          vector<double> elements = { xlist_2d[this->d_  - 1][ss - 1] };
+          auto& left = this->I_[ii - 1][ll - 1];
+          elements.insert(elements.begin(), left.begin(), left.end());
+          gridevals_2d[this->d_ - 1].set(s2d = ss, l[this->d_ - 2] = ll, f(elements));
         }
       }
     } else {
       intevals[ii - 1] = ITensor(l[ii - 2], prime(l[ii - 1]));
-      gridevals[ii - 1] = ITensor(s, l[ii - 2], prime(l[ii - 1]));
+      gridevals_1d[ii - 1] = ITensor(s1d, l[ii - 2], prime(l[ii - 1]));
+      gridevals_2d[ii - 1] = ITensor(s2d, l[ii - 2], prime(l[ii - 1]));
       for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
         for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
           TTFESParams aca_params = { this, ii, ll, lr };
@@ -329,13 +357,21 @@ void TTFreeEnergy::doTask() {
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
           intevals[ii - 1].set(l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
-          for(int ss = 1; ss <= dim(s); ++ss) {
-            vector<double> elements = { xlist[ii - 1][ss - 1] };
+          for(int ss = 1; ss <= dim(s1d); ++ss) {
+            vector<double> elements = { xlist_1d[ii - 1][ss - 1] };
             auto& left = this->I_[ii - 1][ll - 1];
             elements.insert(elements.begin(), left.begin(), left.end());
             auto& right = this->J_[ii][lr - 1];
             elements.insert(elements.end(), right.begin(), right.end());
-            gridevals[ii - 1].set(s = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, f(elements));
+            gridevals_1d[ii - 1].set(s1d = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, f(elements));
+          }
+          for(int ss = 1; ss <= dim(s2d); ++ss) {
+            vector<double> elements = { xlist_2d[ii - 1][ss - 1] };
+            auto& left = this->I_[ii - 1][ll - 1];
+            elements.insert(elements.begin(), left.begin(), left.end());
+            auto& right = this->J_[ii][lr - 1];
+            elements.insert(elements.end(), right.begin(), right.end());
+            gridevals_2d[ii - 1].set(s2d = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, f(elements));
           }
         }
       }
@@ -360,23 +396,46 @@ void TTFreeEnergy::doTask() {
         }
       }
       intevals[ii - 1] *= Ainv;
-      gridevals[ii - 1] *= Ainv;
+      gridevals_1d[ii - 1] *= Ainv;
+      gridevals_2d[ii - 1] *= Ainv;
     }
   }
   gsl_integration_workspace_free(workspace);
 
+  OFile file;
+  file.link(*this);
+  file.enforceSuffix("");
+  file.open(this->filename_);
+  file.setHeavyFlush();
   for(unsigned i = 0; i < this->d_; ++i) {
-    ITensor grid1d = i == 0 ? gridevals[0] : intevals[0];
+    file.setupPrintValue(getPntrToArgument(i));
+  }
+  for(unsigned i = 0; i < this->d_; ++i) {
+    ITensor grid1d = i == 0 ? gridevals_1d[0] : intevals[0];
     for(unsigned k = 1; k < this->d_; ++k) {
-      grid1d *= i == k ? gridevals[k] : intevals[k];
+      grid1d *= i == k ? gridevals_1d[k] : intevals[k];
     }
-
+    for(int k = 0; k < this->grid_bin_1d_; ++k) {
+      file.printField(getPntrToArgument(i), xlist_1d[i][k]);
+      file.printField("fes_" + getPntrToArgument(i)->getName(), grid1d.elt(sites_1d(i + 1) = k + 1));
+      file.printField();
+    }
+  }
+  for(unsigned i = 0; i < this->d_; ++i) {
     for(unsigned j = i + 1; j < this->d_; ++j) {
-      ITensor grid2d = i == 0 ? gridevals[0] : intevals[0];
+      ITensor grid2d = i == 0 ? gridevals_2d[0] : intevals[0];
       for(unsigned k = 1; k < this->d_; ++k) {
-        grid2d *= i == k || j == k ? gridevals[k] : intevals[k];
+        grid2d *= i == k || j == k ? gridevals_2d[k] : intevals[k];
       }
-
+      for(int k = 0; k < this->grid_bin_2d_; ++k) {
+        for(int l = 0; l < this->grid_bin_2d_; ++l) {
+          file.printField(getPntrToArgument(i), xlist_2d[i][l]);
+          file.printField(getPntrToArgument(j), xlist_2d[i][k]);
+          file.printField("fes_" + getPntrToArgument(i)->getName() + "_" + getPntrToArgument(j)->getName(),
+                          grid2d.elt(sites_1d(i + 1) = l + 1, sites_1d(j + 1) = k + 1));
+          file.printField();
+        }
+      }
     }
   }
 }
