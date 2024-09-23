@@ -3,6 +3,8 @@
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
 #include "core/PlumedMain.h"
+#include "core/ActionPilot.h"
+#include "core/ActionWithValue.h"
 #include "core/ActionWithArguments.h"
 #include "tools/Matrix.h"
 #include <gsl/gsl_errno.h>
@@ -14,7 +16,11 @@ using namespace itensor;
 namespace PLMD {
 namespace ttsketch {
 
-class TTFreeEnergy : public ActionWithArguments {
+class TTFreeEnergy :
+  public ActionPilot,
+  public ActionWithValue,
+  public ActionWithArguments
+{
   
 private:
   MPS vb_;
@@ -63,6 +69,9 @@ public:
 PLUMED_REGISTER_ACTION(TTFreeEnergy,"TT_FES")
 
 void TTFreeEnergy::registerKeywords(Keywords& keys) {
+  Action::registerKeywords(keys);
+  ActionPilot::registerKeywords(keys);
+  ActionWithValue::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
   // keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
   keys.use("ARG");
@@ -87,6 +96,8 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
 
 TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   Action(ao),
+  ActionPilot(ao),
+  ActionWithValue(ao),
   ActionWithArguments(ao),
   kbt_(0.0),
   pos_(0)
@@ -357,8 +368,8 @@ void TTFreeEnergy::doTask() {
           gsl_function F;
           F.function = &ttfes_f;
           F.params = &aca_params;
-          gsl_integration_qag(&F, this->grid_min_[i - 1],
-                              this->grid_max_[i - 1], this->aca_epsabs_,
+          gsl_integration_qag(&F, this->grid_min_[ii - 1],
+                              this->grid_max_[ii - 1], this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
           intevals[ii - 1].set(l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
