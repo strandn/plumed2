@@ -3,10 +3,10 @@
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
 #include "core/PlumedMain.h"
-#include "core/ActionPilot.h"
 #include "core/ActionWithValue.h"
 #include "core/ActionWithArguments.h"
 #include "tools/Matrix.h"
+#include "tools/File.h"
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 
@@ -17,7 +17,6 @@ namespace PLMD {
 namespace ttsketch {
 
 class TTFreeEnergy :
-  public ActionPilot,
   public ActionWithValue,
   public ActionWithArguments
 {
@@ -60,6 +59,7 @@ public:
   void update() override { }
   void calculate() override { }
   void apply() override { }
+  unsigned getNumberOfDerivatives() override { return getNumberOfArguments(); }
   double f(const std::vector<double>& x) const;
   const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
   const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
@@ -70,7 +70,6 @@ PLUMED_REGISTER_ACTION(TTFreeEnergy,"TT_FES")
 
 void TTFreeEnergy::registerKeywords(Keywords& keys) {
   Action::registerKeywords(keys);
-  ActionPilot::registerKeywords(keys);
   ActionWithValue::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
   // keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
@@ -96,7 +95,6 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
 
 TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   Action(ao),
-  ActionPilot(ao),
   ActionWithValue(ao),
   ActionWithArguments(ao),
   kbt_(0.0),
