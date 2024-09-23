@@ -308,12 +308,9 @@ void TTSketch::calculate() {
   vector<double> der(this->d_, 0.0);
   double ene = getBiasAndDerivatives(cv, der);
   setBias(ene);
-  cout << ene << endl;
   for(unsigned i = 0; i < this->d_; ++i) {
     setOutputForce(i, -der[i]);
-    cout << der[i] << " ";
   }
-  cout << endl;
 }
 
 void TTSketch::update() {
