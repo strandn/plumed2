@@ -73,7 +73,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "CONV_KEY", "Integration rule");
   keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
   keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
-  // keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
+  keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
   keys.add("compulsory", "INTERVAL_MIN", "Lower limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "NBASIS", "20", "Number of Fourier basis functions per dimension");
