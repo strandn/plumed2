@@ -90,7 +90,6 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
-  keys.use("STRIDE");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
