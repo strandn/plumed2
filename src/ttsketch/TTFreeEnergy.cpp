@@ -433,7 +433,7 @@ void TTFreeEnergy::doTask() {
     }
     for(int k = 0; k < this->grid_bin_1d_; ++k) {
       file.printField(getPntrToArgument(i), xlist_1d[i][k]);
-      file.printField("fes_" + getPntrToArgument(i)->getName(), -this->kbt_ * log(grid1d.elt(sites_1d(i + 1) = k + 1)));
+      file.printField("fes_" + getPntrToArgument(i)->getName(), -this->kbt_ * std::log(grid1d.elt(sites_1d(i + 1) = k + 1)));
       file.printField();
     }
   }
@@ -449,7 +449,7 @@ void TTFreeEnergy::doTask() {
           file.printField(getPntrToArgument(j), xlist_2d[i][k]);
           file.printField("fes_" + getPntrToArgument(i)->getName() + "_" +
                           getPntrToArgument(j)->getName(), -this->kbt_ *
-                          log(grid2d.elt(sites_1d(i + 1) = l + 1,
+                          std::log(grid2d.elt(sites_1d(i + 1) = l + 1,
                           sites_1d(j + 1) = k + 1)));
           file.printField();
         }
