@@ -283,7 +283,8 @@ void TTCross::writeVb(unsigned count) const {
   auto f = count == 2 ? h5_open("ttsketch.h5", 'w') : h5_open("ttsketch.h5", 'a');
   h5_write(f, "vb_" + to_string(count - 1), this->vb_);
   close(f);
- }
+}
+
 void TTCross::readVb(unsigned count) {
   auto f = h5_open("ttsketch.h5", 'r');
   this->vb_ = h5_read<MPS>(f, "vb_" + to_string(count - 1));

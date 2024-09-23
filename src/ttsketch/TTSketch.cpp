@@ -249,6 +249,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, aca_n, aca_epsabs, aca_epsrel, aca_limit, aca_key, !noconv);
 
   if(getRestart()) {
+    cout << "start" << endl;
     string filename = "COLVAR";
     parse("FILE", filename);
     IFile ifile;
@@ -296,6 +297,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->aca_.readVb(this->count_);
     log << "  restarting from step " << this->count_ << "\n";
     log << "  " << this->samples_.size() << " samples retrieved\n";
+    cout << "finish" << endl;
   }
 }
 
