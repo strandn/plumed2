@@ -59,7 +59,7 @@ public:
   void update() override { }
   void calculate() override { }
   void apply() override { }
-  unsigned getNumberOfDerivatives() override { return getNumberOfArguments(); }
+  unsigned getNumberOfDerivatives() override { return 0; }
   double f(const std::vector<double>& x) const;
   const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
   const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
@@ -72,6 +72,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   Action::registerKeywords(keys);
   ActionWithValue::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
+  keys.remove("NUMERICAL_DERIVATIVES");
   // keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
   keys.use("ARG");
   // keys.add("compulsory", "WHICH", "Arguments that you would like to make the free energy for");
@@ -91,6 +92,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
   keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
   keys.add("compulsory", "ITER", "20", "TT bias update number");
+  keys.setValueDescription("Outputs all 1D and 2D free energies from TT data");
 }
 
 TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
