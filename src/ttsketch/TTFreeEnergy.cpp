@@ -3,7 +3,7 @@
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
 #include "core/PlumedMain.h"
-#include "core/ActionWithArguments.h"
+#include "core/ActionWithValue.h"
 #include "tools/Matrix.h"
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
@@ -14,7 +14,7 @@ using namespace itensor;
 namespace PLMD {
 namespace ttsketch {
 
-class TTFreeEnergy : public ActionWithArguments {
+class TTFreeEnergy : public ActionWithValue {
   
 private:
   MPS vb_;
@@ -41,15 +41,12 @@ private:
   int grid_bin_1d_;
   int grid_bin_2d_;
   string filename_;
+  int pos_;
 
   void doTask();
-  double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
   std::pair<double, int> diagACA(const std::vector<double>& Rk);
   void continuousACA();
-  const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
-  const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
-  int d() const { return this->d_; }
 
 public:
   explicit TTFreeEnergy(const ActionOptions&);
@@ -57,12 +54,16 @@ public:
   void update() override { }
   void calculate() override { }
   void apply() override { }
+  double f(const std::vector<double>& x) const;
+  const std::vector<std::vector<std::vector<double>>>& I() const { return this->I_; }
+  const std::vector<std::vector<std::vector<double>>>& J() const { return this->J_; }
+  int d() const { return this->d_; }
 };
 
 PLUMED_REGISTER_ACTION(TTFreeEnergy,"TT_FES")
 
 void TTFreeEnergy::registerKeywords(Keywords& keys) {
-  ActionWithArguments::registerKeywords(keys);
+  ActionWithValue::registerKeywords(keys);
   // keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
   keys.use("ARG");
   // keys.add("compulsory", "WHICH", "Arguments that you would like to make the free energy for");
@@ -86,8 +87,9 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
 
 TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   Action(ao),
-  ActionWithArguments(ao),
-  kbt_(0.0)
+  ActionWithValue(ao),
+  kbt_(0.0),
+  pos_(0)
 {
   this->kbt_ = getkBT();
   if(this->kbt_ == 0.0) {
@@ -107,11 +109,11 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   }
   parse("GRID_BIN_1D", this->grid_bin_1d_);
   if(this->grid_bin_1d_ <= 0) {
-    error("GRID_BIN_1D must be positive")
+    error("GRID_BIN_1D must be positive");
   }
   parse("GRID_BIN_2D", this->grid_bin_2d_);
   if(this->grid_bin_2d_ <= 0) {
-    error("GRID_BIN_2D must be positive")
+    error("GRID_BIN_2D must be positive");
   }
 
   string filename = "COLVAR";
@@ -162,7 +164,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   this->vb_ = h5_read<MPS>(f, "vb_" + to_string(count));
   close(f);
   this->n_ = dim(siteIndex(this->vb_, 1));
-  log << "  read TT from ttsketch.h5/vb_" << this->count_ << "\n";
+  log << "  read TT from ttsketch.h5/vb_" << count << "\n";
   log << "  " << this->samples_.size() << " samples retrieved\n";
 
   for(unsigned i = 0; i < this->d_; ++i) {
@@ -193,7 +195,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
     error("ACA_EPSREL must be positive");
   }
   parse("ACA_LIMIT", this->aca_limit_);
-  if(this->aca_limit_ <= 0 || this->aca_limit_ > aca_n) {
+  if(this->aca_limit_ <= 0 || this->aca_limit_ > this->aca_n_) {
     error("ACA_LIMIT must be no positive and no greater than ACA_N");
   }
   parse("ACA_KEY", this->aca_key_);
@@ -234,7 +236,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
 
 struct TTFESParams {
   const TTFreeEnergy* instance;
-  int ii;
+  unsigned ii;
   int ll;
   int lr;
 };
@@ -281,10 +283,10 @@ void TTFreeEnergy::doTask() {
   gsl_set_error_handler_off();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
-  for(int i = 1; i < this->d_; ++i) {
+  for(unsigned i = 1; i < this->d_; ++i) {
     ranks[i - 1] = this->I_[i].size();
   }
-  for(int ii = 1; ii <= this->d_; ++ii) {
+  for(unsigned ii = 1; ii <= this->d_; ++ii) {
     auto s1d = sites_1d(ii);
     auto s2d = sites_2d(ii);
     if(ii != this->d_) {
@@ -300,9 +302,10 @@ void TTFreeEnergy::doTask() {
         gsl_function F;
         F.function = &ttfes_f;
         F.params = &ttfes_params;
-        gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
-                            this->aca_epsrel_, this->aca_limit_,
-                            this->aca_key_, workspace, &result, &error);
+        gsl_integration_qag(&F, this->grid_min_[0], this->grid_max_[0],
+                            this->aca_epsabs_, this->aca_epsrel_,
+                            this->aca_limit_, this->aca_key_, workspace,
+                            &result, &error);
         intevals[0].set(prime(l[0]) = lr, result);
         for(int ss = 1; ss <= dim(s1d); ++ss) {
           vector<double> elements = { xlist_1d[0][ss - 1] };
@@ -326,7 +329,8 @@ void TTFreeEnergy::doTask() {
         gsl_function F;
         F.function = &ttfes_f;
         F.params = &aca_params;
-        gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
+        gsl_integration_qag(&F, this->grid_min_[this->d_ - 1],
+                            this->grid_max_[this->d_ - 1], this->aca_epsabs_,
                             this->aca_epsrel_, this->aca_limit_,
                             this->aca_key_, workspace, &result, &error);
         intevals[this->d_ - 1].set(l[this->d_ - 2] = ll, result);
@@ -353,7 +357,8 @@ void TTFreeEnergy::doTask() {
           gsl_function F;
           F.function = &ttfes_f;
           F.params = &aca_params;
-          gsl_integration_qag(&F, dom.first, dom.second, this->aca_epsabs_,
+          gsl_integration_qag(&F, this->grid_min_[i - 1],
+                              this->grid_max_[i - 1], this->aca_epsabs_,
                               this->aca_epsrel_, this->aca_limit_,
                               this->aca_key_, workspace, &result, &error);
           intevals[ii - 1].set(l[ii - 2] = ll, prime(l[ii - 1]) = lr, result);
@@ -500,7 +505,7 @@ void TTFreeEnergy::continuousACA() {
     this->u_.clear();
     this->v_.clear();
     for(int r = 1; r <= this->maxrank_; ++r) {
-      auto [res_new, ik] = diagACA(this->samples_, Rk);
+      auto [res_new, ik] = diagACA(Rk);
       auto& xy = this->samples_[ik];
       if(this->I_[i + 1].empty()) {
         this->resfirst_.push_back(res_new);
