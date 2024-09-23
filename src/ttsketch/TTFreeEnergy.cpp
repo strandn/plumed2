@@ -3,7 +3,7 @@
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
 #include "core/PlumedMain.h"
-#include "core/ActionWithValue.h"
+#include "core/ActionWithArguments.h"
 #include "tools/Matrix.h"
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
@@ -14,7 +14,7 @@ using namespace itensor;
 namespace PLMD {
 namespace ttsketch {
 
-class TTFreeEnergy : public ActionWithValue {
+class TTFreeEnergy : public ActionWithArguments {
   
 private:
   MPS vb_;
@@ -63,7 +63,7 @@ public:
 PLUMED_REGISTER_ACTION(TTFreeEnergy,"TT_FES")
 
 void TTFreeEnergy::registerKeywords(Keywords& keys) {
-  ActionWithValue::registerKeywords(keys);
+  ActionWithArguments::registerKeywords(keys);
   // keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
   keys.use("ARG");
   // keys.add("compulsory", "WHICH", "Arguments that you would like to make the free energy for");
@@ -87,7 +87,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
 
 TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   Action(ao),
-  ActionWithValue(ao),
+  ActionWithArguments(ao),
   kbt_(0.0),
   pos_(0)
 {
