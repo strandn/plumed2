@@ -25,7 +25,7 @@ private:
   double cutoff_;
   double kbt_;
   int pace_;
-  // int stride_;
+  int stride_;
   unsigned d_;
   MPS rho_;
   TTCross aca_;
@@ -165,10 +165,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->pace_ <= 0) {
     error("PACE must be positive");
   }
-  // parse("SAMPLESTRIDE", this->stride_);
-  // if(this->stride_ <= 0 || this->stride_ > this->pace_) {
-  //   error("SAMPLESTRIDE must be positive and no greater than PACE");
-  // }
+  parse("SAMPLESTRIDE", this->stride_);
+  if(this->stride_ <= 0 || this->stride_ > this->pace_) {
+    error("SAMPLESTRIDE must be positive and no greater than PACE");
+  }
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -262,7 +262,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(printstride <= 0 || printstride > this->pace_) {
       error("PRINTSTRIDE must be positive and no greater than PACE");
     }
-    int every = getStride() / printstride;
+    int every = this->stride_() / printstride;
 
     vector<double> cv(this->d_);
     vector<Value> tmpvalues;
@@ -329,12 +329,12 @@ void TTSketch::update() {
   for(unsigned i = 0; i < this->d_; ++i) {
     cv[i] = getArgument(i);
   }
-  if(getStep() % getStride() == 0) {
+  if(getStep() % this->stride_() == 0) {
     this->samples_.push_back(cv);
   }
 
   if(nowAddATT) {
-    int N = this->pace_ / getStride();
+    int N = this->pace_ / this->stride_();
     log << "Sample limits\n";
     for(unsigned i = 0; i < this->d_; ++i) {
       auto [large, small] = this->basis_[i].dom();
@@ -453,7 +453,7 @@ double TTSketch::getBias(const vector<double>& cv) {
 }
 
 void TTSketch::paraSketch() {
-  int N = this->pace_ / getStride();
+  int N = this->pace_ / this->stride_();
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
   auto& G = this->rho_;
@@ -534,7 +534,7 @@ MPS TTSketch::createTTCoeff() const {
 }
 
 pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) const {
-  int N = this->pace_ / getStride();
+  int N = this->pace_ / this->stride_();
   int nb = this->basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
