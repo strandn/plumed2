@@ -311,7 +311,7 @@ void TTSketch::calculate() {
   cout << ene << endl;
   for(unsigned i = 0; i < this->d_; ++i) {
     setOutputForce(i, -der[i]);
-    cout << der[i] << " "
+    cout << der[i] << " ";
   }
   cout << endl;
 }
