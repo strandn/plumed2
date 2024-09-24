@@ -46,7 +46,6 @@ private:
   int grid_bin_2d_;
   string filename_;
   int pos_;
-  int every_;
 
   void doTask();
   void updateIJ(const std::vector<double>& ij);
@@ -56,7 +55,7 @@ private:
 public:
   explicit TTFreeEnergy(const ActionOptions&);
   static void registerKeywords(Keywords& keys);
-  void update() override;
+  void update() override { }
   void calculate() override { }
   void apply() override { }
   unsigned getNumberOfDerivatives() override { return 0; }
@@ -87,6 +86,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
   keys.add("compulsory", "STRIDE", "1", "Frequency of reading samples");
+  keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
   keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
   keys.add("compulsory", "ITER", "20", "TT bias update number");
   keys.setValueDescription("Outputs all 1D and 2D free energies from TT data");
@@ -124,14 +124,48 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
     error("GRID_BIN_2D must be positive");
   }
 
+  string filename = "COLVAR";
+  parse("SAMPLEFILE", filename);
+  IFile ifile;
+  if(ifile.FileExist(filename)) {
+    ifile.open(filename);
+  } else {
+    error("The file " + filename + " cannot be found!");
+  }
+  int every = 1;
+  parse("STRIDE", every);
+  if(every <= 0) {
+    error("STRIDE must be positive");
+  }
+
+  vector<double> cv(this->d_);
+  vector<Value> tmpvalues;
+  int nsamples = 0;
+  for(unsigned i = 0; i < this->d_; ++i) {
+    tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
+  }
+  while(true) {
+    double dummy;
+    if(ifile.scanField("time", dummy)) {
+      for(unsigned i = 0; i < this->d_; ++i) {
+        ifile.scanField(&tmpvalues[i]);
+        cv[i] = tmpvalues[i].get();
+      }
+      if(nsamples % every == 0) {
+        this->samples_.push_back(cv);
+      }
+      ifile.scanField("ttsketch.bias", dummy);
+      ifile.scanField();
+    } else {
+      break;
+    }
+    ++nsamples;
+  }
+  ifile.close();
   int count = 0;
   parse("ITER", count);
   if(count <= 0) {
     error("ITER must be positive");
-  }
-  parse("STRIDE", this->every_);
-  if(this->every_ <= 0) {
-    error("STRIDE must be positive");
   }
   
   auto f = h5_open("ttsketch.h5", 'r');
@@ -139,6 +173,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   close(f);
   this->n_ = dim(siteIndex(this->vb_, 1));
   log << "  read TT from ttsketch.h5/vb_" << count << "\n";
+  log << "  " << this->samples_.size() << " samples retrieved\n";
 
   for(unsigned i = 0; i < this->d_; ++i) {
     if(this->grid_max_[i] <= this->grid_min_[i]) {
@@ -187,6 +222,8 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   }
   J_[0].push_back(vector<double>());
   parse("FILE", this->filename_);
+
+  doTask();
 }
 
 struct TTFESParams {
@@ -213,30 +250,8 @@ double ttfes_f(double x, void* params) {
   return aca_params->instance->f(elements);
 }
 
-void TTFreeEnergy::update() {
-  unsigned nsamples = getPntrToArgument(0)->getNumberOfValues();
-  for(unsigned j = 1; j < this->d_; ++j) {
-    if(nsamples != getPntrToArgument(j)->getNumberOfValues()) {
-      error("Mismatch between numbers of values in input arguments");
-    }
-  }
-  for(unsigned i = 0; i < nsamples; ++i) {
-    if(i % this->every_ == 0) {
-      vector<double> cv(this->d_);
-      for(unsigned j = 0; j < this->d_; ++j) {
-        cv[j] = getPntrToArgument(j)->get(i);
-      }
-      this->samples_.push_back(cv);
-    }
-  }
-  log << this->samples_.size() << " samples retrieved\n\n";
-
-  doTask();
-}
-
 void TTFreeEnergy::doTask() {
   log << "Starting TT-cross ACA...\n";
-  log.flush();
   continuousACA();
 
   vector<vector<double>> xlist_1d(this->d_, vector<double>(this->grid_bin_1d_, 0.0));
