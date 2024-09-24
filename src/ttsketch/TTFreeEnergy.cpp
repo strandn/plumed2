@@ -46,6 +46,7 @@ private:
   int grid_bin_2d_;
   string filename_;
   int pos_;
+  int every_;
 
   void doTask();
   void updateIJ(const std::vector<double>& ij);
@@ -128,9 +129,8 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   if(count <= 0) {
     error("ITER must be positive");
   }
-  int every = 1;
-  parse("STRIDE", every);
-  if(every <= 0) {
+  parse("STRIDE", this->every_);
+  if(this->every_ <= 0) {
     error("STRIDE must be positive");
   }
   
@@ -221,7 +221,7 @@ void TTFreeEnergy::calculate() override {
     }
   }
   for(unsigned i = 0; i < nsamples; ++i) {
-    if(i % every == 0) {
+    if(i % this->every_ == 0) {
       vector<double> cv(this->d_);
       for(unsigned j = 0; j < this->d_; ++j) {
         cv[j] = getPntrToArgument(j)->get(i);
