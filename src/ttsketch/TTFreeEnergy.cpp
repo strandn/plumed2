@@ -236,6 +236,7 @@ void TTFreeEnergy::update() {
 
 void TTFreeEnergy::doTask() {
   log << "Starting TT-cross ACA...\n";
+  log.flush();
   continuousACA();
 
   vector<vector<double>> xlist_1d(this->d_, vector<double>(this->grid_bin_1d_, 0.0));
