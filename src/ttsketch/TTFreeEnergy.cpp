@@ -46,6 +46,7 @@ private:
   int grid_bin_2d_;
   string filename_;
   int pos_;
+  int pace_
 
   void doTask();
   void updateIJ(const std::vector<double>& ij);
@@ -89,6 +90,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
   keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
   keys.add("compulsory", "ITER", "20", "TT bias update number");
+  keys.add("compulsory", "PACE", "Number of samples per TT update");
   keys.setValueDescription("Outputs all 1D and 2D free energies from TT data");
 }
 
@@ -137,14 +139,22 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   if(every <= 0) {
     error("STRIDE must be positive");
   }
+  parse("PACE", this->pace_);
+  if(this->pace_ <= 0) {
+    error("STRIDE must be positive");
+  }
+  int count = 0;
+  parse("ITER", count);
+  if(count <= 0) {
+    error("ITER must be positive");
+  }
 
   vector<double> cv(this->d_);
   vector<Value> tmpvalues;
-  int nsamples = 0;
   for(unsigned i = 0; i < this->d_; ++i) {
     tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
   }
-  while(true) {
+  for(int nsamples = 0; nsamples <= this->pace_ * count; ++nsamples) {
     double dummy;
     if(ifile.scanField("time", dummy)) {
       for(unsigned i = 0; i < this->d_; ++i) {
@@ -159,14 +169,8 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
     } else {
       break;
     }
-    ++nsamples;
   }
   ifile.close();
-  int count = 0;
-  parse("ITER", count);
-  if(count <= 0) {
-    error("ITER must be positive");
-  }
   
   auto f = h5_open("ttsketch.h5", 'r');
   this->vb_ = h5_read<MPS>(f, "vb_" + to_string(count));
