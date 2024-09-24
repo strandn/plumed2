@@ -40,7 +40,6 @@ private:
   double aca_epsrel_;
   int aca_limit_;
   int aca_key_;
-  // vector<int> whichpos_;
   vector<double> grid_min_;
   vector<double> grid_max_;
   int grid_bin_1d_;
@@ -73,9 +72,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   ActionWithValue::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
   keys.remove("NUMERICAL_DERIVATIVES");
-  // keys.add("compulsory", "ARG", "Positions of arguments that you would like to make the free energy for");
   keys.use("ARG");
-  // keys.add("compulsory", "WHICH", "Arguments that you would like to make the free energy for");
   keys.add("compulsory", "TEMP", "The system temperature");
   keys.add("compulsory", "GRID_MIN", "The minimum to use for the grid");
   keys.add("compulsory", "GRID_MAX", "The maximum to use for the grid");
@@ -89,7 +86,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
   keys.add("compulsory", "STRIDE", "1", "Frequency of reading samples");
-  keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
+  // keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
   keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
   keys.add("compulsory", "ITER", "20", "TT bias update number");
   keys.setValueDescription("Outputs all 1D and 2D free energies from TT data");
@@ -127,48 +124,64 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
     error("GRID_BIN_2D must be positive");
   }
 
-  string filename = "COLVAR";
-  parse("SAMPLEFILE", filename);
-  IFile ifile;
-  if(ifile.FileExist(filename)) {
-    ifile.open(filename);
-  } else {
-    error("The file " + filename + " cannot be found!");
-  }
+  // string filename = "COLVAR";
+  // parse("SAMPLEFILE", filename);
+  // IFile ifile;
+  // if(ifile.FileExist(filename)) {
+  //   ifile.open(filename);
+  // } else {
+  //   error("The file " + filename + " cannot be found!");
+  // }
   int every = 1;
   parse("STRIDE", every);
   if(every <= 0) {
     error("STRIDE must be positive");
   }
 
-  vector<double> cv(this->d_);
-  vector<Value> tmpvalues;
-  int nsamples = 0;
-  for(unsigned i = 0; i < this->d_; ++i) {
-    tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
-  }
-  while(true) {
-    double dummy;
-    if(ifile.scanField("time", dummy)) {
-      for(unsigned i = 0; i < this->d_; ++i) {
-        ifile.scanField(&tmpvalues[i]);
-        cv[i] = tmpvalues[i].get();
-      }
-      if(nsamples % every == 0) {
-        this->samples_.push_back(cv);
-      }
-      ifile.scanField("ttsketch.bias", dummy);
-      ifile.scanField();
-    } else {
-      break;
-    }
-    ++nsamples;
-  }
-  ifile.close();
+  // vector<double> cv(this->d_);
+  // vector<Value> tmpvalues;
+  // int nsamples = 0;
+  // for(unsigned i = 0; i < this->d_; ++i) {
+  //   tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
+  // }
+  // while(true) {
+  //   double dummy;
+  //   if(ifile.scanField("time", dummy)) {
+  //     for(unsigned i = 0; i < this->d_; ++i) {
+  //       ifile.scanField(&tmpvalues[i]);
+  //       cv[i] = tmpvalues[i].get();
+  //     }
+  //     if(nsamples % every == 0) {
+  //       this->samples_.push_back(cv);
+  //     }
+  //     ifile.scanField("ttsketch.bias", dummy);
+  //     ifile.scanField();
+  //   } else {
+  //     break;
+  //   }
+  //   ++nsamples;
+  // }
+  // ifile.close();
   int count = 0;
   parse("ITER", count);
   if(count <= 0) {
     error("ITER must be positive");
+  }
+
+  unsigned nsamples = getPntrToArgument(0)->getNumberOfValues();
+  for(unsigned j = 1; j < this->d_; ++j) {
+    if(nsamples != getPntrToArgument(j)->getNumberOfValues()) {
+      error("Mismatch between numbers of values in input arguments");
+    }
+  }
+  for(unsigned i = 0; i < nsamples; ++i) {
+    if(nsamples % every == 0) {
+      vector<double> cv(this->d_);
+      for(unsigned j = 0; j < this->d_; ++j) {
+        cv[j] = getPntrToArgument(j)->get(i);
+      }
+      this->samples_.push_back(cv);
+    }
   }
   
   auto f = h5_open("ttsketch.h5", 'r');
@@ -222,24 +235,6 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
     pivots.clear();
   }
   J_[0].push_back(vector<double>());
-
-  // vector<string> whichnames;
-  // parseVector("WHICH", whichnames);
-  // if(whichnames.size() > this->d_) {
-  //   error("Number of variables cannot be greater than the number of arguments");
-  // }
-  // for(unsigned i = 0; i < whichnames.size(); ++i) {
-  //   bool found = false;
-  //   for(unsigned j = 0; j < this->d_; ++j) {
-  //     if (whichnames[i] == getPntrToArgument(j)->getName()) {
-  //       found = true;
-  //       this->whichpos_.push_back(j);
-  //     }
-  //   }
-  //   if(!found) {
-  //     error("Variable " + whichnames[i] + " does not match any of the arguments");
-  //   }
-  // }
   parse("FILE", this->filename_);
 
   doTask();
