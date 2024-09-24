@@ -175,7 +175,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
     }
   }
   for(unsigned i = 0; i < nsamples; ++i) {
-    if(nsamples % every == 0) {
+    if(i % every == 0) {
       vector<double> cv(this->d_);
       for(unsigned j = 0; j < this->d_; ++j) {
         cv[j] = getPntrToArgument(j)->get(i);
