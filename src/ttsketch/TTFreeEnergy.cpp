@@ -88,7 +88,7 @@ void TTFreeEnergy::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
   keys.add("compulsory", "STRIDE", "1", "Frequency of reading samples");
   keys.add("compulsory", "SAMPLEFILE", "COLVAR", "Name of the file where samples are stored");
-  keys.add("compulsory", "FILE", "fes", "Name of the file in which to write the free energy");
+  keys.add("compulsory", "FILE", "FES", "Name of the file in which to write the free energy");
   keys.add("compulsory", "ITER", "20", "TT bias update number");
   keys.add("compulsory", "PACE", "Number of samples per TT update");
   keys.setValueDescription("Outputs all 1D and 2D free energies from TT data");
@@ -105,7 +105,6 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   if(this->kbt_ == 0.0) {
     error("You must specify the system temperature using TEMP");
   }
-  cout << this->kbt_ << endl;
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -421,6 +420,7 @@ void TTFreeEnergy::doTask() {
     for(unsigned k = 1; k < this->d_; ++k) {
       grid1d *= i == k ? gridevals_1d[k] : intevals[k];
     }
+    PrintData(grid1d);
     for(int k = 0; k < this->grid_bin_1d_; ++k) {
       file.printField(getPntrToArgument(i), xlist_1d[i][k]);
       file.printField("fes_" + getPntrToArgument(i)->getName(), -this->kbt_ * std::log(grid1d.elt(sites_1d(i + 1) = k + 1)));
@@ -433,14 +433,15 @@ void TTFreeEnergy::doTask() {
       for(unsigned k = 1; k < this->d_; ++k) {
         grid2d *= i == k || j == k ? gridevals_2d[k] : intevals[k];
       }
+      PrintData(grid2d);
       for(int k = 0; k < this->grid_bin_2d_; ++k) {
         for(int l = 0; l < this->grid_bin_2d_; ++l) {
           file.printField(getPntrToArgument(i), xlist_2d[i][l]);
-          file.printField(getPntrToArgument(j), xlist_2d[i][k]);
+          file.printField(getPntrToArgument(j), xlist_2d[j][k]);
           file.printField("fes_" + getPntrToArgument(i)->getName() + "_" +
                           getPntrToArgument(j)->getName(), -this->kbt_ *
-                          std::log(grid2d.elt(sites_1d(i + 1) = l + 1,
-                          sites_1d(j + 1) = k + 1)));
+                          std::log(grid2d.elt(sites_2d(i + 1) = l + 1,
+                          sites_2d(j + 1) = k + 1)));
           file.printField();
         }
       }
