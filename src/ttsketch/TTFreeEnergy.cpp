@@ -213,7 +213,7 @@ double ttfes_f(double x, void* params) {
   return aca_params->instance->f(elements);
 }
 
-void TTFreeEnergy::calculate() override {
+void TTFreeEnergy::calculate() {
   unsigned nsamples = getPntrToArgument(0)->getNumberOfValues();
   for(unsigned j = 1; j < this->d_; ++j) {
     if(nsamples != getPntrToArgument(j)->getNumberOfValues()) {
