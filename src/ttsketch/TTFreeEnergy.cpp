@@ -56,8 +56,8 @@ private:
 public:
   explicit TTFreeEnergy(const ActionOptions&);
   static void registerKeywords(Keywords& keys);
-  void update() override { }
-  void calculate() override;
+  void update() override;
+  void calculate() override { }
   void apply() override { }
   unsigned getNumberOfDerivatives() override { return 0; }
   double f(const std::vector<double>& x) const;
@@ -213,7 +213,7 @@ double ttfes_f(double x, void* params) {
   return aca_params->instance->f(elements);
 }
 
-void TTFreeEnergy::calculate() {
+void TTFreeEnergy::update() {
   unsigned nsamples = getPntrToArgument(0)->getNumberOfValues();
   for(unsigned j = 1; j < this->d_; ++j) {
     if(nsamples != getPntrToArgument(j)->getNumberOfValues()) {
