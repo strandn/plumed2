@@ -514,8 +514,8 @@ void TTFreeEnergy::continuousACA() {
     ++this->pos_;
 
     vector<double> Rk(this->samples_.size());
-    // unsigned nt = OpenMP::getNumThreads();
-    // #pragma omp parallel for num_threads(nt)
+    unsigned nt = OpenMP::getNumThreads();
+    #pragma omp parallel for num_threads(nt)
     for(unsigned i = 0; i < this->samples_.size(); ++i) {
       Rk[i] = f(this->samples_[i]);
     }
