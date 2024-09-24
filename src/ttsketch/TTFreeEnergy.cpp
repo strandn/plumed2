@@ -46,7 +46,7 @@ private:
   int grid_bin_2d_;
   string filename_;
   int pos_;
-  int pace_
+  int pace_;
 
   void doTask();
   void updateIJ(const std::vector<double>& ij);
