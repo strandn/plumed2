@@ -278,8 +278,8 @@ void TTFreeEnergy::doTask() {
   vector<int> ranks(this->d_ - 1);
   log << "Computing marginals...\n";
   log.flush();
+  unsigned nt = OpenMP::getNumThreads();
   gsl_set_error_handler_off();
-  gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
   for(unsigned i = 1; i < this->d_; ++i) {
     ranks[i - 1] = this->I_[i].size();
@@ -295,7 +295,9 @@ void TTFreeEnergy::doTask() {
       intevals[0] = ITensor(prime(l[0]));
       gridevals_1d[0] = ITensor(s1d, prime(l[0]));
       gridevals_2d[0] = ITensor(s2d, prime(l[0]));
+      #pragma omp parallel for num_threads(nt)
       for(int lr = 1; lr <= dim(l[0]); ++lr) {
+        gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
         TTFESParams ttfes_params = { this, 1, 0, lr };
         gsl_function F;
         F.function = &ttfes_f;
@@ -317,12 +319,15 @@ void TTFreeEnergy::doTask() {
           elements.insert(elements.end(), right.begin(), right.end());
           gridevals_2d[0].set(s2d = ss, prime(l[0]) = lr, f(elements));
         }
+        gsl_integration_workspace_free(workspace);
       }
     } else if(ii == this->d_) {
       intevals[this->d_ - 1] = ITensor(l[this->d_ - 2]);
       gridevals_1d[this->d_ - 1] = ITensor(s1d, l[this->d_ - 2]);
       gridevals_2d[this->d_ - 1] = ITensor(s2d, l[this->d_ - 2]);
+      #pragma omp parallel for num_threads(nt)
       for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
+        gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
         TTFESParams aca_params = { this, this->d_, ll, 0 };
         gsl_function F;
         F.function = &ttfes_f;
@@ -344,12 +349,15 @@ void TTFreeEnergy::doTask() {
           elements.insert(elements.begin(), left.begin(), left.end());
           gridevals_2d[this->d_ - 1].set(s2d = ss, l[this->d_ - 2] = ll, f(elements));
         }
+        gsl_integration_workspace_free(workspace);
       }
     } else {
       intevals[ii - 1] = ITensor(l[ii - 2], prime(l[ii - 1]));
       gridevals_1d[ii - 1] = ITensor(s1d, l[ii - 2], prime(l[ii - 1]));
       gridevals_2d[ii - 1] = ITensor(s2d, l[ii - 2], prime(l[ii - 1]));
+      #pragma omp parallel for num_threads(nt)
       for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
+        gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
         for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
           TTFESParams aca_params = { this, ii, ll, lr };
           gsl_function F;
@@ -377,6 +385,7 @@ void TTFreeEnergy::doTask() {
             gridevals_2d[ii - 1].set(s2d = ss, l[ii - 2] = ll, prime(l[ii - 1]) = lr, f(elements));
           }
         }
+        gsl_integration_workspace_free(workspace);
       }
     }
 
@@ -405,7 +414,6 @@ void TTFreeEnergy::doTask() {
     log << "Core " << ii << " done!\n";
     log.flush();
   }
-  gsl_integration_workspace_free(workspace);
 
   OFile file;
   file.link(*this);
@@ -502,7 +510,8 @@ void TTFreeEnergy::continuousACA() {
     ++this->pos_;
 
     vector<double> Rk(this->samples_.size());
-    //TODO: parallelize
+    unsigned nt = OpenMP::getNumThreads();
+    #pragma omp parallel for num_threads(nt)
     for(unsigned i = 0; i < this->samples_.size(); ++i) {
       Rk[i] = f(this->samples_[i]);
     }
