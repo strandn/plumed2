@@ -7,6 +7,7 @@
 #include "core/ActionWithArguments.h"
 #include "tools/Matrix.h"
 #include "tools/File.h"
+#include "tools/OpenMP.h"
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 
