@@ -105,6 +105,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   if(this->kbt_ == 0.0) {
     error("You must specify the system temperature using TEMP");
   }
+  cout << this->kbt_ << endl;
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -276,6 +277,8 @@ void TTFreeEnergy::doTask() {
   vector<ITensor> gridevals_1d(this->d_);
   vector<ITensor> gridevals_2d(this->d_);
   vector<int> ranks(this->d_ - 1);
+  log << "Computing marginals...\n";
+  log.flush();
   gsl_set_error_handler_off();
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(this->aca_n_);
   double result, error;
@@ -305,13 +308,13 @@ void TTFreeEnergy::doTask() {
         intevals[0].set(prime(l[0]) = lr, result);
         for(int ss = 1; ss <= dim(s1d); ++ss) {
           vector<double> elements = { xlist_1d[0][ss - 1] };
-          auto& right = this->J_[ii][lr - 1];
+          auto& right = this->J_[1][lr - 1];
           elements.insert(elements.end(), right.begin(), right.end());
           gridevals_1d[0].set(s1d = ss, prime(l[0]) = lr, f(elements));
         }
         for(int ss = 1; ss <= dim(s2d); ++ss) {
           vector<double> elements = { xlist_2d[0][ss - 1] };
-          auto& right = this->J_[ii][lr - 1];
+          auto& right = this->J_[1][lr - 1];
           elements.insert(elements.end(), right.begin(), right.end());
           gridevals_2d[0].set(s2d = ss, prime(l[0]) = lr, f(elements));
         }
@@ -332,13 +335,13 @@ void TTFreeEnergy::doTask() {
         intevals[this->d_ - 1].set(l[this->d_ - 2] = ll, result);
         for(int ss = 1; ss <= dim(s1d); ++ss) {
           vector<double> elements = { xlist_1d[this->d_  - 1][ss - 1] };
-          auto& left = this->I_[ii - 1][ll - 1];
+          auto& left = this->I_[this->d_ - 1][ll - 1];
           elements.insert(elements.begin(), left.begin(), left.end());
           gridevals_1d[this->d_ - 1].set(s1d = ss, l[this->d_ - 2] = ll, f(elements));
         }
         for(int ss = 1; ss <= dim(s2d); ++ss) {
           vector<double> elements = { xlist_2d[this->d_  - 1][ss - 1] };
-          auto& left = this->I_[ii - 1][ll - 1];
+          auto& left = this->I_[this->d_ - 1][ll - 1];
           elements.insert(elements.begin(), left.begin(), left.end());
           gridevals_2d[this->d_ - 1].set(s2d = ss, l[this->d_ - 2] = ll, f(elements));
         }
@@ -400,6 +403,8 @@ void TTFreeEnergy::doTask() {
       gridevals_1d[ii - 1] *= Ainv;
       gridevals_2d[ii - 1] *= Ainv;
     }
+    log << "Core " << ii << " done!\n";
+    log.flush();
   }
   gsl_integration_workspace_free(workspace);
 
