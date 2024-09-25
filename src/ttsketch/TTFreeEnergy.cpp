@@ -459,7 +459,8 @@ void TTFreeEnergy::doTask() {
 }
 
 double TTFreeEnergy::f(const std::vector<double>& x) const {
-  double bias = max(ttEval(this->vb_, this->basis_, x, false), 0.0);
+  // double bias = max(ttEval(this->vb_, this->basis_, x, false), 0.0);
+  double bias = ttEval(this->vb_, this->basis_, x, false);
   // if(bias == 0.0) {
   //   bias = -5 * this->kbt_;
   // }
