@@ -248,20 +248,21 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, aca_n, aca_epsabs, aca_epsrel, aca_limit, aca_key, !noconv);
 
+  string filename = "COLVAR";
+  parse("FILE", filename);
+  IFile ifile;
+  if(ifile.FileExist(filename)) {
+    ifile.open(filename);
+  } else {
+    error("The file " + filename + " cannot be found!");
+  }
+  int printstride = 100;
+  parse("PRINTSTRIDE", printstride);
+  if(printstride <= 0 || printstride > this->pace_) {
+    error("PRINTSTRIDE must be positive and no greater than PACE");
+  }
+
   if(getRestart()) {
-    string filename = "COLVAR";
-    parse("FILE", filename);
-    IFile ifile;
-    if(ifile.FileExist(filename)) {
-      ifile.open(filename);
-    } else {
-      error("The file " + filename + " cannot be found!");
-    }
-    int printstride = 100;
-    parse("PRINTSTRIDE", printstride);
-    if(printstride <= 0 || printstride > this->pace_) {
-      error("PRINTSTRIDE must be positive and no greater than PACE");
-    }
     int every = this->stride_ / printstride;
 
     vector<double> cv(this->d_);
@@ -287,7 +288,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       ++nsamples;
     }
-    ifile.close();
     // if(nsamples % (this->pace_ / printstride) == 1) {
     //   nsamples -= 2;
     // }
@@ -297,6 +297,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     log << "  restarting from step " << this->count_ << "\n";
     log << "  " << this->samples_.size() << " samples retrieved\n";
   }
+  ifile.close();
 }
 
 void TTSketch::calculate() {
