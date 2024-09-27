@@ -430,7 +430,7 @@ void TTSketch::update() {
     log << "\n";
     log.flush();
 
-    file.close()
+    file.close();
     
     // ofstream file;
     // if(this->count_ == 2) {
