@@ -250,12 +250,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
   string filename = "COLVAR";
   parse("FILE", filename);
-  IFile ifile;
-  if(ifile.FileExist(filename)) {
-    ifile.open(filename);
-  } else {
-    error("The file " + filename + " cannot be found!");
-  }
   int printstride = 100;
   parse("PRINTSTRIDE", printstride);
   if(printstride <= 0 || printstride > this->pace_) {
@@ -263,6 +257,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
 
   if(getRestart()) {
+    IFile ifile;
+    if(ifile.FileExist(filename)) {
+      ifile.open(filename);
+    } else {
+      error("The file " + filename + " cannot be found!");
+    }
     int every = this->stride_ / printstride;
 
     vector<double> cv(this->d_);
