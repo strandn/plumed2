@@ -387,21 +387,21 @@ void TTSketch::update() {
     this->aca_.updateVb(this->samples_);
     this->aca_.writeVb(this->count_);
 
-    ofstream file;
-    file.open("debug.out");
+    // ofstream file;
+    // file.open("debug.out");
 
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);
-    file << "part 1" << endl;
+    // file << "part 1" << endl;
     for(auto& s : this->samples_) {
       vector<double> der(this->d_, 0.0);
-      file << "s " << endl;
-      file << s[0] << " " << s[1] << " " << s[2] << " " << s[3] << endl;
+      // file << "s " << endl;
+      // file << s[0] << " " << s[1] << " " << s[2] << " " << s[3] << endl;
       getBiasAndDerivatives(s, der);
-      file << "der " << endl;
-      file << der[0] << " " << der[1] << " " << der[2] << " " << der[3] << endl;
-      file << "gradtop " << endl;
-      file << gradtop[0] << " " << gradtop[1] << " " << gradtop[2] << " " << gradtop[3] << endl;
+      // file << "der " << endl;
+      // file << der[0] << " " << der[1] << " " << der[2] << " " << der[3] << endl;
+      // file << "gradtop " << endl;
+      // file << gradtop[0] << " " << gradtop[1] << " " << gradtop[2] << " " << gradtop[3] << endl;
       for(unsigned i = 0; i < this->d_; ++i) {
         if(abs(der[i]) > gradtop[i]) {
           gradtop[i] = abs(der[i]);
@@ -410,27 +410,27 @@ void TTSketch::update() {
       }
     }
     log << "\ngradtop ";
-    file << "part 2" << endl;
+    // file << "part 2" << endl;
     for(unsigned i = 0; i < this->d_; ++i) {
       log << gradtop[i] << " ";
-      file << gradtop[i] << " ";
+      // file << gradtop[i] << " ";
     }
     log << "\n";
-    file << endl;
+    // file << endl;
     
-    file << "part 3" << endl;
+    // file << "part 3" << endl;
     for(unsigned i = 0; i < this->d_; ++i) {
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsamples[i][j] << " ";
-        file << topsamples[i][j] << " ";
+        // file << topsamples[i][j] << " ";
       }
       log << "\n";
-      file << endl;
+      // file << endl;
     }
     log << "\n";
     log.flush();
 
-    file.close();
+    // file.close();
     
     // ofstream file;
     // if(this->count_ == 2) {
