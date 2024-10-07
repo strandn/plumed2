@@ -169,14 +169,13 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
         ifile.scanField(&tmpvalues[i]);
         cv[i] = tmpvalues[i].get();
       }
-      while(field_num < field_list.size() - 2) {
-        ifile.scanField(field_list[field_num], dummy);
-        ++field_num;
-      }
       if(nsamples % every == 0) {
         this->samples_.push_back(cv);
       }
-      ifile.scanField("ttsketch.bias", dummy);
+      while(field_num < field_list.size() - 1) {
+        ifile.scanField(field_list[field_num], dummy);
+        ++field_num;
+      }
       ifile.scanField();
     } else {
       break;
