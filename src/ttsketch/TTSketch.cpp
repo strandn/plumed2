@@ -265,6 +265,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     vector<string> field_list;
     ifile.scanFieldList(field_list);
+    for(unsigned i = 0; i < field_list.size(); ++i) {
+      cout << field_list[i] << endl;
+    }
     int every = this->stride_ / printstride;
 
     vector<double> cv(this->d_);
