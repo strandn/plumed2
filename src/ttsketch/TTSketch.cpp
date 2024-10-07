@@ -276,7 +276,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     while(true) {
       double dummy;
       if(ifile.scanField("time", dummy)) {
-        int field_num = 0;
+        unsigned field_num = 0;
         for(unsigned i = 0; i < this->d_; ++i) {
           while(field_list[field_num] != tmpvalues[i].getName()) {
             ifile.scanField(field_list[field_num], dummy);
@@ -284,6 +284,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
           }
           ifile.scanField(&tmpvalues[i]);
           cv[i] = tmpvalues[i].get();
+        }
+        while(field_num < field_list.size() - 2) {
+          ifile.scanField(field_list[field_num], dummy);
+          ++field_num;
         }
         if(nsamples % every == 0) {
           this->samples_.push_back(cv);
