@@ -160,7 +160,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   for(int nsamples = 0; nsamples <= this->pace_ * count; ++nsamples) {
     double dummy;
     if(ifile.scanField("time", dummy)) {
-      unsigned field_num = 0;
+      unsigned field_num = 1;
       for(unsigned i = 0; i < this->d_; ++i) {
         while(field_list[field_num] != tmpvalues[i].getName()) {
           ifile.scanField(field_list[field_num], dummy);
@@ -172,7 +172,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
       if(nsamples % every == 0) {
         this->samples_.push_back(cv);
       }
-      while(field_num < field_list.size() - 1) {
+      while(field_num < field_list.size()) {
         ifile.scanField(field_list[field_num], dummy);
         ++field_num;
       }

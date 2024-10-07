@@ -265,9 +265,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     vector<string> field_list;
     ifile.scanFieldList(field_list);
-    // for(unsigned i = 0; i < field_list.size(); ++i) {
-    //   cout << field_list[i] << endl;
-    // }
     int every = this->stride_ / printstride;
 
     vector<double> cv(this->d_);
@@ -279,7 +276,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     while(true) {
       double dummy;
       if(ifile.scanField("time", dummy)) {
-        unsigned field_num = 0;
+        unsigned field_num = 1;
         for(unsigned i = 0; i < this->d_; ++i) {
           while(field_list[field_num] != tmpvalues[i].getName()) {
             ifile.scanField(field_list[field_num], dummy);
@@ -291,7 +288,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
         if(nsamples % every == 0) {
           this->samples_.push_back(cv);
         }
-        while(field_num < field_list.size() - 1) {
+        while(field_num < field_list.size()) {
           ifile.scanField(field_list[field_num], dummy);
           ++field_num;
         }
