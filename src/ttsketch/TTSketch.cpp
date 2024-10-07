@@ -263,6 +263,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
     } else {
       error("The file " + filename + " cannot be found!");
     }
+    vector<string> field_list;
+    ifile.scanFieldList(field_list);
     int every = this->stride_ / printstride;
 
     vector<double> cv(this->d_);
@@ -274,7 +276,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
     while(true) {
       double dummy;
       if(ifile.scanField("time", dummy)) {
+        int field_num = 0;
         for(unsigned i = 0; i < this->d_; ++i) {
+          while(field_list[field_num] != tmpvalues[i].getName()) {
+            ifile.scanField(field_list[field_num], dummy);
+            ++field_num;
+          }
           ifile.scanField(&tmpvalues[i]);
           cv[i] = tmpvalues[i].get();
         }

@@ -135,6 +135,8 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   } else {
     error("The file " + filename + " cannot be found!");
   }
+  vector<string> field_list;
+  ifile.scanFieldList(field_list);
   int every = 1;
   parse("STRIDE", every);
   if(every <= 0) {
@@ -158,7 +160,12 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   for(int nsamples = 0; nsamples <= this->pace_ * count; ++nsamples) {
     double dummy;
     if(ifile.scanField("time", dummy)) {
+      int field_num = 0;
       for(unsigned i = 0; i < this->d_; ++i) {
+        while(field_list[field_num] != tmpvalues[i].getName()) {
+          ifile.scanField(field_list[field_num], dummy);
+          ++field_num;
+        }
         ifile.scanField(&tmpvalues[i]);
         cv[i] = tmpvalues[i].get();
       }
