@@ -1,3 +1,5 @@
+#ifndef __PLUMED_ttsketch_TTHelper_h
+#define __PLUMED_ttsketch_TTHelper_h
 #include "BasisFunc.h"
 #include "itensor/all.h"
 
@@ -58,3 +60,5 @@ std::vector<double> ttGrad(const itensor::MPS& tt, const std::vector<BasisFunc>&
 
 }
 }
+
+#endif
