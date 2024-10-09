@@ -313,6 +313,17 @@ void TTSketch::update() {
       log << small << " " << large << "\n";
     }
 
+    double hf = 1.0;
+    double vmean = 0.0;
+    if(this->bf_ > 1.0) {
+      vector<double> vlist(N);
+      for(int i = 0; i < N; ++i) {
+        vlist[i] = getBias(this->samples_[i + this->samples_.size() - N]);
+      }
+      vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
+      hf = exp(-vmean / (this->kbt_ * (this->bf_ - 1)));
+    }
+
     log << "\nForming TT-sketch density...\n";
     log.flush();
     paraSketch();
@@ -323,16 +334,6 @@ void TTSketch::update() {
       if(rho > rhomax) {
         rhomax = rho;
       }
-    }
-    double hf = 1.0;
-    double vmean = 0.0;
-    if(this->bf_ > 1.0) {
-      vector<double> vlist(N);
-      for(int i = 0; i < N; ++i) {
-        vlist[i] = getBias(this->samples_[i + this->samples_.size() - N]);
-      }
-      vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
-      hf = exp(-vmean / (this->kbt_ * (this->bf_ - 1)));
     }
     this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
 
