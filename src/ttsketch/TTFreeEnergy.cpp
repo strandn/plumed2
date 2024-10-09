@@ -184,7 +184,7 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   
   auto f = h5_open("ttsketch.h5", 'r');
   for(int i = 1; i <= count; ++i) {
-    this->ttList_.push_back(h5_read<MPS>(f, "tt_" + to_string(i)))
+    this->ttList_.push_back(h5_read<MPS>(f, "tt_" + to_string(i)));
   }
   close(f);
   this->n_ = dim(siteIndex(this->ttList_.front(), 1));
@@ -470,7 +470,7 @@ void TTFreeEnergy::doTask() {
 double TTFreeEnergy::f(const std::vector<double>& x) const {
   double bias = 0.0;
   for(auto& tt : this->ttList_) {
-    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, true), 1.0));
+    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, x, true), 1.0));
   }
   return bias == 0.0 ? 0.0 : exp(bias / this->kbt_);
 }

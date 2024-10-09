@@ -5,14 +5,14 @@ namespace PLMD {
 namespace ttsketch {
 
 void ttWrite(const itensor::MPS& tt, unsigned count) {
-  auto f = count == 2 ? h5_open("ttsketch.h5", 'w') : h5_open("ttsketch.h5", 'a');
-  h5_write(f, "tt_" + to_string(count - 1), tt);
+  auto f = count == 2 ? itensor::h5_open("ttsketch.h5", 'w') : itensor::h5_open("ttsketch.h5", 'a');
+  itensor::h5_write(f, "tt_" + std::to_string(count - 1), tt);
   close(f);
 }
 
 itensor::MPS ttRead(unsigned count) {
-  auto f = h5_open("ttsketch.h5", 'r');
-  auto tt = h5_read<itensor::MPS>(f, "tt_" + to_string(count - 1));
+  auto f = itensor::h5_open("ttsketch.h5", 'r');
+  auto tt = itensor::h5_read<itensor::MPS>(f, "tt_" + std::to_string(count - 1));
   close(f);
   return tt;
 }

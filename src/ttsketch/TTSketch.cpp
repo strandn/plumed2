@@ -358,7 +358,7 @@ void TTSketch::update() {
     if(this->bf_ > 1.0) {
       log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
     }
-    log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n\n";
+    log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n\n";
 
     ttWrite(this->ttList_.back(), this->count_);
 
