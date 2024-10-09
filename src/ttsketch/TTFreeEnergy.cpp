@@ -1,5 +1,4 @@
-#include "BasisFunc.h"
-#include "TTCross.h"
+#include "TTHelper.h"
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
 #include "core/PlumedMain.h"
@@ -23,7 +22,7 @@ class TTFreeEnergy :
 {
   
 private:
-  MPS vb_;
+  vector<MPS> ttList_;
   vector<BasisFunc> basis_;
   vector<vector<double>> samples_;
   double kbt_;
@@ -184,10 +183,12 @@ TTFreeEnergy::TTFreeEnergy(const ActionOptions& ao) :
   ifile.close();
   
   auto f = h5_open("ttsketch.h5", 'r');
-  this->vb_ = h5_read<MPS>(f, "vb_" + to_string(count));
+  for(int i = 1; i <= count; ++i) {
+    this->ttList_.push_back(h5_read<MPS>(f, "tt_" + to_string(i)))
+  }
   close(f);
-  this->n_ = dim(siteIndex(this->vb_, 1));
-  log << "  read TT from ttsketch.h5/vb_" << count << "\n";
+  this->n_ = dim(siteIndex(this->ttList_.front(), 1));
+  log << "  read " << count << " TTs from ttsketch.h5\n";
   log << "  " << this->samples_.size() << " samples retrieved\n";
 
   for(unsigned i = 0; i < this->d_; ++i) {
@@ -439,7 +440,6 @@ void TTFreeEnergy::doTask() {
     for(unsigned k = 1; k < this->d_; ++k) {
       grid1d *= i == k ? gridevals_1d[k] : intevals[k];
     }
-    // PrintData(grid1d);
     for(int k = 0; k < this->grid_bin_1d_; ++k) {
       file.printField(getPntrToArgument(i), xlist_1d[i][k]);
       file.printField("fes_" + getPntrToArgument(i)->getName(), -this->kbt_ * std::log(grid1d.elt(sites_1d(i + 1) = k + 1)));
@@ -452,7 +452,6 @@ void TTFreeEnergy::doTask() {
       for(unsigned k = 1; k < this->d_; ++k) {
         grid2d *= i == k || j == k ? gridevals_2d[k] : intevals[k];
       }
-      // PrintData(grid2d);
       for(int k = 0; k < this->grid_bin_2d_; ++k) {
         for(int l = 0; l < this->grid_bin_2d_; ++l) {
           file.printField(getPntrToArgument(i), xlist_2d[i][l]);
@@ -469,11 +468,10 @@ void TTFreeEnergy::doTask() {
 }
 
 double TTFreeEnergy::f(const std::vector<double>& x) const {
-  double bias = max(ttEval(this->vb_, this->basis_, x, false), 0.0);
-  // double bias = ttEval(this->vb_, this->basis_, x, false);
-  // if(bias == 0.0) {
-  //   bias = -5 * this->kbt_;
-  // }
+  double bias = 0.0;
+  for(auto& tt : this->ttList_) {
+    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, true), 1.0));
+  }
   return bias == 0.0 ? 0.0 : exp(bias / this->kbt_);
 }
 

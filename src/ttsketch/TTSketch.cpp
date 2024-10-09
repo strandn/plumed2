@@ -1,5 +1,4 @@
-#include "BasisFunc.h"
-#include "TTCross.h"
+#include "TTHelper.h"
 #include "bias/Bias.h"
 #include "core/ActionRegister.h"
 #include "core/ActionSet.h"
@@ -27,8 +26,7 @@ private:
   int pace_;
   int stride_;
   unsigned d_;
-  MPS rho_;
-  TTCross aca_;
+  vector<MPS> ttList_;
   vector<BasisFunc> basis_;
   vector<vector<double>> samples_;
   double vmax_;
@@ -38,6 +36,7 @@ private:
   unsigned count_;
   double bf_;
   bool conv_;
+  double vshift_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -80,13 +79,6 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("compulsory", "LAMBDA", "100.0", "Ratio of largest to smallest allowed density magnitudes");
   keys.add("optional", "BIASFACTOR", "For well-tempering");
-  keys.add("compulsory", "ACA_CUTOFF", "0.05", "Convergence threshold for TT-cross calculations");
-  keys.add("compulsory", "ACA_RANK", "30", "Largest possible rank for TT-cross calculations");
-  keys.add("compulsory", "ACA_N", "10000000", "Size of integration workspace");
-  keys.add("compulsory", "ACA_EPSABS", "1.0e-8", "Absolute error limit for integration");
-  keys.add("compulsory", "ACA_EPSREL", "1.0e-6", "Relative error limit for integration");
-  keys.add("compulsory", "ACA_LIMIT", "10000000", "Maximum number of subintervals for integration");
-  keys.add("compulsory", "ACA_KEY", "6", "Integration rule");
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
@@ -101,7 +93,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   isFirstStep_(true),
   count_(1),
   bf_(1.0),
-  conv_(true)
+  conv_(true),
+  vshift_(0.0)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
@@ -211,43 +204,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   this->conv_ = !noconv;
 
-  int aca_rank = 30;
-  parse("ACA_RANK", aca_rank);
-  if(aca_rank <= 0) {
-    error("ACA_RANK must be positive");
-  }
-  double aca_cutoff = 0.05;
-  parse("ACA_CUTOFF", aca_cutoff);
-  if(aca_cutoff <= 0.0 || aca_cutoff > 1.0) {
-    error("ACA_CUTOFF must be between 0 and 1");
-  }
-  int aca_n = 10000000;
-  parse("ACA_N", aca_n);
-  if(aca_n <= 0) {
-    error("ACA_N must be positive");
-  }
-  double aca_epsabs = 1.0e-8;
-  parse("ACA_EPSABS", aca_epsabs);
-  if(aca_epsabs < 0.0) {
-    error("ACA_EPSABS must be nonnegative");
-  }
-  double aca_epsrel = 1.0e-6;
-  parse("ACA_EPSREL", aca_epsrel);
-  if(aca_epsrel <= 0.0) {
-    error("ACA_EPSREL must be positive");
-  }
-  int aca_limit = 10000000;
-  parse("ACA_LIMIT", aca_limit);
-  if(aca_limit <= 0 || aca_limit > aca_n) {
-    error("ACA_LIMIT must be no positive and no greater than ACA_N");
-  }
-  int aca_key = 6;
-  parse("ACA_KEY", aca_key);
-  if(aca_key < 1 || aca_key > 6) {
-    error("ACA_KEY must be between 1 and 6");
-  }
-  this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, aca_n, aca_epsabs, aca_epsrel, aca_limit, aca_key, !noconv);
-
   string filename = "COLVAR";
   parse("FILE", filename);
   int printstride = 100;
@@ -298,12 +254,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       ++nsamples;
     }
-    // if(nsamples % (this->pace_ / printstride) == 1) {
-    //   nsamples -= 2;
-    // }
     this->count_ = nsamples * printstride / this->pace_ + 1;
     
-    this->aca_.readVb(this->count_);
+    for(unsigned i = 2; i <= this->count_; ++i) {
+      this->ttList_.push_back(ttRead(i));
+    }
     log << "  restarting from step " << this->count_ << "\n";
     log << "  " << this->samples_.size() << " samples retrieved\n";
     ifile.close();
@@ -363,14 +318,12 @@ void TTSketch::update() {
     paraSketch();
 
     double rhomax = 0.0;
-    //TODO: parallelize
     for(auto& s : this->samples_) {
-      double rho = ttEval(this->rho_, this->basis_, s, this->conv_);
+      double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
       if(rho > rhomax) {
         rhomax = rho;
       }
     }
-    //TODO: figure out if arithmetic or geometric mean
     double hf = 1.0;
     double vmean = 0.0;
     if(this->bf_ > 1.0) {
@@ -381,37 +334,18 @@ void TTSketch::update() {
       vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
       hf = exp(-vmean / (this->kbt_ * (this->bf_ - 1)));
     }
-    this->rho_ *= pow(this->lambda_, hf) / rhomax;
-    this->aca_.updateG(this->rho_);
+    this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
 
-    this->aca_.updateVshift(0.0);
-    double vpeak = this->aca_.vtop(this->samples_);
-    double vshift = max(vpeak - this->vmax_, 0.0);
-    this->aca_.updateVshift(vshift);
-    log << "\n";
-    if(this->bf_ > 1.0) {
-      log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
-    }
-    log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n\n";
-
-    this->aca_.updateVb(this->samples_);
-    this->aca_.writeVb(this->count_);
-
-    // ofstream file;
-    // file.open("debug.out");
-
+    this->vshift_ = 0.0;
+    double vpeak = 0.0;
     vector<double> gradtop(this->d_, 0.0);
     vector<vector<double>> topsamples(this->d_);
-    // file << "part 1" << endl;
     for(auto& s : this->samples_) {
       vector<double> der(this->d_, 0.0);
-      // file << "s " << endl;
-      // file << s[0] << " " << s[1] << " " << s[2] << " " << s[3] << endl;
-      getBiasAndDerivatives(s, der);
-      // file << "der " << endl;
-      // file << der[0] << " " << der[1] << " " << der[2] << " " << der[3] << endl;
-      // file << "gradtop " << endl;
-      // file << gradtop[0] << " " << gradtop[1] << " " << gradtop[2] << " " << gradtop[3] << endl;
+      double bias = getBiasAndDerivatives(s, der);
+      if(bias > vpeak) {
+        vpeak = bias;
+      }
       for(unsigned i = 0; i < this->d_; ++i) {
         if(abs(der[i]) > gradtop[i]) {
           gradtop[i] = abs(der[i]);
@@ -419,43 +353,44 @@ void TTSketch::update() {
         }
       }
     }
-    log << "\ngradtop ";
-    // file << "part 2" << endl;
+    this->vshift_ = max(vpeak - this->vmax_, 0.0);
+    log << "\n";
+    if(this->bf_ > 1.0) {
+      log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
+    }
+    log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n\n";
+
+    ttWrite(this->ttList_.back(), this->count_);
+
+    log << "gradtop ";
     for(unsigned i = 0; i < this->d_; ++i) {
       log << gradtop[i] << " ";
-      // file << gradtop[i] << " ";
     }
     log << "\n";
-    // file << endl;
     
-    // file << "part 3" << endl;
     for(unsigned i = 0; i < this->d_; ++i) {
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsamples[i][j] << " ";
-        // file << topsamples[i][j] << " ";
       }
       log << "\n";
-      // file << endl;
     }
     log << "\n";
     log.flush();
-
-    // file.close();
     
-    // ofstream file;
-    // if(this->count_ == 2) {
-    //   file.open("F.txt");
-    // } else {
-    //   file.open("F.txt", ios_base::app);
-    // }
-    // for(int i = 0; i < 100; ++i) {
-    //   double x = -M_PI + 2 * i * M_PI / 100;
-    //   for(int j = 0; j < 100; ++j) {
-    //     double y = -M_PI + 2 * j * M_PI / 100;
-    //     file << x << " " << y << " " << max(ttEval(this->aca_.vb(), this->basis_, { x, y }, false), 0.0) << endl;
-    //   }
-    // }
-    // file.close();
+    ofstream file;
+    if(this->count_ == 2) {
+      file.open("F.txt");
+    } else {
+      file.open("F.txt", ios_base::app);
+    }
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ x, y }) << endl;
+      }
+    }
+    file.close();
   }
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
@@ -465,25 +400,33 @@ void TTSketch::update() {
 
 double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
   double bias = getBias(cv);
-  if(bias > 0.0) {
-    der = ttGrad(this->aca_.vb(), this->basis_, cv, this->conv_);
+  if(bias == 0.0) {
+    return 0.0;
+  }
+  for(auto& tt : this->ttList_) {
+    double rho = ttEval(tt, this->basis_, cv, this->conv_);
+    if(rho > 1.0) {
+      auto deri = ttGrad(tt, this->basis_, cv, this->conv_);
+      transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, this->kbt_ / rho));
+      transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
+    }
   }
   return bias;
 }
 
 double TTSketch::getBias(const vector<double>& cv) {
-  if(length(this->aca_.vb()) == 0) {
-    return 0.0;
+  double bias = 0.0;
+  for(auto& tt : this->ttList_) {
+    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
   }
-  return max(ttEval(this->aca_.vb(), this->basis_, cv, this->conv_), 0.0);
+  return max(bias - this->vshift_, 0.0);
 }
 
 void TTSketch::paraSketch() {
   int N = this->pace_ / this->stride_;
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
-  auto& G = this->rho_;
-  G = MPS(this->d_);
+  auto G = MPS(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
   auto links = linkInds(coeff);
@@ -540,6 +483,7 @@ void TTSketch::paraSketch() {
   log << "\n";
   log.flush();
 
+  this->ttList_.push_back(G);
   ++this->count_;
 }
 
