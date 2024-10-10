@@ -6,14 +6,14 @@ using namespace itensor;
 namespace PLMD {
 namespace ttsketch {
 
-void ttWrite(const MPS& tt, unsigned count) {
-  auto f = count == 2 ? h5_open("ttsketch.h5", 'w') : h5_open("ttsketch.h5", 'a');
+void ttWrite(const string& filename, const MPS& tt, unsigned count) {
+  auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
   h5_write(f, "tt_" + to_string(count - 1), tt);
   close(f);
 }
 
-MPS ttRead(unsigned count) {
-  auto f = h5_open("ttsketch.h5", 'r');
+MPS ttRead(const string& filename, unsigned count) {
+  auto f = h5_open(filename, 'r');
   auto tt = h5_read<MPS>(f, "tt_" + to_string(count - 1));
   close(f);
   return tt;

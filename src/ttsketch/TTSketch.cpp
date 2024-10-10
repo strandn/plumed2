@@ -29,6 +29,7 @@ private:
   vector<MPS> ttList_;
   vector<BasisFunc> basis_;
   vector<vector<double>> samples_;
+  vector<double> traj_;
   double vmax_;
   double alpha_;
   double lambda_;
@@ -37,6 +38,9 @@ private:
   double bf_;
   bool conv_;
   double vshift_;
+  bool walkers_mpi_;
+  int mpi_size_;
+  int mpi_rank_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -58,7 +62,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
   keys.addFlag("NOCONV", false, "Specifies that densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
-  // keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
+  keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
@@ -94,12 +98,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
   count_(1),
   bf_(1.0),
   conv_(true),
-  vshift_(0.0)
+  vshift_(0.0),
+  walkers_mpi_(false),
+  mpi_size_(0),
+  mpi_rank_(0)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
-  // bool walkers_mpi = false;
-  // parseFlag("WALKERS_MPI", walkers_mpi);
+  parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parse("RANK", this->r_);
   parse("CUTOFF", this->cutoff_);
   if(this->r_ <= 0 && (this->cutoff_ <= 0.0 || this->cutoff_ > 1.0)) {
@@ -256,12 +262,21 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     this->count_ = nsamples * printstride / this->pace_ + 1;
     
+    string ttfilename = "ttsketch.h5";
+    if(this->walkers_mpi_) {
+      ttfilename = "../" + ttfilename;
+    }
     for(unsigned i = 2; i <= this->count_; ++i) {
-      this->ttList_.push_back(ttRead(i));
+      this->ttList_.push_back(ttRead(ttfilename, i));
     }
     log << "  restarting from step " << this->count_ << "\n";
     log << "  " << this->samples_.size() << " samples retrieved\n";
     ifile.close();
+  }
+
+  if(this->walkers_mpi_) {
+    this->mpi_size_ = multi_sim_comm.Get_size();
+    this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
 }
 
@@ -280,9 +295,28 @@ void TTSketch::calculate() {
 }
 
 void TTSketch::update() {
+  int adjpace = this->walkers_mpi_ ? ceil((double)this->pace_ / this->mpi_size_) : this->pace_;
   bool nowAddATT;
-  if(getStep() % this->pace_ == 0 && !this->isFirstStep_) {
+  if(getStep() % adjpace == 0 && !this->isFirstStep_) {
     nowAddATT = true;
+    if(this->walkers_mpi_) {
+      vector<double> all_traj(this->mpi_size_ * this->traj_.size() * this->d_, 0.0);
+      multi_sim_comm.Allgather(this->traj_, all_traj);
+      if(this->mpi_rank_ == 0) {
+        for(int i = 0; i < this->mpi_size_; ++i) {
+          for(unsigned j = 0; j < this->traj_.size(); ++j) {
+            vector<double> step(all_traj.begin() + (i * this->traj_.size() + j) * this->d_,
+                           all_traj.begin() + (i * this->traj_.size() + j + 1) * this->d_ - 1);
+            this->samples_.push_back(step);
+          }
+        }
+      }
+    } else {
+      for(auto& step : this->traj_) {
+        this->samples_.push_back(step);
+      }
+    }
+    this->traj_.clear();
   } else {
     nowAddATT = false;
     this->isFirstStep_ = false;
@@ -293,105 +327,120 @@ void TTSketch::update() {
     cv[i] = getArgument(i);
   }
   if(getStep() % this->stride_ == 0) {
-    this->samples_.push_back(cv);
+    this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
   }
 
   if(nowAddATT) {
-    int N = this->pace_ / this->stride_;
-    log << "Sample limits\n";
-    for(unsigned i = 0; i < this->d_; ++i) {
-      auto [large, small] = this->basis_[i].dom();
-      for(int j = 0; j < N; ++j) {
-        int jadj = j + this->samples_.size() - N;
-        if(this->samples_[jadj][i] > large) {
-          large = this->samples_[jadj][i];
-        }
-        if(this->samples_[jadj][i] < small) {
-          small = this->samples_[jadj][i];
-        }
-      }
-      log << small << " " << large << "\n";
-    }
-
-    double hf = 1.0;
-    double vmean = 0.0;
-    if(this->bf_ > 1.0) {
-      vector<double> vlist(N);
-      for(int i = 0; i < N; ++i) {
-        vlist[i] = getBias(this->samples_[i + this->samples_.size() - N]);
-      }
-      vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
-      hf = exp(-vmean / (this->kbt_ * (this->bf_ - 1)));
-    }
-
-    log << "\nForming TT-sketch density...\n";
-    log.flush();
-    paraSketch();
-
-    double rhomax = 0.0;
-    for(auto& s : this->samples_) {
-      double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
-      if(rho > rhomax) {
-        rhomax = rho;
-      }
-    }
-    this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
-
-    this->vshift_ = 0.0;
-    double vpeak = 0.0;
-    vector<double> gradtop(this->d_, 0.0);
-    vector<vector<double>> topsamples(this->d_);
-    for(auto& s : this->samples_) {
-      vector<double> der(this->d_, 0.0);
-      double bias = getBiasAndDerivatives(s, der);
-      if(bias > vpeak) {
-        vpeak = bias;
-      }
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      cout << this->samples_.size() << endl;
+      int N = this->pace_ / this->stride_;
+      log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
-        if(abs(der[i]) > gradtop[i]) {
-          gradtop[i] = abs(der[i]);
-          topsamples[i] = s;
+        auto [large, small] = this->basis_[i].dom();
+        for(int j = 0; j < N; ++j) {
+          int jadj = j + this->samples_.size() - N;
+          if(this->samples_[jadj][i] > large) {
+            large = this->samples_[jadj][i];
+          }
+          if(this->samples_[jadj][i] < small) {
+            small = this->samples_[jadj][i];
+          }
+        }
+        log << small << " " << large << "\n";
+      }
+
+      double hf = 1.0;
+      double vmean = 0.0;
+      if(this->bf_ > 1.0) {
+        vector<double> vlist(N);
+        for(int i = 0; i < N; ++i) {
+          vlist[i] = getBias(this->samples_[i + this->samples_.size() - N]);
+        }
+        vmean = accumulate(vlist.begin(), vlist.end(), 0.0) / N;
+        hf = exp(-vmean / (this->kbt_ * (this->bf_ - 1)));
+      }
+
+      log << "\nForming TT-sketch density...\n";
+      log.flush();
+      paraSketch();
+
+      double rhomax = 0.0;
+      for(auto& s : this->samples_) {
+        double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
+        if(rho > rhomax) {
+          rhomax = rho;
         }
       }
-    }
-    this->vshift_ = max(vpeak - this->vmax_, 0.0);
-    log << "\n";
-    if(this->bf_ > 1.0) {
-      log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
-    }
-    log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n\n";
+      this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
 
-    ttWrite(this->ttList_.back(), this->count_);
+      this->vshift_ = 0.0;
+      double vpeak = 0.0;
+      vector<double> gradtop(this->d_, 0.0);
+      vector<vector<double>> topsamples(this->d_);
+      for(auto& s : this->samples_) {
+        vector<double> der(this->d_, 0.0);
+        double bias = getBiasAndDerivatives(s, der);
+        if(bias > vpeak) {
+          vpeak = bias;
+        }
+        for(unsigned i = 0; i < this->d_; ++i) {
+          if(abs(der[i]) > gradtop[i]) {
+            gradtop[i] = abs(der[i]);
+            topsamples[i] = s;
+          }
+        }
+      }
+      this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      log << "\n";
+      if(this->bf_ > 1.0) {
+        log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
+      }
+      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n\n";
 
-    log << "gradtop ";
-    for(unsigned i = 0; i < this->d_; ++i) {
-      log << gradtop[i] << " ";
-    }
-    log << "\n";
-    
-    for(unsigned i = 0; i < this->d_; ++i) {
-      for(unsigned j = 0; j < this->d_; ++j) {
-        log << topsamples[i][j] << " ";
+      string ttfilename = "ttsketch.h5";
+      if(this->walkers_mpi_) {
+        ttfilename = "../" + ttfilename;
+      }
+      ttWrite(ttfilename, this->ttList_.back(), this->count_);
+
+      log << "gradtop ";
+      for(unsigned i = 0; i < this->d_; ++i) {
+        log << gradtop[i] << " ";
       }
       log << "\n";
+      
+      for(unsigned i = 0; i < this->d_; ++i) {
+        for(unsigned j = 0; j < this->d_; ++j) {
+          log << topsamples[i][j] << " ";
+        }
+        log << "\n";
+      }
+      log << "\n";
+      log.flush();
+      
+      ofstream file;
+      if(this->count_ == 2) {
+        file.open("F.txt");
+      } else {
+        file.open("F.txt", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ x, y }) << endl;
+        }
+      }
+      file.close();
     }
-    log << "\n";
-    log.flush();
-    
-    ofstream file;
-    if(this->count_ == 2) {
-      file.open("F.txt");
-    } else {
-      file.open("F.txt", ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ x, y }) << endl;
+
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Bcast(this->count_, 0);
+      multi_sim_comm.Bcast(this->vshift_, 0);
+      if(this->mpi_rank_ != 0) {
+        this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
       }
     }
-    file.close();
   }
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";

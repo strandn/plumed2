@@ -470,7 +470,7 @@ void TTFreeEnergy::doTask() {
 double TTFreeEnergy::f(const std::vector<double>& x) const {
   double bias = 0.0;
   for(auto& tt : this->ttList_) {
-    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, x, true), 1.0));
+    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, x, false), 1.0));
   }
   return bias == 0.0 ? 0.0 : exp(bias / this->kbt_);
 }
