@@ -218,49 +218,61 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("PRINTSTRIDE must be positive and no greater than PACE");
   }
 
-  if(getRestart()) {
-    IFile ifile;
-    if(ifile.FileExist(filename)) {
-      ifile.open(filename);
-    } else {
-      error("The file " + filename + " cannot be found!");
-    }
-    vector<string> field_list;
-    ifile.scanFieldList(field_list);
-    int every = this->stride_ / printstride;
+  if(this->walkers_mpi_) {
+    this->mpi_size_ = multi_sim_comm.Get_size();
+    this->mpi_rank_ = multi_sim_comm.Get_rank();
+  }
 
-    vector<double> cv(this->d_);
-    vector<Value> tmpvalues;
-    int nsamples = 0;
-    for(unsigned i = 0; i < this->d_; ++i) {
-      tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
-    }
-    while(true) {
-      double dummy;
-      if(ifile.scanField("time", dummy)) {
-        unsigned field_num = 1;
-        for(unsigned i = 0; i < this->d_; ++i) {
-          while(field_list[field_num] != tmpvalues[i].getName()) {
+  if(getRestart()) {
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      IFile ifile;
+      if(ifile.FileExist(filename)) {
+        ifile.open(filename);
+      } else {
+        error("The file " + filename + " cannot be found!");
+      }
+      vector<string> field_list;
+      ifile.scanFieldList(field_list);
+      int every = this->stride_ / printstride;
+
+      vector<double> cv(this->d_);
+      vector<Value> tmpvalues;
+      int nsamples = 0;
+      for(unsigned i = 0; i < this->d_; ++i) {
+        tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
+      }
+      while(true) {
+        double dummy;
+        if(ifile.scanField("time", dummy)) {
+          unsigned field_num = 1;
+          for(unsigned i = 0; i < this->d_; ++i) {
+            while(field_list[field_num] != tmpvalues[i].getName()) {
+              ifile.scanField(field_list[field_num], dummy);
+              ++field_num;
+            }
+            ifile.scanField(&tmpvalues[i]);
+            cv[i] = tmpvalues[i].get();
+          }
+          if(nsamples % every == 0) {
+            this->samples_.push_back(cv);
+          }
+          while(field_num < field_list.size()) {
             ifile.scanField(field_list[field_num], dummy);
             ++field_num;
           }
-          ifile.scanField(&tmpvalues[i]);
-          cv[i] = tmpvalues[i].get();
+          ifile.scanField();
+        } else {
+          break;
         }
-        if(nsamples % every == 0) {
-          this->samples_.push_back(cv);
-        }
-        while(field_num < field_list.size()) {
-          ifile.scanField(field_list[field_num], dummy);
-          ++field_num;
-        }
-        ifile.scanField();
-      } else {
-        break;
+        ++nsamples;
       }
-      ++nsamples;
+      this->count_ = nsamples * printstride / this->pace_ + 1;
+      ifile.close();
     }
-    this->count_ = nsamples * printstride / this->pace_ + 1;
+
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Bcast(this->count_, 0);
+    }
     
     string ttfilename = "ttsketch.h5";
     if(this->walkers_mpi_) {
@@ -269,14 +281,28 @@ TTSketch::TTSketch(const ActionOptions& ao):
     for(unsigned i = 2; i <= this->count_; ++i) {
       this->ttList_.push_back(ttRead(ttfilename, i));
     }
-    log << "  restarting from step " << this->count_ << "\n";
-    log << "  " << this->samples_.size() << " samples retrieved\n";
-    ifile.close();
-  }
 
-  if(this->walkers_mpi_) {
-    this->mpi_size_ = multi_sim_comm.Get_size();
-    this->mpi_rank_ = multi_sim_comm.Get_rank();
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      double vpeak = 0.0;
+      for(auto& s : this->samples_) {
+        double bias = getBias(s);
+        if(bias > vpeak) {
+          vpeak = bias;
+        }
+      }
+      this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+    }
+
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Bcast(this->vshift_, 0);
+    }
+
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      log << "  restarting from step " << this->count_ << "\n";
+      log << "  " << this->samples_.size() << " samples retrieved\n";
+    }
+
   }
 }
 
