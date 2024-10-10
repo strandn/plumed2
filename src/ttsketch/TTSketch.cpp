@@ -312,8 +312,8 @@ void TTSketch::update() {
         }
       }
     } else {
-      for(auto& step : this->traj_) {
-        this->samples_.push_back(step);
+      for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
+        this->samples_.push_back(vector<double>(this->traj_.begin() + i, this->traj_.begin() + i + this->d_ - 1));
       }
     }
     this->traj_.clear();
