@@ -334,6 +334,10 @@ void TTSketch::update() {
             vector<double> step(all_traj.begin() + (i * this->traj_.size() + j) * this->d_,
                            all_traj.begin() + (i * this->traj_.size() + j + 1) * this->d_ - 1);
             this->samples_.push_back(step);
+            for(unsigned k = 0; k < this->d_; ++k) {
+              cout << step[k] << " ";
+            }
+            cout << endl;
           }
         }
       }
