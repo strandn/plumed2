@@ -336,7 +336,7 @@ void TTSketch::update() {
         for(int i = 0; i < this->mpi_size_; ++i) {
           for(unsigned j = 0; j < this->traj_.size(); ++j) {
             vector<double> step(all_traj.begin() + (i * this->traj_.size() + j) * this->d_,
-                                all_traj.begin() + (i * this->traj_.size() + j + 1) * this->d_ - 1);
+                                all_traj.begin() + (i * this->traj_.size() + j + 1) * this->d_);
             this->samples_.push_back(step);
             // for(unsigned k = 0; k < this->d_; ++k) {
             //   cout << step[k] << " ";
@@ -347,7 +347,7 @@ void TTSketch::update() {
       }
     } else {
       for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
-        this->samples_.push_back(vector<double>(this->traj_.begin() + i, this->traj_.begin() + i + this->d_ - 1));
+        this->samples_.push_back(vector<double>(this->traj_.begin() + i, this->traj_.begin() + i + this->d_));
       }
     }
     this->traj_.clear();
