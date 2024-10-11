@@ -328,20 +328,12 @@ void TTSketch::update() {
     if(this->walkers_mpi_) {
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
-      // for(double val : all_traj) {
-      //   cout << val << endl;
-      // }
-      // cout << endl;
       if(this->mpi_rank_ == 0) {
         for(int i = 0; i < this->mpi_size_; ++i) {
           for(unsigned j = 0; j < this->traj_.size() / this->d_; ++j) {
             vector<double> step(all_traj.begin() + i * this->traj_.size() + j * this->d_,
                                 all_traj.begin() + i * this->traj_.size() + (j + 1) * this->d_);
             this->samples_.push_back(step);
-            for(unsigned k = 0; k < this->d_; ++k) {
-              cout << step[k] << " ";
-            }
-            cout << endl;
           }
         }
       }
@@ -366,7 +358,6 @@ void TTSketch::update() {
 
   if(nowAddATT) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      cout << this->samples_.size() << endl;
       int N = this->pace_ / this->stride_;
       log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
@@ -476,7 +467,7 @@ void TTSketch::update() {
       }
     }
   }
-  if(getStep() % this->pace_ == 1) {
+  if(getStep() % adjpace == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
   }
