@@ -331,10 +331,10 @@ void TTSketch::update() {
       // for(double val : all_traj) {
       //   cout << val << endl;
       // }
-      cout << endl;
+      // cout << endl;
       if(this->mpi_rank_ == 0) {
         for(int i = 0; i < this->mpi_size_; ++i) {
-          for(unsigned j = 0; j < this->traj_.size(); ++j) {
+          for(unsigned j = 0; j < this->traj_.size() / this->d_; ++j) {
             vector<double> step(all_traj.begin() + (i * this->traj_.size() + j) * this->d_,
                                 all_traj.begin() + (i * this->traj_.size() + j + 1) * this->d_);
             this->samples_.push_back(step);
