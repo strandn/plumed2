@@ -332,7 +332,7 @@ void TTSketch::update() {
         }
         cout << endl;
       }
-      vector<double> all_traj(this->mpi_size_ * this->traj_.size() * this->d_, 0.0);
+      vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
       if(this->mpi_rank_ == 0) {
         for(int i = 0; i < this->mpi_size_; ++i) {
