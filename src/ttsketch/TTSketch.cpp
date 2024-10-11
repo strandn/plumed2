@@ -326,6 +326,12 @@ void TTSketch::update() {
   if(getStep() % adjpace == 0 && !this->isFirstStep_) {
     nowAddATT = true;
     if(this->walkers_mpi_) {
+      if(this->mpi_rank_ == 0) {
+        for(double val : this->traj_) {
+          cout << val << " ";
+        }
+        cout << endl;
+      }
       vector<double> all_traj(this->mpi_size_ * this->traj_.size() * this->d_, 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
       if(this->mpi_rank_ == 0) {
@@ -335,9 +341,7 @@ void TTSketch::update() {
                            all_traj.begin() + (i * this->traj_.size() + j + 1) * this->d_ - 1);
             this->samples_.push_back(step);
             for(unsigned k = 0; k < this->d_; ++k) {
-              cout << step[k] << " ";
             }
-            cout << endl;
           }
         }
       }
