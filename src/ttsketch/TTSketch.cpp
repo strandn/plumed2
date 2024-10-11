@@ -450,6 +450,7 @@ void TTSketch::update() {
       log.flush();
       
       log << "part 3\n"; // remove this
+      log.flush(); // remove this
       ofstream file;
       if(this->count_ == 2) {
         file.open("F.txt");
@@ -462,12 +463,14 @@ void TTSketch::update() {
           double y = -M_PI + 2 * j * M_PI / 100;
           file << x << " " << y << " " << getBias({ x, y }) << endl;
           log << x << " " << y << " " << getBias({ x, y }) << "\n"; // remove this
+          log.flush(); // remove this
         }
       }
       file.close();
     }
 
     log << "part 4\n"; // remove this
+    log.flush(); // remove this
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
