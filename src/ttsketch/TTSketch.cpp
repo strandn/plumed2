@@ -467,7 +467,6 @@ void TTSketch::update() {
       file.close();
     }
 
-    cout << "part 4" << endl;
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
