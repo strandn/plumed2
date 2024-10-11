@@ -429,27 +429,27 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       log << "gradtop ";
-      cout << "part 1" << endl;
+      log << "part 1\n"; // remove this
+      log.flush(); // remove this
       for(unsigned i = 0; i < this->d_; ++i) {
         log << gradtop[i] << " ";
-        cout << gradtop[i] << " ";
       }
       log << "\n";
-      cout << endl;
+      log.flush(); // remove this
       
-      cout << "part 2" << endl;
+      log << "part 2\n"; // remove this
+      log.flush(); // remove this
       for(unsigned i = 0; i < this->d_; ++i) {
         for(unsigned j = 0; j < this->d_; ++j) {
           log << topsamples[i][j] << " ";
-          cout << topsamples[i][j] << " ";
         }
         log << "\n";
-        cout << endl;
+        log.flush(); // remove this
       }
       log << "\n";
       log.flush();
       
-      cout << "part 3" << endl;
+      log << "part 3\n"; // remove this
       ofstream file;
       if(this->count_ == 2) {
         file.open("F.txt");
@@ -461,12 +461,13 @@ void TTSketch::update() {
         for(int j = 0; j < 100; ++j) {
           double y = -M_PI + 2 * j * M_PI / 100;
           file << x << " " << y << " " << getBias({ x, y }) << endl;
-          cout << x << " " << y << " " << getBias({ x, y }) << endl;
+          log << x << " " << y << " " << getBias({ x, y }) << "\n"; // remove this
         }
       }
       file.close();
     }
 
+    log << "part 4\n"; // remove this
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
