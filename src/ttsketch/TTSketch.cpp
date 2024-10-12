@@ -432,14 +432,18 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       log << "gradtop ";
+      log.flush(); // remove this
       for(unsigned i = 0; i < this->d_; ++i) {
         log << gradtop[i] << " ";
+        log.flush(); // remove this
       }
       log << "\n";
+      log.flush(); // remove this
       
       for(unsigned i = 0; i < this->d_; ++i) {
         for(unsigned j = 0; j < this->d_; ++j) {
           log << topsamples[i][j] << " ";
+          log.flush(); // remove this
         }
         log << "\n";
       }
