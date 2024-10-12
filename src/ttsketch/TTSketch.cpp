@@ -421,6 +421,7 @@ void TTSketch::update() {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
       }
       log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n\n";
+      log.flush();
 
       string ttfilename = "ttsketch.h5";
       if(this->walkers_mpi_) {
@@ -429,28 +430,20 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       log << "gradtop ";
-      log << "part 1\n"; // remove this
-      log.flush(); // remove this
       for(unsigned i = 0; i < this->d_; ++i) {
         log << gradtop[i] << " ";
       }
       log << "\n";
-      log.flush(); // remove this
       
-      log << "part 2\n"; // remove this
-      log.flush(); // remove this
       for(unsigned i = 0; i < this->d_; ++i) {
         for(unsigned j = 0; j < this->d_; ++j) {
           log << topsamples[i][j] << " ";
         }
         log << "\n";
-        log.flush(); // remove this
       }
       log << "\n";
       log.flush();
       
-      log << "part 3\n"; // remove this
-      log.flush(); // remove this
       ofstream file;
       if(this->count_ == 2) {
         file.open("F.txt");
@@ -462,20 +455,20 @@ void TTSketch::update() {
         for(int j = 0; j < 100; ++j) {
           double y = -M_PI + 2 * j * M_PI / 100;
           file << x << " " << y << " " << getBias({ x, y }) << endl;
-          log << x << " " << y << " " << getBias({ x, y }) << "\n"; // remove this
-          log.flush(); // remove this
         }
       }
       file.close();
     }
 
-    log << "part 4\n"; // remove this
-    log.flush(); // remove this
     if(this->walkers_mpi_) {
+      cout << 1 << endl;
       multi_sim_comm.Bcast(this->count_, 0);
+      cout << 2 << endl;
       multi_sim_comm.Bcast(this->vshift_, 0);
+      cout << 3 << endl;
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+        cout << 4 << endl;
       }
     }
   }
