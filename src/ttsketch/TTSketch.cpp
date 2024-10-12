@@ -429,7 +429,11 @@ void TTSketch::update() {
       if(this->walkers_mpi_) {
         ttfilename = "../" + ttfilename;
       }
+      log << "before writing\n"; // remove this
+      log.flush(); // remove this
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
+      log << "after writing\n"; // remove this
+      log.flush(); // remove this
 
       log << "gradtop ";
       log.flush(); // remove this
