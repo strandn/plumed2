@@ -7,9 +7,13 @@ namespace PLMD {
 namespace ttsketch {
 
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
+  cout << count << endl;
   auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
+  cout << "before" << endl;
   h5_write(f, "tt_" + to_string(count - 1), tt);
+  cout << "after" << endl;
   close(f);
+  cout << "after after" << endl;
 }
 
 MPS ttRead(const string& filename, unsigned count) {

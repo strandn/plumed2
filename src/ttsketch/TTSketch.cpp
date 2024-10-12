@@ -326,8 +326,6 @@ void TTSketch::update() {
   if(getStep() % adjpace == 0 && !this->isFirstStep_) {
     nowAddATT = true;
     if(this->walkers_mpi_) {
-      log << "Size before " << this->traj_.size() << " " << this->samples_.size() << " " << this->ttList_.size() << "\n"; // remove this
-      log.flush(); // remove this
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
       if(this->mpi_rank_ == 0) {
@@ -429,25 +427,17 @@ void TTSketch::update() {
       if(this->walkers_mpi_) {
         ttfilename = "../" + ttfilename;
       }
-      log << "before writing\n"; // remove this
-      log.flush(); // remove this
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
-      log << "after writing\n"; // remove this
-      log.flush(); // remove this
 
       log << "gradtop ";
-      log.flush(); // remove this
       for(unsigned i = 0; i < this->d_; ++i) {
         log << gradtop[i] << " ";
-        log.flush(); // remove this
       }
       log << "\n";
-      log.flush(); // remove this
       
       for(unsigned i = 0; i < this->d_; ++i) {
         for(unsigned j = 0; j < this->d_; ++j) {
           log << topsamples[i][j] << " ";
-          log.flush(); // remove this
         }
         log << "\n";
       }
@@ -471,20 +461,10 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
-      log << "Size after " << this->traj_.size() << " " << this->samples_.size() << " " << this->ttList_.size() << "\n"; // remove this
-      log << 1 << "\n"; // remove this
-      log.flush(); // remove this
       multi_sim_comm.Bcast(this->count_, 0);
-      log << 2 << "\n"; // remove this
-      log.flush(); // remove this
       multi_sim_comm.Bcast(this->vshift_, 0);
-      log << 3 << "\n"; // remove this
-      log.flush(); // remove this
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-        log << "Size after after " << this->traj_.size() << " " << this->samples_.size() << " " << this->ttList_.size() << "\n"; // remove this
-        log << 4 << "\n"; // remove this
-        log.flush(); // remove this
       }
     }
   }
