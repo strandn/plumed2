@@ -326,6 +326,8 @@ void TTSketch::update() {
   if(getStep() % adjpace == 0 && !this->isFirstStep_) {
     nowAddATT = true;
     if(this->walkers_mpi_) {
+      log << "Size before " << this->traj_.size() << " " << this->samples_.size() << " " << this->ttList_.size() << "\n"; // remove this
+      log.flush(); // remove this
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
       if(this->mpi_rank_ == 0) {
@@ -461,14 +463,20 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
-      cout << 1 << endl;
+      log << "Size after " << this->traj_.size() << " " << this->samples_.size() << " " << this->ttList_.size() << "\n"; // remove this
+      log << 1 << "\n"; // remove this
+      log.flush(); // remove this
       multi_sim_comm.Bcast(this->count_, 0);
-      cout << 2 << endl;
+      log << 2 << "\n"; // remove this
+      log.flush(); // remove this
       multi_sim_comm.Bcast(this->vshift_, 0);
-      cout << 3 << endl;
+      log << 3 << "\n"; // remove this
+      log.flush(); // remove this
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-        cout << 4 << endl;
+        log << "Size after after " << this->traj_.size() << " " << this->samples_.size() << " " << this->ttList_.size() << "\n"; // remove this
+        log << 4 << "\n"; // remove this
+        log.flush(); // remove this
       }
     }
   }
