@@ -463,8 +463,12 @@ void TTSketch::update() {
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
-      if(this->mpi_rank_ != 0) {
-        this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+      multi_sim_comm.Barrier();
+      for (int rank = 1; rank < this->mpi_size_; ++rank) {
+        if (this->mpi_rank_ == rank) {
+          this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+        }
+        multi_sim_comm.Barrier();
       }
     }
   }
