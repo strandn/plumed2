@@ -482,9 +482,18 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
+      ofstream file;
+      if(count == 2) {
+        file.open("debug.out");
+      } else {
+        file.open("debug.out", ios_base::app);
+      }
+      file << "Rank " << this->mpi_rank_ << " reached the barrier before file operations." << endl;
+      multi_sim_comm.Barrier();
+      file << "Rank " << this->mpi_rank_ << " passed the barrier." << endl;
+      file.close();
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
-      multi_sim_comm.Barrier();
     //   for(int rank = 1; rank < this->mpi_size_; ++rank) {
     //     if(this->mpi_rank_ == rank) {
     //       this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
