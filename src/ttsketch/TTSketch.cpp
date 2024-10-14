@@ -486,7 +486,7 @@ void TTSketch::update() {
         ++this->count_;
       }
       ofstream file;
-      if(count == 2) {
+      if(this->count_ == 2) {
         file.open("debug.out");
       } else {
         file.open("debug.out", ios_base::app);
