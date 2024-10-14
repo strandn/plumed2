@@ -447,7 +447,7 @@ void TTSketch::update() {
       }
       file << this->count_ << endl;
       file << "before" << endl;
-      // ttWrite(ttfilename, this->ttList_.back(), this->count_);
+      ttWrite(ttfilename, this->ttList_.back(), this->count_);
       file << "after" << endl;
 
       log << "gradtop ";
