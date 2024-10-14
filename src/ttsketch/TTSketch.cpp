@@ -482,6 +482,9 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
+      if(this->mpi_rank_ != 0) {
+        ++this->count_;
+      }
       ofstream file;
       if(count == 2) {
         file.open("debug.out");
@@ -492,7 +495,7 @@ void TTSketch::update() {
       multi_sim_comm.Barrier();
       file << "Rank " << this->mpi_rank_ << " passed the barrier." << endl;
       file.close();
-      multi_sim_comm.Bcast(this->count_, 0);
+      // multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
     //   for(int rank = 1; rank < this->mpi_size_; ++rank) {
     //     if(this->mpi_rank_ == rank) {
