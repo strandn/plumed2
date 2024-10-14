@@ -311,6 +311,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
 
   }
+  if (this->mpi_rank_ == 0) {
+    printf("Attach debugger to process %d\n", getpid());
+    fflush(stdout);
+    sleep(30);  // Wait for you to attach the debugger
+  }
 }
 
 void TTSketch::calculate() {
