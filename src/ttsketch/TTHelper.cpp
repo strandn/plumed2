@@ -7,13 +7,13 @@ namespace PLMD {
 namespace ttsketch {
 
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
+  ofstream file;
+  if(count == 2) {
+    file.open("debug.out");
+  } else {
+    file.open("debug.out", ios_base::app);
+  }
   try {
-    ofstream file;
-    if(count == 2) {
-      file.open("debug.out");
-    } else {
-      file.open("debug.out", ios_base::app);
-    }
     file << count << endl;
     auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
     file << "before" << endl;
