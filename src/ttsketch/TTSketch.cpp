@@ -491,7 +491,7 @@ void TTSketch::update() {
     //     }
     //     multi_sim_comm.Barrier();
     //   }
-    // }
+    }
   }
   if(getStep() % adjpace == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
