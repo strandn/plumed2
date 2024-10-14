@@ -7,25 +7,10 @@ namespace PLMD {
 namespace ttsketch {
 
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
-  ofstream file;
-  if(count == 2) {
-    file.open("debug.out");
-  } else {
-    file.open("debug.out", ios_base::app);
-  }
-  try {
-    file << count << endl;
-    auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
-    file << "before" << endl;
-    h5_write(f, "tt_" + to_string(count - 1), tt);
-    file << "after" << endl;
-    close(f);
-    file << "after after" << endl;
-    file.close();
-  } catch(const std::exception& e) {
-    file << "Exception caught: " << e.what() << endl;
-    file.close();
-  }
+  auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
+  h5_write(f, "tt_" + to_string(count - 1), tt);
+  close(f);
+  file.close();
 }
 
 MPS ttRead(const string& filename, unsigned count) {
