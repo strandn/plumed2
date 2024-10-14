@@ -447,7 +447,7 @@ void TTSketch::update() {
       }
       file << this->count_ << endl;
       file << "before" << endl;
-      ttWrite(ttfilename, this->ttList_.back(), this->count_);
+      // ttWrite(ttfilename, this->ttList_.back(), this->count_);
       file << "after" << endl;
 
       log << "gradtop ";
@@ -485,13 +485,13 @@ void TTSketch::update() {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
       multi_sim_comm.Barrier();
-      for(int rank = 1; rank < this->mpi_size_; ++rank) {
-        if(this->mpi_rank_ == rank) {
-          this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-        }
-        multi_sim_comm.Barrier();
-      }
-    }
+    //   for(int rank = 1; rank < this->mpi_size_; ++rank) {
+    //     if(this->mpi_rank_ == rank) {
+    //       this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+    //     }
+    //     multi_sim_comm.Barrier();
+    //   }
+    // }
   }
   if(getStep() % adjpace == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
