@@ -15,10 +15,13 @@ void ttWrite(const string& filename, const MPS& tt, unsigned count) {
   }
   file << "Starting ttWrite, count = " << count << endl;
   auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
+  PrintData(tt);
   file << "File opened: " << filename << endl;
   h5_write(f, "tt_" + to_string(count - 1), tt);
+  PrintData(tt);
   file << "Data written, count = " << count << endl;
   close(f);
+  PrintData(tt);
   file << "File closed" << endl;
   file.close();
 }
