@@ -8,15 +8,23 @@ namespace ttsketch {
 
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
   try {
-    cerr << count << endl;
+    ofstream file;
+    if(this->count_ == 2) {
+      file.open("debug.out");
+    } else {
+      file.open("debug.out", ios_base::app);
+    }
+    file << count << endl;
     auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
-    cerr << "before" << endl;
+    file << "before" << endl;
     h5_write(f, "tt_" + to_string(count - 1), tt);
-    cerr << "after" << endl;
+    file << "after" << endl;
     close(f);
-    cerr << "after after" << endl;
+    file << "after after" << endl;
+    file.close();
   } catch(const std::exception& e) {
-    cerr << "Exception caught: " << e.what() << endl;
+    file << "Exception caught: " << e.what() << endl;
+    file.close();
   }
 }
 
