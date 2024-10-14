@@ -312,8 +312,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
   }
   if (this->mpi_rank_ == 0) {
-    printf("Attach debugger to process %d\n", getpid());
-    fflush(stdout);
+    log << "Attach debugger to process " << getpid() << "\n";
+    log.flush();
     sleep(30);  // Wait for you to attach the debugger
   }
 }
