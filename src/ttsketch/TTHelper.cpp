@@ -9,7 +9,7 @@ namespace ttsketch {
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
   try {
     ofstream file;
-    if(this->count_ == 2) {
+    if(count == 2) {
       file.open("debug.out");
     } else {
       file.open("debug.out", ios_base::app);
