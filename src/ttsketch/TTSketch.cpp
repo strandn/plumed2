@@ -436,9 +436,9 @@ void TTSketch::update() {
       log.flush();
 
       string ttfilename = "ttsketch.h5";
-      if(this->walkers_mpi_) {
-        ttfilename = "../" + ttfilename;
-      }
+      // if(this->walkers_mpi_) {
+      //   ttfilename = "../" + ttfilename;
+      // }
       ofstream file;
       if(this->count_ == 2) {
         file.open("F.txt");
