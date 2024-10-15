@@ -274,19 +274,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
       multi_sim_comm.Bcast(this->count_, 0);
     }
     
+    string ttfilename = "ttsketch.h5";
     if(this->walkers_mpi_) {
-      for(int rank = 0; rank < this->mpi_size_; ++rank) {
-        if(this->mpi_rank_ == rank) {
-          for(unsigned i = 2; i <= this->count_; ++i) {
-            this->ttList_.push_back(ttRead("../ttsketch.h5", i));
-          }
-        }
-        multi_sim_comm.Barrier();
-      }
-    } else {
-      for(unsigned i = 2; i <= this->count_; ++i) {
-        this->ttList_.push_back(ttRead("ttsketch.h5", i));
-      }
+      ttfilename = "../" + ttfilename;
+    }
+    for(unsigned i = 2; i <= this->count_; ++i) {
+      this->ttList_.push_back(ttRead("ttsketch.h5", i));
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -470,12 +463,8 @@ void TTSketch::update() {
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
-      multi_sim_comm.Barrier();
-      for(int rank = 1; rank < this->mpi_size_; ++rank) {
-        if(this->mpi_rank_ == rank) {
-          this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-        }
-        multi_sim_comm.Barrier();
+      if(this->mpi_rank_ != 0) {
+        this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
       }
     }
   }
