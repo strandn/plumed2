@@ -434,16 +434,7 @@ void TTSketch::update() {
       if(this->walkers_mpi_) {
         ttfilename = "../" + ttfilename;
       }
-      ofstream file;
-      if(this->count_ == 2) {
-        file.open("F.txt");
-      } else {
-        file.open("F.txt", ios_base::app);
-      }
-      file << this->count_ << endl;
-      file << "before" << endl;
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
-      file << "after" << endl;
 
       log << "gradtop ";
       for(unsigned i = 0; i < this->d_; ++i) {
@@ -460,12 +451,12 @@ void TTSketch::update() {
       log << "\n";
       log.flush();
       
-      // ofstream file;
-      // if(this->count_ == 2) {
-      //   file.open("F.txt");
-      // } else {
-      //   file.open("F.txt", ios_base::app);
-      // }
+      ofstream file;
+      if(this->count_ == 2) {
+        file.open("F.txt");
+      } else {
+        file.open("F.txt", ios_base::app);
+      }
       for(int i = 0; i < 100; ++i) {
         double x = -M_PI + 2 * i * M_PI / 100;
         for(int j = 0; j < 100; ++j) {
@@ -477,27 +468,15 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
-      if(this->mpi_rank_ != 0) {
-        ++this->count_;
-      }
-      ofstream file;
-      if(this->count_ == 2) {
-        file.open("debug.out");
-      } else {
-        file.open("debug.out", ios_base::app);
-      }
-      file << "Rank " << this->mpi_rank_ << " reached the barrier before file operations." << endl;
-      multi_sim_comm.Barrier();
-      file << "Rank " << this->mpi_rank_ << " passed the barrier." << endl;
-      file.close();
-      // multi_sim_comm.Bcast(this->count_, 0);
+      multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
-    //   for(int rank = 1; rank < this->mpi_size_; ++rank) {
-    //     if(this->mpi_rank_ == rank) {
-    //       this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-    //     }
-    //     multi_sim_comm.Barrier();
-    //   }
+      multi_sim_comm.Barrier();
+      for(int rank = 1; rank < this->mpi_size_; ++rank) {
+        if(this->mpi_rank_ == rank) {
+          this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+        }
+        multi_sim_comm.Barrier();
+      }
     }
   }
   if(getStep() % adjpace == 1) {

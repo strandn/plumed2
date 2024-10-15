@@ -15,7 +15,7 @@ void ttWrite(const string& filename, const MPS& tt, unsigned count) {
 MPS ttRead(const string& filename, unsigned count) {
   auto f = h5_open(filename, 'r');
   auto tt = h5_read<MPS>(f, "tt_" + to_string(count - 1));
-  close(f);
+  // close(f);
   return tt;
 }
 
