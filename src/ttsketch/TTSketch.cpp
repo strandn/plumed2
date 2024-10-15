@@ -444,20 +444,20 @@ void TTSketch::update() {
       log << "\n";
       log.flush();
       
-      ofstream file;
-      if(this->count_ == 2) {
-        file.open("F.txt");
-      } else {
-        file.open("F.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y }) << endl;
-        }
-      }
-      file.close();
+      // ofstream file;
+      // if(this->count_ == 2) {
+      //   file.open("F.txt");
+      // } else {
+      //   file.open("F.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 100; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 100;
+      //   for(int j = 0; j < 100; ++j) {
+      //     double y = -M_PI + 2 * j * M_PI / 100;
+      //     file << x << " " << y << " " << getBias({ x, y }) << endl;
+      //   }
+      // }
+      // file.close();
     }
 
     if(this->walkers_mpi_) {
