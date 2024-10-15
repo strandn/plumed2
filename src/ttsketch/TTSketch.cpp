@@ -311,11 +311,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
 
   }
-  if (this->mpi_rank_ == 0) {
-    log << "Attach debugger to process " << getpid() << "\n";
-    log.flush();
-    sleep(30);  // Wait for you to attach the debugger
-  }
 }
 
 void TTSketch::calculate() {
@@ -436,9 +431,9 @@ void TTSketch::update() {
       log.flush();
 
       string ttfilename = "ttsketch.h5";
-      // if(this->walkers_mpi_) {
-      //   ttfilename = "../" + ttfilename;
-      // }
+      if(this->walkers_mpi_) {
+        ttfilename = "../" + ttfilename;
+      }
       ofstream file;
       if(this->count_ == 2) {
         file.open("F.txt");
