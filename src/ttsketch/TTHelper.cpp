@@ -8,8 +8,8 @@ namespace ttsketch {
 
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
   auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
-  // h5_write(f, "tt_" + to_string(count - 1), tt);
-  close(f);
+  h5_write(f, "tt_" + to_string(count - 1), tt);
+  // close(f);
 }
 
 MPS ttRead(const string& filename, unsigned count) {
