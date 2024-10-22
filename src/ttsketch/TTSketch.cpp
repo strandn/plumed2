@@ -279,7 +279,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       ttfilename = "../" + ttfilename;
     }
     for(unsigned i = 2; i <= this->count_; ++i) {
-      this->ttList_.push_back(ttRead("ttsketch.h5", i));
+      this->ttList_.push_back(ttRead(ttfilename, i));
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
