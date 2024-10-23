@@ -106,6 +106,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   bool noconv = false;
   parseFlag("NOCONV", noconv);
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
+  this->d_ = getNumberOfArguments();
+  if(this->d_ < 2) {
+    error("Number of arguments must be at least 2");
+  }
   parse("RANK", this->r_);
   parse("CUTOFF", this->cutoff_);
   if(this->r_ <= 0 && (this->cutoff_ <= 0.0 || this->cutoff_ > 1.0)) {
@@ -126,10 +130,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(!noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
-  double w = 0.1;
-  parse("WIDTH", w);
-  if(!noconv && w <= 0.0) {
-    error("Gaussian smoothing requires positive WIDTH");
+  vector<double> w;
+  parseVector("WIDTH", w);
+  if(w.size() != this->d_) {
+    error("Number of arguments does not match number of WIDTH parameters");
   }
   int conv_n = 10000000;
   parse("CONV_N", conv_n);
@@ -168,10 +172,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->stride_ <= 0 || this->stride_ > this->pace_) {
     error("SAMPLESTRIDE must be positive and no greater than PACE");
   }
-  this->d_ = getNumberOfArguments();
-  if(this->d_ < 2) {
-    error("Number of arguments must be at least 2");
-  }
   vector<double> interval_min;
   parseVector("INTERVAL_MIN", interval_min);
   if(interval_min.size() != this->d_) {
@@ -200,11 +200,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("LAMBDA must be greater than 1");
   }
   for(unsigned i = 0; i < this->d_; ++i) {
+    if(!noconv && w[i] <= 0.0) {
+      error("Gaussian smoothing requires positive WIDTH");
+    }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
     this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
-                                         nbasis, !noconv, nbins, w, conv_n,
+                                         nbasis, !noconv, nbins, w[i], conv_n,
                                          conv_epsabs, conv_epsrel, conv_limit,
                                          conv_key));
   }
