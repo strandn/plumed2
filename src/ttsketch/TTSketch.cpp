@@ -41,6 +41,7 @@ private:
   bool walkers_mpi_;
   int mpi_size_;
   int mpi_rank_;
+  double adj_vmax_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -86,6 +87,8 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
+  keys.addOutputComponent("adjbias", "default", "Bias potential shifted down");
+  keys.add("optional", "ADJ_VMAX", "Max adjusted Vbias");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -101,7 +104,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   walkers_mpi_(false),
   mpi_size_(0),
-  mpi_rank_(0)
+  mpi_rank_(0),
+  adj_vmax_(0.0)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
@@ -305,8 +309,15 @@ TTSketch::TTSketch(const ActionOptions& ao):
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
     }
-
   }
+  parse("ADJ_VMAX", this->adj_vmax_);
+  if(this->adj_vmax_ == 0.0) {
+    this->adj_vmax_ = this->vmax_;
+  } else if(this->adj_vmax_ < 0.0 || this->adj_vmax_ > this->vmax_) {
+    error("ADJ_VMAX must be nonnegative and no greater than VMAX");
+  }
+  addComponent("adjbias");
+  componentIsNotPeriodic("adjbias");
 }
 
 void TTSketch::calculate() {
@@ -321,6 +332,8 @@ void TTSketch::calculate() {
   for(unsigned i = 0; i < this->d_; ++i) {
     setOutputForce(i, -der[i]);
   }
+
+  getPntrToComponent("adjbias")->set(max(ene - this->vmax_ + this->adj_vmax_, 0.0));
 }
 
 void TTSketch::update() {
