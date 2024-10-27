@@ -418,7 +418,7 @@ void TTSketch::update() {
       }
       this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
 
-      this->vshift_ = this->adj_vshift_ 0.0;
+      this->vshift_ = this->adj_vshift_ = 0.0;
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
       vector<vector<double>> topsamples(this->d_);
