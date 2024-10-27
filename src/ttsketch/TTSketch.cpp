@@ -42,9 +42,11 @@ private:
   int mpi_size_;
   int mpi_rank_;
   double adj_vmax_;
+  double adj_vshift_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
+  double getAdjBias(const vector<double>& cv);
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -105,7 +107,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   walkers_mpi_(false),
   mpi_size_(0),
   mpi_rank_(0),
-  adj_vmax_(0.0)
+  adj_vmax_(0.0),
+  adj_vshift_(0.0)
 {
   bool noconv = false;
   parseFlag("NOCONV", noconv);
@@ -299,6 +302,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
       log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+      this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
     }
 
     if(this->walkers_mpi_) {
@@ -333,7 +337,7 @@ void TTSketch::calculate() {
     setOutputForce(i, -der[i]);
   }
 
-  getPntrToComponent("adjbias")->set(max(ene - this->vmax_ + this->adj_vmax_, 0.0));
+  getPntrToComponent("adjbias")->set(getAdjBias(cv));
 }
 
 void TTSketch::update() {
@@ -512,6 +516,14 @@ double TTSketch::getBias(const vector<double>& cv) {
     bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
   }
   return max(bias - this->vshift_, 0.0);
+}
+
+double TTSketch::getAdjBias(const vector<double>& cv) {
+  double bias = 0.0;
+  for(auto& tt : this->ttList_) {
+    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
+  }
+  return max(bias - this->adj_vshift_, 0.0);
 }
 
 void TTSketch::paraSketch() {
