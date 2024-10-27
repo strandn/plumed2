@@ -233,6 +233,17 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
 
+  parse("ADJ_VMAX", this->adj_vmax_);
+  if(this->adj_vmax_ == 0.0) {
+    this->adj_vmax_ = this->vmax_;
+  } else if(this->adj_vmax_ < 0.0 || this->adj_vmax_ > this->vmax_) {
+    error("ADJ_VMAX must be nonnegative and no greater than VMAX");
+  } else {
+    this->adj_vmax_ *= this->kbt_;
+  }
+  addComponent("adjbias");
+  componentIsNotPeriodic("adjbias");
+
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       IFile ifile;
@@ -314,14 +325,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
       log << "  " << this->samples_.size() << " samples retrieved\n";
     }
   }
-  parse("ADJ_VMAX", this->adj_vmax_);
-  if(this->adj_vmax_ == 0.0) {
-    this->adj_vmax_ = this->vmax_;
-  } else if(this->adj_vmax_ < 0.0 || this->adj_vmax_ > this->vmax_) {
-    error("ADJ_VMAX must be nonnegative and no greater than VMAX");
-  }
-  addComponent("adjbias");
-  componentIsNotPeriodic("adjbias");
 }
 
 void TTSketch::calculate() {
