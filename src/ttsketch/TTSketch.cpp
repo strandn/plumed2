@@ -301,8 +301,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
       this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
+      log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
     }
 
     if(this->walkers_mpi_) {
@@ -418,7 +418,7 @@ void TTSketch::update() {
       }
       this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
 
-      this->vshift_ = 0.0;
+      this->vshift_ = this->adj_vshift_ 0.0;
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
       vector<vector<double>> topsamples(this->d_);
@@ -436,6 +436,7 @@ void TTSketch::update() {
         }
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
       log << "\n";
       if(this->bf_ > 1.0) {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
