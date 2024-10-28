@@ -318,6 +318,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->vshift_, 0);
+      multi_sim_comm.Bcast(this->adj_vshift_, 0);
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -487,6 +488,7 @@ void TTSketch::update() {
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
+      multi_sim_comm.Bcast(this->adj_vshift_, 0);
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
       }
