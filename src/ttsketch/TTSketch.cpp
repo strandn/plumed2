@@ -609,7 +609,7 @@ void TTSketch::paraSketch() {
     cout << "1 6" << endl;
   }
 
-  G.ref(1) = Bemp(1) * V[1];
+  G.ref(1) = Bemp(1) * V[0];
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
     cout << "2 1" << endl;
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
@@ -631,7 +631,10 @@ void TTSketch::paraSketch() {
       }
     }
     cout << "2 4" << endl;
-    G.ref(core_id) = Pinv * Bemp(core_id) * V[core_id];
+    PrintData(Pinv);
+    PrintData(Bemp(core_id));
+    PrintData(V[core_id - 1]);
+    G.ref(core_id) = Pinv * Bemp(core_id) * V[core_id - 1];
   }
   cout << 3 << endl;
 
