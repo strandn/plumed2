@@ -422,7 +422,9 @@ void TTSketch::update() {
           int jadj = j + this->samples_.size() - N;
           muhat[k] += this->samples_[jadj][k] / N;
         }
+        cout << muhat[k] << " ";
       }
+      cout << endl;
       for(unsigned k = 0; k < this->d_; ++k) {
         for(unsigned l = k; l < this->d_; ++l) {
           sigmahat(k, l) = sigmahat(l, k) = 0.0;

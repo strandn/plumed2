@@ -86,6 +86,7 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       eiival *= rho(i) * (k == i ? basis_int2[i - 1] : basis_int0[i - 1]);
     }
     ei[k - 1] = elt(eival);
+    cout << ei[k - 1] << " ";
     eii[k - 1] = elt(eiival);
     for(int l = k + 1; l <= d; ++l) {
       auto eijval = rho(1) * (k == 1 ? basis_int1[0] : basis_int0[0]);
@@ -94,6 +95,7 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       }
       eij[k - 1][l - 1] = elt(eijval);
     }
+    cout << endl;
   }
   Matrix<double> sigma(d, d);
   for(int k = 1; k <= d; ++k) {
