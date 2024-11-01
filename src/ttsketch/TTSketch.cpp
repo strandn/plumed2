@@ -622,10 +622,10 @@ void TTSketch::paraSketch() {
         AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
-    matrixOut(cout, AMat);
+    matrixOut(log, AMat);
     cout << "2 2" << endl;
     pseudoInvert(AMat, PMat);
-    matrixOut(cout, PMat);
+    matrixOut(log, PMat);
     cout << "2 3" << endl;
 
     for(int i = 1; i <= rank_trimmed; ++i) {
