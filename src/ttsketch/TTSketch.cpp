@@ -413,6 +413,35 @@ void TTSketch::update() {
       log.flush();
       paraSketch();
 
+      log << "\nComputing empirical covariance matrix...\n";
+      Matrix<double> sigmahat(this->d_, this->d_);
+      vector<double> muhat(this->d_, 0.0);
+      for(unsigned k = 0; k < this->d_; ++k) {
+        for(int j = 0; j < N; ++j) {
+          int jadj = j + this->samples_.size() - N;
+          muhat[k] += this->samples_[jadj][k] / N;
+        }
+      }
+      for(unsigned k = 0; k < this->d_; ++k) {
+        for(unsigned l = k; l < this->d_; ++l) {
+          sigmahat(k, l) = sigmahat(l, k) = 0.0;
+          for(int j = 0; j < N; ++j) {
+            int jadj = j + this->samples_.size() - N;
+            sigmahat(k, l) += (this->samples_[jadj][k] - muhat[k]) * (this->samples_[jadj][l] - muhat[l]) / (N - 1);
+            sigmahat(l, k) += (this->samples_[jadj][k] - muhat[k]) * (this->samples_[jadj][l] - muhat[l]) / (N - 1);
+          }
+        }
+      }
+      matrixOut(log, sigmahat);
+      log << "Computing estimated covariance matrix...\n";
+      auto sigma = covMat(this->ttList_.back(), this->basis_);
+      matrixOut(log, sigma);
+      log << "sigma-sigmahat:\n";
+      auto diff = sigma;
+      diff -= sigmahat;
+      matrixOut(log, diff);
+      log << "|sigma-sigmahat| = " << norm(diff.getVector()) << "\n";
+
       double rhomax = 0.0;
       for(auto& s : this->samples_) {
         double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
@@ -537,8 +566,8 @@ void TTSketch::paraSketch() {
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
   auto links = linkInds(coeff);
-  vector<ITensor> V(this->d_);
-  G.ref(1) = Bemp(1);
+  vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
+  vector<Index> links_trimmed;
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
     int rank = dim(links(core_id - 1));
     Matrix<double> LMat(N, rank), RMat(N, rank);
@@ -551,38 +580,44 @@ void TTSketch::paraSketch() {
     Matrix<double> Lt, AMat, PMat;
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
-    pseudoInvert(AMat, PMat);
 
-    ITensor A(prime(links(core_id - 1)), links(core_id - 1)), Pinv(prime(links(core_id - 1)), links(core_id - 1));
+    ITensor A(prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank; ++j) {
         A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
-        Pinv.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
       }
     }
-    G.ref(core_id) = noPrime(Pinv * Bemp(core_id));
     auto original_link_tags = tags(links(core_id - 1));
-    ITensor U, S;
     V[core_id - 1] = ITensor(links(core_id - 1));
     if(this->r_ > 0) {
-      svd(A, U, S, V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->r_});
+      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->r_});
     } else {
-      svd(A, U, S, V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags});
+      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags});
     }
+    links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
   }
-  log << "Initial ranks ";
-  for(unsigned i = 1; i < this->d_; ++i) {
-    log << dim(linkIndex(G, i)) << " ";
-  }
-  log << "\n";
-  log.flush();
 
-  G.ref(1) *= V[1];
-  for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
-    G.ref(core_id) *= V[core_id - 1];
-    G.ref(core_id) *= V[core_id];
+  G.ref(1) = Bemp(1) * V[1];
+  for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
+    int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
+    ITensor A = U[core_id - 1] * S[core_id - 1];
+    ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
+    Matrix<double> AMat(N, rank), PMat;
+    for(int i = 1; i <= rank; ++i) {
+      for(int j = 1; j <= rank_trimmed; ++j) {
+        AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
+      }
+    }
+    pseudoInvert(AMat, PMat);
+
+    for(int i = 1; i <= rank; ++i) {
+      for(int j = 1; j <= rank; ++j) {
+        Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
+      }
+    }
+    G.ref(core_id) = Pinv * Bemp(core_id) * V[core_id];
   }
-  G.ref(this->d_) *= V[this->d_ - 1];
+
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
     log << dim(linkIndex(G, i)) << " ";

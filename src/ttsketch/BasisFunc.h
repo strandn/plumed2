@@ -32,6 +32,9 @@ public:
   const std::pair<double, double>& dom() const { return this->dom_; }
   int nbins() const { return this->nbins_; }
   double w() const { return this->w_; }
+  double int0(int pos) const;
+  double int1(int pos) const;
+  double int2(int pos) const;
 };
 
 }
