@@ -623,6 +623,7 @@ void TTSketch::paraSketch() {
     }
     cout << "2 2" << endl;
     pseudoInvert(AMat, PMat);
+    matrixOut(log, PMat);
     cout << "2 3" << endl;
 
     for(int i = 1; i <= rank; ++i) {
