@@ -414,6 +414,7 @@ void TTSketch::update() {
       paraSketch();
 
       log << "\nComputing empirical covariance matrix...\n";
+      log.flush();
       Matrix<double> sigmahat(this->d_, this->d_);
       vector<double> muhat(this->d_, 0.0);
       for(unsigned k = 0; k < this->d_; ++k) {
@@ -434,8 +435,10 @@ void TTSketch::update() {
       }
       matrixOut(log, sigmahat);
       log << "Computing estimated covariance matrix...\n";
+      log.flush();
       auto sigma = covMat(this->ttList_.back(), this->basis_);
       matrixOut(log, sigma);
+      log.flush();
       // log << "sigma-sigmahat:\n";
       // auto diff = sigma;
       // diff -= sigmahat;
@@ -443,6 +446,7 @@ void TTSketch::update() {
       auto diff = sigma.getVector();
       transform(diff.begin(), diff.end(), sigmahat.getVector().begin(), sigmahat.getVector().begin(), minus<double>());
       log << "|sigma-sigmahat| = " << norm(diff) << "\n";
+      log.flush();
 
       double rhomax = 0.0;
       for(auto& s : this->samples_) {
