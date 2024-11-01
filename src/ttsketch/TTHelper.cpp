@@ -81,7 +81,7 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   for(int i = 2; i <= d; ++i) {
     Z *= rho(i) * basis_int0[i - 1];
   }
-  cout << Z << endl;
+  cout << elt(Z) << endl;
 
   vector<double> ei(d), eii(d);
   vector<vector<double>> eij(d, vector<double>(d));
