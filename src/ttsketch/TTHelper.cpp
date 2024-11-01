@@ -92,7 +92,7 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       for(int i = 2; i <= d; ++i) {
         eijval *= rho(i) * (k == i || l == i ? basis_int1[i - 1] : basis_int0[i - 1]);
       }
-      eij[k - 1][l - 1] = elt(eiival);
+      eij[k - 1][l - 1] = elt(eijval);
     }
   }
   Matrix<double> sigma(d, d);
