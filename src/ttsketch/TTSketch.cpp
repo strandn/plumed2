@@ -575,6 +575,7 @@ void TTSketch::paraSketch() {
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
+    cout << "1 1" << endl;
     int rank = dim(links(core_id - 1));
     Matrix<double> LMat(N, rank), RMat(N, rank);
     for(int i = 1; i <= N; ++i) {
@@ -583,9 +584,12 @@ void TTSketch::paraSketch() {
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
       }
     }
+    cout << "1 2" << endl;
     Matrix<double> Lt, AMat, PMat;
     transpose(LMat, Lt);
+    cout << "1 3" << endl;
     mult(Lt, RMat, AMat);
+    cout << "1 4" << endl;
 
     ITensor A(prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rank; ++i) {
@@ -593,6 +597,7 @@ void TTSketch::paraSketch() {
         A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
       }
     }
+    cout << "1 5" << endl;
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
     if(this->r_ > 0) {
@@ -601,10 +606,12 @@ void TTSketch::paraSketch() {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags});
     }
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
+    cout << "1 6" << endl;
   }
 
   G.ref(1) = Bemp(1) * V[1];
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
+    cout << "2 1" << endl;
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
     ITensor A = U[core_id - 1] * S[core_id - 1];
     ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
@@ -614,15 +621,19 @@ void TTSketch::paraSketch() {
         AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
+    cout << "2 2" << endl;
     pseudoInvert(AMat, PMat);
+    cout << "2 3" << endl;
 
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank; ++j) {
         Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
       }
     }
+    cout << "2 4" << endl;
     G.ref(core_id) = Pinv * Bemp(core_id) * V[core_id];
   }
+  cout << 3 << endl;
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
@@ -630,9 +641,11 @@ void TTSketch::paraSketch() {
   }
   log << "\n";
   log.flush();
+  cout << 4 << endl;
 
   this->ttList_.push_back(G);
   ++this->count_;
+  cout << 5 << endl;
 }
 
 MPS TTSketch::createTTCoeff() const {
