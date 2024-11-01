@@ -614,19 +614,21 @@ void TTSketch::paraSketch() {
     cout << "2 1" << endl;
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
     ITensor A = U[core_id - 1] * S[core_id - 1];
+    PrintData(A);
     ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
-    Matrix<double> AMat(N, rank), PMat;
+    Matrix<double> AMat(rank, rank_trimmed), PMat;
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank_trimmed; ++j) {
         AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
+    matrixOut(cout, AMat);
     cout << "2 2" << endl;
     pseudoInvert(AMat, PMat);
-    matrixOut(log, PMat);
+    matrixOut(cout, PMat);
     cout << "2 3" << endl;
 
-    for(int i = 1; i <= rank; ++i) {
+    for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= rank; ++j) {
         Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
       }
