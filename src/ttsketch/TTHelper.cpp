@@ -63,7 +63,7 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   auto s = siteInds(tt);
   vector<ITensor> basis_int0(d), basis_int1(d), basis_int2(d);
   for(int i = 1; i <= d; ++i) {
-    basis_evals[i - 1] = ITensor(s(i));
+    basis_int0[i - 1] = basis_int1[i - 1] = basis_int2[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
       basis_int0[i - 1].set(s(i) = j, basis[i - 1].int0(j));
       basis_int1[i - 1].set(s(i) = j, basis[i - 1].int1(j));
@@ -74,7 +74,8 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   for(int i = 2; i <= d; ++i) {
     Z *= tt(i) * basis_int0[i - 1];
   }
-  auto rho = tt / elt(Z);
+  auto rho = tt;
+  rho /= elt(Z);
   vector<double> ei(d), eii(d);
   vector<vector<double>> eij(d, vector<double>(d));
   for(int k = 1; k <= d; ++k) {
