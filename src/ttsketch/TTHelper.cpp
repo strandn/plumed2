@@ -76,13 +76,11 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   }
   auto rho = tt;
   rho /= elt(Z);
-
-  Z = rho(1) * basis_int0[0];
-  for(int i = 2; i <= d; ++i) {
-    Z *= rho(i) * basis_int0[i - 1];
-  }
-  cout << elt(Z) << endl;
-
+  // Z = rho(1) * basis_int0[0];
+  // for(int i = 2; i <= d; ++i) {
+  //   Z *= rho(i) * basis_int0[i - 1];
+  // }
+  // cout << elt(Z) << endl;
   vector<double> ei(d), eii(d);
   vector<vector<double>> eij(d, vector<double>(d));
   for(int k = 1; k <= d; ++k) {
