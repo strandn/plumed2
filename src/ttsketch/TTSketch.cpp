@@ -446,6 +446,8 @@ void TTSketch::update() {
       log << "|sigma-sigmahat| = " << norm(diff) << "\n";
       log.flush();
 
+      PrintData(this->ttList_.back());
+
       double rhomax = 0.0;
       for(auto& s : this->samples_) {
         double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
