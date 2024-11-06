@@ -69,6 +69,9 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       basis_int1[i - 1].set(s(i) = j, basis[i - 1].int1(j));
       basis_int2[i - 1].set(s(i) = j, basis[i - 1].int2(j));
     }
+    PrintData(basis_int0[i - 1]);
+    PrintData(basis_int1[i - 1]);
+    PrintData(basis_int2[i - 1]);
   }
   auto Z = tt(1) * basis_int0[0];
   for(int i = 2; i <= d; ++i) {
