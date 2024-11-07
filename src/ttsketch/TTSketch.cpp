@@ -430,8 +430,8 @@ void TTSketch::update() {
           for(int j = 0; j < N; ++j) {
             int jadj = j + this->samples_.size() - N;
             sigmahat(k, l) += (this->samples_[jadj][k] - muhat[k]) * (this->samples_[jadj][l] - muhat[l]) / (N - 1);
-            sigmahat(l, k) += (this->samples_[jadj][k] - muhat[k]) * (this->samples_[jadj][l] - muhat[l]) / (N - 1);
           }
+          sigmahat(l, k) = sigmahat(k, l);
         }
       }
       matrixOut(log, sigmahat);
