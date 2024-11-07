@@ -132,7 +132,7 @@ double BasisFunc::int0(int pos) const {
   if(pos == 1) {
     return sqrt(2 * this->L_);
   } else if(pos % 2 == 0) {
-    return 4 * sqrt(this->L_) / (M_PI * pos) * sin(M_PI * pos / 2);
+    return 2 * sqrt(this->L_) / (M_PI * (pos / 2)) * sin(M_PI * (pos / 2));
   } else {
     return 0.0;
   }
@@ -142,9 +142,9 @@ double BasisFunc::int1(int pos) const {
   if(pos == 1) {
     return this->shift_ * sqrt(2 * this->L_);
   } else if(pos % 2 == 0) {
-    return 4 * this->shift_ * sqrt(this->L_) / (M_PI * pos) * sin(M_PI * pos / 2);
+    return 2 * this->shift_ * sqrt(this->L_) / (M_PI * (pos / 2)) * sin(M_PI * (pos / 2));
   } else {
-    return 4 * pow(this->L_, 1.5) / pow(M_PI * pos, 2) * (2 * sin(M_PI * pos / 2) - M_PI * pos * cos(M_PI * pos / 2));
+    return 2 * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
   }
 }
 
@@ -152,12 +152,12 @@ double BasisFunc::int2(int pos) const {
   if(pos == 1) {
     return sqrt(2 * this->L_) / 3 * (3 * pow(this->shift_, 2) + pow(this->L_, 2));
   } else if(pos % 2 == 0) {
-    return 4 * sqrt(this->L_) / pow(M_PI * pos, 3) *
-           (4 * pow(this->L_, 2) * M_PI * pos * cos(M_PI * pos / 2) +
-           (pow(M_PI * pos, 2) * (pow(this->shift_, 2) + pow(this->L_, 2)) -
-           8 * pow(this->L_, 2)) * sin(M_PI * pos / 2));
+    return 2 * sqrt(this->L_) / pow(M_PI * (pos / 2), 3) *
+           (2 * pow(this->L_, 2) * M_PI * (pos / 2) * cos(M_PI * (pos / 2)) +
+           (pow(M_PI * (pos / 2), 2) * (pow(this->shift_, 2) + pow(this->L_, 2)) -
+           2 * pow(this->L_, 2)) * sin(M_PI * (pos / 2)));
   } else {
-    return 8 * this->shift_ * pow(this->L_, 1.5) / pow(M_PI * pos, 2) * (2 * sin(M_PI * pos / 2) - M_PI * pos * cos(M_PI * pos / 2));
+    return 4 * this->shift_ * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
   }
 }
 
