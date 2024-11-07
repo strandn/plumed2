@@ -101,7 +101,7 @@ pair<Matrix<double>, vector<double>> covMat(const MPS& tt, const vector<BasisFun
       sigma(k - 1, l - 1) = sigma(l - 1, k - 1) = k == l ? eii[k - 1] - pow(ei[k - 1], 2) : eij[k - 1][l - 1] - ei[k - 1] * ei[l - 1];
     }
   }
-  return make_pair(sigma, eij);
+  return make_pair(sigma, ei);
 }
 
 }
