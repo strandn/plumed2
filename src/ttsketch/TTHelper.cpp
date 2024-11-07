@@ -58,7 +58,7 @@ vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, const vecto
   return grad;
 }
 
-Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
+pair<Matrix<double>, vector<double>> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   int d = length(tt);
   auto s = siteInds(tt);
   vector<ITensor> basis_int0(d), basis_int1(d), basis_int2(d);
@@ -69,9 +69,6 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       basis_int1[i - 1].set(s(i) = j, basis[i - 1].int1(j));
       basis_int2[i - 1].set(s(i) = j, basis[i - 1].int2(j));
     }
-    PrintData(basis_int0[i - 1]);
-    PrintData(basis_int1[i - 1]);
-    PrintData(basis_int2[i - 1]);
   }
   auto Z = tt(1) * basis_int0[0];
   for(int i = 2; i <= d; ++i) {
@@ -79,11 +76,6 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   }
   auto rho = tt;
   rho /= elt(Z);
-  // Z = rho(1) * basis_int0[0];
-  // for(int i = 2; i <= d; ++i) {
-  //   Z *= rho(i) * basis_int0[i - 1];
-  // }
-  // cout << elt(Z) << endl;
   vector<double> ei(d), eii(d);
   vector<vector<double>> eij(d, vector<double>(d));
   for(int k = 1; k <= d; ++k) {
@@ -94,7 +86,6 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       eiival *= rho(i) * (k == i ? basis_int2[i - 1] : basis_int0[i - 1]);
     }
     ei[k - 1] = elt(eival);
-    cout << ei[k - 1] << " ";
     eii[k - 1] = elt(eiival);
     for(int l = k + 1; l <= d; ++l) {
       auto eijval = rho(1) * (k == 1 ? basis_int1[0] : basis_int0[0]);
@@ -104,14 +95,13 @@ Matrix<double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
       eij[k - 1][l - 1] = elt(eijval);
     }
   }
-  cout << endl;
   Matrix<double> sigma(d, d);
   for(int k = 1; k <= d; ++k) {
     for(int l = k; l <= d; ++l) {
       sigma(k - 1, l - 1) = sigma(l - 1, k - 1) = k == l ? eii[k - 1] - pow(ei[k - 1], 2) : eij[k - 1][l - 1] - ei[k - 1] * ei[l - 1];
     }
   }
-  return sigma;
+  return make_pair(sigma, eij);
 }
 
 }

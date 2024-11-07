@@ -413,8 +413,7 @@ void TTSketch::update() {
       log.flush();
       paraSketch();
 
-      log << "\nComputing empirical covariance matrix...\n";
-      log.flush();
+      log << "\nEmpirical means:\n";
       Matrix<double> sigmahat(this->d_, this->d_);
       vector<double> muhat(this->d_, 0.0);
       for(unsigned k = 0; k < this->d_; ++k) {
@@ -422,9 +421,9 @@ void TTSketch::update() {
           int jadj = j + this->samples_.size() - N;
           muhat[k] += this->samples_[jadj][k] / N;
         }
-        cout << muhat[k] << " ";
+        log << muhat[k] << " ";
       }
-      cout << endl;
+      log << "\nEmpirical covariance matrix:\n";
       for(unsigned k = 0; k < this->d_; ++k) {
         for(unsigned l = k; l < this->d_; ++l) {
           sigmahat(k, l) = sigmahat(l, k) = 0.0;
@@ -436,17 +435,17 @@ void TTSketch::update() {
         }
       }
       matrixOut(log, sigmahat);
-      log << "Computing estimated covariance matrix...\n";
-      log.flush();
-      auto sigma = covMat(this->ttList_.back(), this->basis_);
+      auto [sigma, mu] = covMat(this->ttList_.back(), this->basis_);
+      log << "Estimated means:\n";
+      for(unsigned k = 0; k < this->d_; ++k) {
+        log << mu[k] << " ";
+      }
+      log << "\nEstimated covariance matrix:\n";
       matrixOut(log, sigma);
-      log.flush();
       auto diff = sigma.getVector();
-      transform(diff.begin(), diff.end(), sigmahat.getVector().begin(), sigmahat.getVector().begin(), minus<double>());
+      transform(diff.begin(), diff.end(), sigmahat.getVector().begin(), diff.begin(), minus<double>());
       log << "|sigma-sigmahat| = " << norm(diff) << "\n";
       log.flush();
-
-      PrintData(this->ttList_.back());
 
       double rhomax = 0.0;
       for(auto& s : this->samples_) {
@@ -575,7 +574,6 @@ void TTSketch::paraSketch() {
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
-    // cout << "1 1" << endl;
     int rank = dim(links(core_id - 1));
     Matrix<double> LMat(N, rank), RMat(N, rank);
     for(int i = 1; i <= N; ++i) {
@@ -584,12 +582,9 @@ void TTSketch::paraSketch() {
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
       }
     }
-    // cout << "1 2" << endl;
     Matrix<double> Lt, AMat, PMat;
     transpose(LMat, Lt);
-    // cout << "1 3" << endl;
     mult(Lt, RMat, AMat);
-    // cout << "1 4" << endl;
 
     ITensor A(prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rank; ++i) {
@@ -597,7 +592,6 @@ void TTSketch::paraSketch() {
         A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
       }
     }
-    // cout << "1 5" << endl;
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
     if(this->r_ > 0) {
@@ -606,15 +600,12 @@ void TTSketch::paraSketch() {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->cutoff_, "RightTags=", original_link_tags});
     }
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
-    // cout << "1 6" << endl;
   }
 
   G.ref(1) = Bemp(1) * V[1];
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
-    // cout << "2 1" << endl;
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
     ITensor A = U[core_id - 1] * S[core_id - 1];
-    // PrintData(A);
     ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
     Matrix<double> AMat(rank, rank_trimmed), PMat;
     for(int i = 1; i <= rank; ++i) {
@@ -622,27 +613,18 @@ void TTSketch::paraSketch() {
         AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
-    // matrixOut(log, AMat);
-    // cout << "2 2" << endl;
     pseudoInvert(AMat, PMat);
-    // matrixOut(log, PMat);
-    // cout << "2 3" << endl;
 
     for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= rank; ++j) {
         Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
       }
     }
-    // cout << "2 4" << endl;
-    // PrintData(Pinv);
-    // PrintData(Bemp(core_id));
     G.ref(core_id) = Pinv * Bemp(core_id);
     if(core_id != this->d_) {
       G.ref(core_id) *= V[core_id];
     }
-    // PrintData(G(core_id));
   }
-  // cout << 3 << endl;
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
@@ -650,11 +632,9 @@ void TTSketch::paraSketch() {
   }
   log << "\n";
   log.flush();
-  // cout << 4 << endl;
 
   this->ttList_.push_back(G);
   ++this->count_;
-  // cout << 5 << endl;
 }
 
 MPS TTSketch::createTTCoeff() const {
