@@ -315,6 +315,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
     for(unsigned i = 2; i <= this->count_; ++i) {
       this->ttList_.push_back(ttRead(ttfilename, i));
     }
+    if(this->do_aca_) {
+      this->aca_.readVb(this->count_);
+    }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       double vpeak = 0.0;
@@ -570,7 +573,9 @@ void TTSketch::update() {
       multi_sim_comm.Bcast(this->vshift_, 0);
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-        this->aca_.readVb(this->count_);
+        if(this->do_aca_) {
+          this->aca_.readVb(this->count_);
+        }
       }
     }
   }
