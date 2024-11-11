@@ -478,7 +478,7 @@ void TTSketch::update() {
       vector<vector<double>> topsamples(this->d_);
       if(this->do_aca_) {
         this->aca_.updateVshift(0.0);
-        auto vtopresult = this->aca_.vtop(this->samples_);
+        auto vtopresult = this->aca_.vtop();
         vpeak = vtopresult.first;
         topsample = vtopresult.second;
       } else {
@@ -519,7 +519,7 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       if(this->do_aca_) {
-        this->aca_.updateVb(this->samples_);
+        this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
 
         for(auto& s : this->samples_) {

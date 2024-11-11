@@ -29,7 +29,7 @@ private:
   bool conv_;
   int nbins_;
   std::vector<std::vector<double>> grid_;
-  vector<vector<double>> samples_;
+  std::vector<std::vector<double>> samples_;
   bool walkers_mpi_;
 
 public:
@@ -48,6 +48,7 @@ public:
   void readVb(unsigned count);
   void addSample(std::vector<double>& sample);
   bool conv() const { return this->conv_; }
+  const itensor::MPS& vb() const { return this->vb_; }
 };
 
 }

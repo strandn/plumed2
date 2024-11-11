@@ -1,4 +1,5 @@
 #include "TTCross.h"
+#include <TTHelper.h>
 #include "tools/Matrix.h"
 #include <algorithm>
 #include <cmath>
@@ -183,9 +184,9 @@ void TTCross::updateVb() {
             for(int j = 0; j < this->nbins_; ++j) {
               double x = this->grid_[ii - 1][j];
               vector<double> elements = { x };
-              auto& left = aca_params->instance->I()[ii - 1][ll - 1];
+              auto& left = this->I_[ii - 1][ll - 1];
               elements.insert(elements.begin(), left.begin(), left.end());
-              auto& right = aca_params->instance->J()[ii][lr - 1];
+              auto& right = this->J_[ii][lr - 1];
               elements.insert(elements.end(), right.begin(), right.end());
               result += f(elements) * this->basis_[ii - 1](x, ss, false) * dx[ii - 1];
             }
