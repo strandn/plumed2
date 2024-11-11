@@ -1,3 +1,4 @@
+#include "TTCross.h"
 #include "TTHelper.h"
 #include "bias/Bias.h"
 #include "core/ActionRegister.h"
@@ -27,6 +28,7 @@ private:
   int stride_;
   unsigned d_;
   vector<MPS> ttList_;
+  TTCross aca_;
   vector<BasisFunc> basis_;
   vector<vector<double>> samples_;
   vector<double> traj_;
@@ -41,12 +43,10 @@ private:
   bool walkers_mpi_;
   int mpi_size_;
   int mpi_rank_;
-  double adj_vmax_;
-  double adj_vshift_;
+  bool do_aca_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
-  double getAdjBias(const vector<double>& cv);
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -64,8 +64,10 @@ PLUMED_REGISTER_ACTION(TTSketch, "TTSKETCH")
 void TTSketch::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
-  keys.addFlag("NOCONV", false, "Specifies that densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
+  keys.addFlag("NOCONV", false, "Specifies that TTSketch densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
+  keys.addFlag("DO_ACA", false, "Approximate Vbias not as explicit sum but rather as TTCross approximation");
+  keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
@@ -89,8 +91,9 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
-  keys.addOutputComponent("adjbias", "default", "Bias potential shifted down");
-  keys.add("optional", "ADJ_VMAX", "Max adjusted Vbias");
+  keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
+  keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
+  keys.add("optional", "ACA_NBINS", "Number of bins per dimension for numerical quadrature");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -107,12 +110,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
   walkers_mpi_(false),
   mpi_size_(0),
   mpi_rank_(0),
-  adj_vmax_(0.0),
-  adj_vshift_(0.0)
+  do_aca_(false)
 {
-  bool noconv = false;
+  bool noconv, aca_noconv = false;
   parseFlag("NOCONV", noconv);
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
+  parseFlag("DO_ACA", this->do_aca_);
+  //TODO: need to see if conv is needed for ACA
+  parseFlag("ACA_NOCONV", aca_noconv);
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -220,6 +225,25 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   this->conv_ = !noconv;
 
+  int aca_rank = 0;
+  parse("ACA_RANK", aca_rank);
+  if(this->do_aca_ && aca_rank <= 0) {
+    error("TTCross requires positive ACA_RANK");
+  }
+  double aca_cutoff = 0.0;
+  parse("ACA_CUTOFF", aca_cutoff);
+  if(this->do_aca_ && (aca_cutoff <= 0.0 || aca_cutoff > 1.0)) {
+    error("TTCross requires ACA_CUTOFF between 0 and 1");
+  }
+  int aca_nbins = 0;
+  parse("ACA_NBINS", aca_nbins);
+  if(this->do_aca_ && aca_nbins <= 0) {
+    error("TTCross requires positive ACA_NBINS");
+  }
+  if(this->do_aca_) {
+    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, aca_nbins, this->walkers_mpi_);
+  }
+
   string filename = "COLVAR";
   parse("FILE", filename);
   int printstride = 100;
@@ -232,17 +256,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->mpi_size_ = multi_sim_comm.Get_size();
     this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
-
-  parse("ADJ_VMAX", this->adj_vmax_);
-  if(this->adj_vmax_ == 0.0) {
-    this->adj_vmax_ = this->vmax_;
-  } else if(this->adj_vmax_ < 0.0 || this->adj_vmax_ > this->vmax_) {
-    error("ADJ_VMAX must be nonnegative and no greater than VMAX");
-  } else {
-    this->adj_vmax_ *= this->kbt_;
-  }
-  addComponent("adjbias");
-  componentIsNotPeriodic("adjbias");
 
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -312,13 +325,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
       log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
     }
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->vshift_, 0);
-      multi_sim_comm.Bcast(this->adj_vshift_, 0);
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -340,8 +351,6 @@ void TTSketch::calculate() {
   for(unsigned i = 0; i < this->d_; ++i) {
     setOutputForce(i, -der[i]);
   }
-
-  getPntrToComponent("adjbias")->set(getAdjBias(cv));
 }
 
 void TTSketch::update() {
@@ -358,6 +367,9 @@ void TTSketch::update() {
             vector<double> step(all_traj.begin() + i * this->traj_.size() + j * this->d_,
                                 all_traj.begin() + i * this->traj_.size() + (j + 1) * this->d_);
             this->samples_.push_back(step);
+            if(this->do_aca_) {
+              this->aca_.addSample(step);
+            }
           }
         }
       }
@@ -455,31 +467,49 @@ void TTSketch::update() {
         }
       }
       this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
-
-      this->vshift_ = this->adj_vshift_ = 0.0;
+      if(this->do_aca_) {
+        this->aca_.updateG(this->ttList_.back());
+      }
+      
+      this->vshift_ = 0.0;
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
+      vector<double> topsample;
       vector<vector<double>> topsamples(this->d_);
-      for(auto& s : this->samples_) {
-        vector<double> der(this->d_, 0.0);
-        double bias = getBiasAndDerivatives(s, der);
-        if(bias > vpeak) {
-          vpeak = bias;
-        }
-        for(unsigned i = 0; i < this->d_; ++i) {
-          if(abs(der[i]) > gradtop[i]) {
-            gradtop[i] = abs(der[i]);
-            topsamples[i] = s;
+      if(this->do_aca_) {
+        this->aca_.updateVshift(0.0);
+        auto vtopresult = this->aca_.vtop(this->samples_);
+        vpeak = vtopresult.first;
+        topsample = vtopresult.second;
+      } else {
+        for(auto& s : this->samples_) {
+          vector<double> der(this->d_, 0.0);
+          double bias = getBiasAndDerivatives(s, der);
+          if(bias > vpeak) {
+            vpeak = bias;
+            topsample = s;
+          }
+          for(unsigned i = 0; i < this->d_; ++i) {
+            if(abs(der[i]) > gradtop[i]) {
+              gradtop[i] = abs(der[i]);
+              topsamples[i] = s;
+            }
           }
         }
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
+      if(this->do_aca_) {
+        this->aca_.updateVshift(this->vshift_);
+      }
       log << "\n";
       if(this->bf_ > 1.0) {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
       }
       log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n\n";
+      for(unsigned j = 0; j < this->d_; ++j) {
+        log << topsample[j] << " ";
+      }
+      log << "\n";
       log.flush();
 
       string ttfilename = "ttsketch.h5";
@@ -487,6 +517,22 @@ void TTSketch::update() {
         ttfilename = "../" + ttfilename;
       }
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
+
+      if(this->do_aca_) {
+        this->aca_.updateVb(this->samples_);
+        this->aca_.writeVb(this->count_);
+
+        for(auto& s : this->samples_) {
+          vector<double> der(this->d_, 0.0);
+          getBiasAndDerivatives(s, der);
+          for(unsigned i = 0; i < this->d_; ++i) {
+            if(abs(der[i]) > gradtop[i]) {
+              gradtop[i] = abs(der[i]);
+              topsamples[i] = s;
+            }
+          }
+        }
+      }
 
       log << "gradtop ";
       for(unsigned i = 0; i < this->d_; ++i) {
@@ -503,28 +549,28 @@ void TTSketch::update() {
       log << "\n";
       log.flush();
       
-      // ofstream file;
-      // if(this->count_ == 2) {
-      //   file.open("F.txt");
-      // } else {
-      //   file.open("F.txt", ios_base::app);
-      // }
-      // for(int i = 0; i < 100; ++i) {
-      //   double x = -M_PI + 2 * i * M_PI / 100;
-      //   for(int j = 0; j < 100; ++j) {
-      //     double y = -M_PI + 2 * j * M_PI / 100;
-      //     file << x << " " << y << " " << getBias({ x, y }) << endl;
-      //   }
-      // }
-      // file.close();
+      ofstream file;
+      if(this->count_ == 2) {
+        file.open("F.txt");
+      } else {
+        file.open("F.txt", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ x, y }) << endl;
+        }
+      }
+      file.close();
     }
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
-      multi_sim_comm.Bcast(this->adj_vshift_, 0);
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+        this->aca_.readVb(this->count_);
       }
     }
   }
@@ -539,28 +585,35 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(bias == 0.0) {
     return 0.0;
   }
-  for(auto& tt : this->ttList_) {
-    double rho = ttEval(tt, this->basis_, cv, this->conv_);
-    if(rho > 1.0) {
-      auto deri = ttGrad(tt, this->basis_, cv, this->conv_);
-      transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, this->kbt_ / rho));
-      transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
+  if(this->do_aca_) {
+    der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
+  } else {
+    for(auto& tt : this->ttList_) {
+      double rho = ttEval(tt, this->basis_, cv, this->conv_);
+      if(rho > 1.0) {
+        auto deri = ttGrad(tt, this->basis_, cv, this->conv_);
+        transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, this->kbt_ / rho));
+        transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
+      }
     }
   }
   return bias;
 }
 
 double TTSketch::getBias(const vector<double>& cv) {
-  double bias = 0.0;
-  for(auto& tt : this->ttList_) {
-    bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
+  if(this->do_aca_) {
+    if(length(this->aca_.vb()) == 0) {
+      return 0.0;
+    }
+    //TODO: make sure this regularization should be used
+    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
+  } else {
+    double bias = 0.0;
+    for(auto& tt : this->ttList_) {
+      bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
+    }
+    return max(bias - this->vshift_, 0.0);
   }
-  return max(bias - this->vshift_, 0.0);
-}
-
-double TTSketch::getAdjBias(const vector<double>& cv) {
-  double bias = getBias(cv);
-  return bias + this->vshift_ - this->adj_vshift_;
 }
 
 void TTSketch::paraSketch() {
