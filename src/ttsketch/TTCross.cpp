@@ -39,7 +39,7 @@ double TTCross::f(const vector<double>& x) const {
     //TODO: shift to -2kT instead of 0?
     result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
-                 this->conv_), 1.0)) - this->vshift_, 0.0);
+                 this->conv_), 1.0)) - this->vshift_, -2 * this->kbt_);
   }
   return result;
 }
