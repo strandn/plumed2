@@ -241,7 +241,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("TTCross requires positive ACA_NBINS");
   }
   if(this->do_aca_) {
-    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, aca_nbins, this->walkers_mpi_);
+    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, aca_nbins, this->walkers_mpi_);
   }
 
   string filename = "COLVAR";
