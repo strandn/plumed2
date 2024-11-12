@@ -522,6 +522,21 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       if(this->do_aca_) {
+        ofstream file;
+        if(this->count_ == 2) {
+          file.open("F0.txt");
+        } else {
+          file.open("F0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << max(this->aca_.f({ x, y }), 0.0) << endl;
+          }
+        }
+        file.close();
+        
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
 

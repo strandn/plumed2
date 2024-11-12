@@ -27,6 +27,7 @@ private:
   std::vector<double> resfirst_;
   Log* log_;
   bool conv_;
+  bool convg_;
   int nbins_;
   std::vector<std::vector<double>> grid_;
   std::vector<std::vector<double>> samples_;
@@ -34,7 +35,7 @@ private:
 
 public:
   TTCross();
-  TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff, int maxrank, Log& log, bool conv, int nbins, bool walkers_mpi);
+  TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff, int maxrank, Log& log, bool conv, bool convg, int nbins, bool walkers_mpi);
   double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
   std::pair<double, int> diagACA(const std::vector<double>& Rk);
