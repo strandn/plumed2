@@ -505,11 +505,11 @@ void TTSketch::update() {
       if(this->bf_ > 1.0) {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
       }
-      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n\n";
+      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
-      log << "\n";
+      log << "\n\n";
       log.flush();
 
       string ttfilename = "ttsketch.h5";
