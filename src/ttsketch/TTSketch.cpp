@@ -93,7 +93,6 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
-  keys.add("optional", "ACA_NBINS", "Number of bins per dimension for numerical quadrature");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -196,8 +195,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   int nbasis = 20;
   parse("NBASIS", nbasis);
-  if(nbasis <= 0) {
-    error("NBASIS must be positive");
+  if(nbasis <= 1) {
+    error("NBASIS must be greater than 1");
+  }
+  if(nbasis % 2 == 0) {
+    ++nbasis;
   }
   parse("ALPHA", this->alpha_);
   if(this->alpha_ <= 0.0 || this->alpha_ > 1.0) {
@@ -235,13 +237,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && (aca_cutoff <= 0.0 || aca_cutoff > 1.0)) {
     error("TTCross requires ACA_CUTOFF between 0 and 1");
   }
-  int aca_nbins = 0;
-  parse("ACA_NBINS", aca_nbins);
-  if(this->do_aca_ && aca_nbins <= 0) {
-    error("TTCross requires positive ACA_NBINS");
-  }
   if(this->do_aca_) {
-    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, aca_nbins, this->walkers_mpi_);
+    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 2 * (nbasis - 1), this->walkers_mpi_);
   }
 
   string filename = "COLVAR";
