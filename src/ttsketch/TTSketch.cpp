@@ -547,6 +547,7 @@ void TTSketch::update() {
             }
           }
         }
+        log << "\n";
       }
 
       log << "gradtop ";
