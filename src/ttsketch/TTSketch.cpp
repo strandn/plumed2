@@ -509,7 +509,7 @@ void TTSketch::update() {
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
-      log << "\n\n";
+      log << "\n";
       log.flush();
 
       string ttfilename = "ttsketch.h5";
@@ -547,10 +547,9 @@ void TTSketch::update() {
             }
           }
         }
-        log << "\n";
       }
 
-      log << "gradtop ";
+      log << "\ngradtop ";
       for(unsigned i = 0; i < this->d_; ++i) {
         log << gradtop[i] << " ";
       }
