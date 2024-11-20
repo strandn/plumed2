@@ -227,7 +227,7 @@ void TTCross::updateVb() {
   this->vb_ = psi;
   vector<double> diff(this->samples_.size());
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
-    A[i] = ttEval(this->vb_, this->basis_, cv, this->conv_);
+    diff[i] = ttEval(this->vb_, this->basis_, cv, this->conv_);
   }
   transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
   *this->log_ << "Relative l2 error = " << norm(diff) / norm(A0) << "\n";
