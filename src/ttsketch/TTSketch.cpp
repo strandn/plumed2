@@ -44,6 +44,7 @@ private:
   int mpi_size_;
   int mpi_rank_;
   bool do_aca_;
+  int aca_stride_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -93,6 +94,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
+  keys.add("optional", "ACA_STRIDE", "Largest possible rank for TT-cross calculations");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -109,7 +111,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   walkers_mpi_(false),
   mpi_size_(0),
   mpi_rank_(0),
-  do_aca_(false)
+  do_aca_(false),
+  aca_stride_(0)
 {
   bool noconv, aca_noconv = false;
   parseFlag("NOCONV", noconv);
@@ -240,6 +243,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_) {
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 10 * (nbasis - 1), this->walkers_mpi_);
   }
+  parse("ACA_STRUDE", this->aca_stride_);
+  if(this->aca_stride_ == 0) {
+    this->aca_stride_ = this->stride_;
+  }
+  if(this->stride_ < 0 || this->stride_ > this->pace_) {
+    error("ACA_STRIDE must be positive and no greater than PACE");
+  }
 
   string filename = "COLVAR";
   parse("FILE", filename);
@@ -366,9 +376,11 @@ void TTSketch::update() {
           for(unsigned j = 0; j < this->traj_.size() / this->d_; ++j) {
             vector<double> step(all_traj.begin() + i * this->traj_.size() + j * this->d_,
                                 all_traj.begin() + i * this->traj_.size() + (j + 1) * this->d_);
-            this->samples_.push_back(step);
-            if(this->do_aca_) {
-              this->aca_.addSample(step);
+            if(j % (this->aca_stride_ / this->stride_) == 0) {
+              this->samples_.push_back(step);
+              if(this->do_aca_) {
+                this->aca_.addSample(step);
+              }
             }
           }
         }
