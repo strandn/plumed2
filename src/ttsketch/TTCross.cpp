@@ -125,6 +125,10 @@ void TTCross::continuousACA() {
 
 void TTCross::updateVb() {
   reset();
+  vector<double> A0(this->samples_.size());
+  for(unsigned i = 0; i < this->samples_.size(); ++i) {
+    A0[i] = f(this->samples_[i]);
+  }
   *this->log_ << "Starting TT-cross ACA...\n";
   continuousACA();
 
@@ -218,10 +222,16 @@ void TTCross::updateVb() {
       psi.ref(ii) *= Ainv;
     }
     *this->log_ << "Core " << ii << " done!\n";
-    this->log_->flush();
   }
 
   this->vb_ = psi;
+  vector<double> diff(this->samples_.size());
+  for(unsigned i = 0; i < this->samples_.size(); ++i) {
+    A[i] = ttEval(this->vb_, this->basis_, cv, this->conv_);
+  }
+  transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
+  *this->log_ << "Relative l2 error = " << norm(diff) / norm(A0) << "\n";
+  this->log_->flush();
 }
 
 pair<double, vector<double>> TTCross::vtop() const {

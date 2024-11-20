@@ -376,11 +376,9 @@ void TTSketch::update() {
           for(unsigned j = 0; j < this->traj_.size() / this->d_; ++j) {
             vector<double> step(all_traj.begin() + i * this->traj_.size() + j * this->d_,
                                 all_traj.begin() + i * this->traj_.size() + (j + 1) * this->d_);
-            if(j % (this->aca_stride_ / this->stride_) == 0) {
-              this->samples_.push_back(step);
-              if(this->do_aca_) {
-                this->aca_.addSample(step);
-              }
+            this->samples_.push_back(step);
+            if(this->do_aca_ && j % (this->aca_stride_ / this->stride_) == 0) {
+              this->aca_.addSample(step);
             }
           }
         }
@@ -468,7 +466,7 @@ void TTSketch::update() {
       matrixOut(log, sigma);
       auto diff = sigma.getVector();
       transform(diff.begin(), diff.end(), sigmahat.getVector().begin(), diff.begin(), minus<double>());
-      log << "|sigma-sigmahat| = " << norm(diff) << "\n";
+      log << "Relative l2 error = " << norm(diff) / norm(sigmahat.getVector()) << "\n";
       log.flush();
 
       double rhomax = 0.0;
