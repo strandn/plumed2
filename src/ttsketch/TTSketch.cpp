@@ -243,7 +243,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_) {
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 10 * (nbasis - 1), this->walkers_mpi_);
   }
-  parse("ACA_STRUDE", this->aca_stride_);
+  parse("ACA_STRIDE", this->aca_stride_);
   if(this->aca_stride_ == 0) {
     this->aca_stride_ = this->stride_;
   }
