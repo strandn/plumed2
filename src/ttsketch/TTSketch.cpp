@@ -465,8 +465,9 @@ void TTSketch::update() {
       log << "\nEstimated covariance matrix:\n";
       matrixOut(log, sigma);
       auto diff = sigma.getVector();
-      transform(diff.begin(), diff.end(), sigmahat.getVector().begin(), diff.begin(), minus<double>());
-      log << "Relative l2 error = " << norm(diff) / norm(sigmahat.getVector()) << "\n";
+      auto sigmahatv = sigmahat.getVector();
+      transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
+      log << "Relative l2 error = " << norm(diff) / norm(sigmahatv) << "\n";
       log.flush();
 
       double rhomax = 0.0;
