@@ -228,7 +228,7 @@ void TTCross::updateVb() {
   vector<double> diff(this->samples_.size());
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     diff[i] = ttEval(this->vb_, this->basis_, this->samples_[i], this->conv_);
-    cout << A0[i] << " " << diff[i] << endl;
+    // cout << A0[i] << " " << diff[i] << endl;
   }
   transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
   *this->log_ << "Relative l2 error = " << norm(diff) / norm(A0) << "\n";

@@ -465,8 +465,21 @@ void TTSketch::update() {
       log << "\nEstimated covariance matrix:\n";
       matrixOut(log, sigma);
       auto diff = sigma.getVector();
+      for(int i = 0; i < this->d_ * this->d_; ++i) {
+        cout << diff[i] << " ";
+      }
+      cout << endl;
       auto sigmahatv = sigmahat.getVector();
+      for(int i = 0; i < this->d_ * this->d_; ++i) {
+        cout << sigmahatv[i] << " ";
+      }
+      cout << endl;
       transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
+      for(int i = 0; i < this->d_ * this->d_; ++i) {
+        cout << diff[i] << " ";
+      }
+      cout << endl;
+      cout << norm(diff) << " " << norm(sigmahatv) << endl;
       log << "Relative l2 error = " << norm(diff) / norm(sigmahatv) << "\n";
       log.flush();
 
