@@ -231,7 +231,7 @@ void TTCross::updateVb() {
     // cout << A0[i] << " " << diff[i] << endl;
   }
   transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
-  *this->log_ << "Relative l2 error = " << norm(diff) / norm(A0) << "\n";
+  *this->log_ << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n";
   this->log_->flush();
 }
 
