@@ -241,7 +241,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("TTCross requires ACA_CUTOFF between 0 and 1");
   }
   if(this->do_aca_) {
-    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 2 * (nbasis - 1), this->walkers_mpi_);
+    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 5 * (nbasis - 1), this->walkers_mpi_);
   }
   parse("ACA_STRIDE", this->aca_stride_);
   if(this->aca_stride_ == 0) {
