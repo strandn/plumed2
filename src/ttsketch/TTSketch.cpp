@@ -326,20 +326,21 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->aca_.readVb(this->count_);
     }
 
-    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      double vpeak = 0.0;
-      for(auto& s : this->samples_) {
-        double bias = getBias(s);
-        if(bias > vpeak) {
-          vpeak = bias;
+    if(!this->do_aca_) {
+      if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+        double vpeak = 0.0;
+        for(auto& s : this->samples_) {
+          double bias = getBias(s);
+          if(bias > vpeak) {
+            vpeak = bias;
+          }
         }
+        this->vshift_ = max(vpeak - this->vmax_, 0.0);
+        log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
       }
-      this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
-    }
-
-    if(this->walkers_mpi_) {
-      multi_sim_comm.Bcast(this->vshift_, 0);
+      if(this->walkers_mpi_) {
+        multi_sim_comm.Bcast(this->vshift_, 0);
+      }
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
