@@ -222,6 +222,7 @@ void TTCross::updateVb() {
       psi.ref(ii) *= Ainv;
     }
     *this->log_ << "Core " << ii << " done!\n";
+    this->log_->flush();
   }
 
   this->vb_ = psi;
