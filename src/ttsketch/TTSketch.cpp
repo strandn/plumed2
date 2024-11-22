@@ -324,9 +324,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     if(this->do_aca_) {
       this->aca_.readVb(this->count_);
-    }
-
-    if(!this->do_aca_) {
+    } else {
       if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
         double vpeak = 0.0;
         for(auto& s : this->samples_) {
@@ -466,21 +464,8 @@ void TTSketch::update() {
       log << "\nEstimated covariance matrix:\n";
       matrixOut(log, sigma);
       auto diff = sigma.getVector();
-      // for(int i = 0; i < this->d_ * this->d_; ++i) {
-      //   cout << diff[i] << " ";
-      // }
-      // cout << endl;
       auto sigmahatv = sigmahat.getVector();
-      // for(int i = 0; i < this->d_ * this->d_; ++i) {
-      //   cout << sigmahatv[i] << " ";
-      // }
-      // cout << endl;
       transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
-      // for(int i = 0; i < this->d_ * this->d_; ++i) {
-      //   cout << diff[i] << " ";
-      // }
-      // cout << endl;
-      // cout << norm(diff) << " " << norm(sigmahatv) << endl;
       log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
       log.flush();
 
