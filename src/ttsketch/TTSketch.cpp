@@ -309,6 +309,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       this->count_ = nsamples * printstride / this->pace_ + 1;
       ifile.close();
+
+      if(this->do_aca_) {
+        for(unsigned i = 0; i < this->samples_.size(); ++i) {
+          if(i % (this->aca_stride_ / this->stride_) == 0) {
+            this->aca_.addSample(this->samples_[i]);
+          }
+        }
+      }
     }
 
     if(this->walkers_mpi_) {
