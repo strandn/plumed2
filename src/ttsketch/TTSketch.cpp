@@ -328,22 +328,26 @@ TTSketch::TTSketch(const ActionOptions& ao):
       ttfilename = "../" + ttfilename;
     }
     for(unsigned i = 2; i <= this->count_; ++i) {
-      this->ttList_.push_back(ttRead(ttfilename, i));
+      try {
+        this->ttList_.push_back(ttRead(ttfilename, i));
+      } catch(...) {
+        this->count_ = i - 1;
+        if(this->walkers_mpi_) {
+          multi_sim_comm.Bcast(this->count_, 0);
+        }
+        break;
+      }
     }
     if(this->do_aca_) {
-      bool success = false;
-      while(!success) {
-        try {
-          success = true;
-          this->aca_.readVb(this->count_);
-        } catch(...) {
-          success = false;
-          --this->count_;
-          if(this->walkers_mpi_) {
-            multi_sim_comm.Bcast(this->count_, 0);
-          }
-          this->ttList_.pop_back();
+      try {
+        this->aca_.readVb(this->count_);
+      } catch(...) {
+        --this->count_;
+        if(this->walkers_mpi_) {
+          multi_sim_comm.Bcast(this->count_, 0);
         }
+        this->ttList_.pop_back();
+        this->aca_.readVb(this->count_);
       }
     } else {
       if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
