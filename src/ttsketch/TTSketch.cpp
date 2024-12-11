@@ -358,7 +358,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
         ++count;
       }
       if(count == 1) {
-        error("vshift.dat not found or empty")
+        error("vshift.dat not found or empty");
       }
       if(count != this->count_) {
         this->count_ = count;
