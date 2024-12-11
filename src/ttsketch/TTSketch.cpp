@@ -626,11 +626,11 @@ void TTSketch::update() {
       if(this->count_ == 2) {
         file.open("F.txt");
         filex.open("dFdx.txt");
-        filey.open("dFdx.txt");
+        filey.open("dFdy.txt");
       } else {
         file.open("F.txt", ios_base::app);
         filex.open("dFdx.txt", ios_base::app);
-        filey.open("dFdx.txt", ios_base::app);
+        filey.open("dFdy.txt", ios_base::app);
       }
       for(int i = 0; i < 100; ++i) {
         double x = -M_PI + 2 * i * M_PI / 100;
