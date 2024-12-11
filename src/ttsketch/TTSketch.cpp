@@ -807,7 +807,7 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
   for(unsigned i = 1; i <= this->d_; ++i) {
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
-    for(unsigned j = 0; j < N; ++j) {
+    for(unsigned j = 1; j <= N; ++j) {
       for(int k = 1; k <= nb; ++k) {
         M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / this->d_) * this->basis_[i - 1](this->lastsamples_[j - 1][i - 1], k, false));
       }
