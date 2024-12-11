@@ -374,7 +374,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
     }
 
-    multi_sim_comm.Barrier();
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Barrier();
+    }
     if(this->walkers_mpi_ && this->mpi_rank_ != 0) {
       ifstream file;
       file.open("../vshift.dat");
