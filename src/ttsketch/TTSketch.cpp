@@ -587,6 +587,24 @@ void TTSketch::update() {
       log << "\n\n";
       log.flush();
 
+      // TODO: remove this?
+      if(!this->do_aca_) {
+        vpeak = 0.0;
+        for(auto& s : this->samples_) {
+          double bias = getBias(s);
+          if(bias > vpeak) {
+            vpeak = bias;
+            topsample = s;
+          }
+        }
+        log << "Vtop = " << vpeak << "\n";
+        for(unsigned j = 0; j < this->d_; ++j) {
+          log << topsample[j] << " ";
+        }
+        log << "\n\n";
+        log.flush();
+      }
+
       string ttfilename = "ttsketch.h5";
       if(this->walkers_mpi_) {
         ttfilename = "../" + ttfilename;
