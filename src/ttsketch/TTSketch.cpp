@@ -709,7 +709,7 @@ double TTSketch::getBias(const vector<double>& cv) {
 }
 
 void TTSketch::paraSketch() {
-  int N = this->pace_ / this->stride_;
+  unsigned N = this->lastsamples_.size();
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
   auto G = MPS(this->d_);
@@ -799,7 +799,7 @@ MPS TTSketch::createTTCoeff() const {
 }
 
 pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) const {
-  int N = this->pace_ / this->stride_;
+  unsigned N = this->lastsamples_.size();
   int nb = this->basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
