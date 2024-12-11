@@ -587,23 +587,22 @@ void TTSketch::update() {
       log << "\n\n";
       log.flush();
 
-      // TODO: remove this?
-      if(!this->do_aca_) {
-        vpeak = 0.0;
-        for(auto& s : this->samples_) {
-          double bias = getBias(s);
-          if(bias > vpeak) {
-            vpeak = bias;
-            topsample = s;
-          }
-        }
-        log << "Vtop = " << vpeak << "\n";
-        for(unsigned j = 0; j < this->d_; ++j) {
-          log << topsample[j] << " ";
-        }
-        log << "\n\n";
-        log.flush();
-      }
+      // if(!this->do_aca_) {
+      //   vpeak = 0.0;
+      //   for(auto& s : this->samples_) {
+      //     double bias = getBias(s);
+      //     if(bias > vpeak) {
+      //       vpeak = bias;
+      //       topsample = s;
+      //     }
+      //   }
+      //   log << "Vtop = " << vpeak << "\n";
+      //   for(unsigned j = 0; j < this->d_; ++j) {
+      //     log << topsample[j] << " ";
+      //   }
+      //   log << "\n\n";
+      //   log.flush();
+      // }
 
       string ttfilename = "ttsketch.h5";
       if(this->walkers_mpi_) {
@@ -734,7 +733,7 @@ double TTSketch::getBias(const vector<double>& cv) {
     double bias = 0.0;
     this->ttIdxList_.clear();
     for(unsigned i = 0; i < this->count_ - 1; ++i) {
-      bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0) - this->vshiftList_[i]);
+      bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
       if(bias > 0) {
         this->ttIdxList_.push_back(i);
       } else {
