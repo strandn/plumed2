@@ -721,7 +721,7 @@ void TTSketch::paraSketch() {
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
     int rank = dim(links(core_id - 1));
     Matrix<double> LMat(N, rank), RMat(N, rank);
-    for(int i = 1; i <= N; ++i) {
+    for(unsigned i = 1; i <= N; ++i) {
       for(int j = 1; j <= rank; ++j) {
         LMat(i - 1, j - 1) = envi_L[core_id - 1].elt(is(core_id) = i, links(core_id - 1) = j);
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
