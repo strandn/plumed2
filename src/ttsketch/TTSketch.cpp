@@ -350,13 +350,18 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
     } else {
       ifstream file;
-      file.open("vshift.dat");
+      string filename = "vshift.dat";
+      if(this->walkers_mpi_) {
+        filename = "../" + filename;
+      }
+      file.open(filename);
       string text;
       unsigned count = 1;
       while (getline(file, text)) {
         this->vshiftList_.push_back(stod(text));
         ++count;
       }
+      file.close();
       if(count == 1) {
         error("vshift.dat not found or empty");
       }
@@ -369,7 +374,16 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
     }
 
-    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+    multi_sim_comm.Barrier();
+    if(this->walkers_mpi_ && this->mpi_rank_ != 0) {
+      ifstream file;
+      file.open("../vshift.dat");
+      string text;
+      while (getline(file, text)) {
+        this->vshiftList_.push_back(stod(text));
+      }
+      file.close();
+    } else {
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
     }
@@ -547,10 +561,14 @@ void TTSketch::update() {
       } else {
         this->vshiftList_.back() = vshift;
         ofstream file;
+        string filename = "vshift.dat";
+        if(this->walkers_mpi_) {
+          filename = "../" + filename;
+        }
         if(this->count_ == 2) {
-          file.open("vshift.dat");
+          file.open(filename);
         } else {
-          file.open("vshift.dat", ios_base::app);
+          file.open(filename, ios_base::app);
         }
         file.precision(15);
         file << vshift << "\n";
