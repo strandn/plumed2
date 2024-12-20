@@ -668,6 +668,7 @@ void TTSketch::update() {
       // filey.close();
 
       ofstream file, filed;
+
       if(this->count_ == 2) {
         file.open("phi2.txt");
         filed.open("dphi2.txt");
@@ -685,7 +686,6 @@ void TTSketch::update() {
       file.close();
       filed.close();
 
-      ofstream file, filed;
       if(this->count_ == 2) {
         file.open("psi2.txt");
         filed.open("dpsi2.txt");
@@ -703,7 +703,6 @@ void TTSketch::update() {
       file.close();
       filed.close();
 
-      ofstream file, filed;
       if(this->count_ == 2) {
         file.open("phi3.txt");
         filed.open("dphi3.txt");
@@ -721,7 +720,6 @@ void TTSketch::update() {
       file.close();
       filed.close();
 
-      ofstream file, filed;
       if(this->count_ == 2) {
         file.open("psi3.txt");
         filed.open("dpsi3.txt");
@@ -739,7 +737,6 @@ void TTSketch::update() {
       file.close();
       filed.close();
 
-      ofstream file, filed;
       if(this->count_ == 2) {
         file.open("phi4.txt");
         filed.open("dphi4.txt");
@@ -757,7 +754,6 @@ void TTSketch::update() {
       file.close();
       filed.close();
 
-      ofstream file, filed;
       if(this->count_ == 2) {
         file.open("psi4.txt");
         filed.open("dpsi4.txt");
