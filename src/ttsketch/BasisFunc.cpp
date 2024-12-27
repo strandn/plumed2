@@ -56,16 +56,16 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
         gsl_function F;
         F.function = &conv_f;
         F.params = &conv_params;
-        gsl_integration_qag(&F, dom.first - this->L_ / 4,
-                            dom.second + this->L_ / 4, conv_epsabs,
+        gsl_integration_qag(&F, dom.first - this->L_,
+                            dom.second + this->L_, conv_epsabs,
                             conv_epsrel, conv_limit, conv_key, workspace,
                             &result, &error);
         this->grid_[j][k] = result;
         gsl_function DF;
         DF.function = &conv_df;
         DF.params = &conv_params;
-        gsl_integration_qag(&DF, dom.first - this->L_ / 4,
-                            dom.second + this->L_ / 4, conv_epsabs,
+        gsl_integration_qag(&DF, dom.first - this->L_,
+                            dom.second + this->L_, conv_epsabs,
                             conv_epsrel, conv_limit, conv_key, workspace,
                             &result, &error);
         this->gridd_[j][k] = result;
