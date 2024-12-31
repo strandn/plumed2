@@ -667,109 +667,109 @@ void TTSketch::update() {
       // filex.close();
       // filey.close();
 
-      ofstream file, filed;
+      // ofstream file, filed;
 
-      if(this->count_ == 2) {
-        file.open("phi2.txt");
-        filed.open("dphi2.txt");
-      } else {
-        file.open("phi2.txt", ios_base::app);
-        filed.open("dphi2.txt", ios_base::app);
-      }
-      for(int i = 0; i < 500; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 500;
-        vector<double> der(this->d_, 0.0);
-        double ene = getBiasAndDerivatives({ x, muhat[1], muhat[2], muhat[3], muhat[4], muhat[5] }, der);
-        file << x << " " << ene << endl;
-        filed << x << " " << der[0] << endl;
-      }
-      file.close();
-      filed.close();
+      // if(this->count_ == 2) {
+      //   file.open("phi2.txt");
+      //   filed.open("dphi2.txt");
+      // } else {
+      //   file.open("phi2.txt", ios_base::app);
+      //   filed.open("dphi2.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 500; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 500;
+      //   vector<double> der(this->d_, 0.0);
+      //   double ene = getBiasAndDerivatives({ x, muhat[1], muhat[2], muhat[3], muhat[4], muhat[5] }, der);
+      //   file << x << " " << ene << endl;
+      //   filed << x << " " << der[0] << endl;
+      // }
+      // file.close();
+      // filed.close();
 
-      if(this->count_ == 2) {
-        file.open("psi2.txt");
-        filed.open("dpsi2.txt");
-      } else {
-        file.open("psi2.txt", ios_base::app);
-        filed.open("dpsi2.txt", ios_base::app);
-      }
-      for(int i = 0; i < 500; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 500;
-        vector<double> der(this->d_, 0.0);
-        double ene = getBiasAndDerivatives({ muhat[0], x, muhat[2], muhat[3], muhat[4], muhat[5] }, der);
-        file << x << " " << ene << endl;
-        filed << x << " " << der[1] << endl;
-      }
-      file.close();
-      filed.close();
+      // if(this->count_ == 2) {
+      //   file.open("psi2.txt");
+      //   filed.open("dpsi2.txt");
+      // } else {
+      //   file.open("psi2.txt", ios_base::app);
+      //   filed.open("dpsi2.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 500; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 500;
+      //   vector<double> der(this->d_, 0.0);
+      //   double ene = getBiasAndDerivatives({ muhat[0], x, muhat[2], muhat[3], muhat[4], muhat[5] }, der);
+      //   file << x << " " << ene << endl;
+      //   filed << x << " " << der[1] << endl;
+      // }
+      // file.close();
+      // filed.close();
 
-      if(this->count_ == 2) {
-        file.open("phi3.txt");
-        filed.open("dphi3.txt");
-      } else {
-        file.open("phi3.txt", ios_base::app);
-        filed.open("dphi3.txt", ios_base::app);
-      }
-      for(int i = 0; i < 500; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 500;
-        vector<double> der(this->d_, 0.0);
-        double ene = getBiasAndDerivatives({ muhat[0], muhat[1], x, muhat[3], muhat[4], muhat[5] }, der);
-        file << x << " " << ene << endl;
-        filed << x << " " << der[2] << endl;
-      }
-      file.close();
-      filed.close();
+      // if(this->count_ == 2) {
+      //   file.open("phi3.txt");
+      //   filed.open("dphi3.txt");
+      // } else {
+      //   file.open("phi3.txt", ios_base::app);
+      //   filed.open("dphi3.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 500; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 500;
+      //   vector<double> der(this->d_, 0.0);
+      //   double ene = getBiasAndDerivatives({ muhat[0], muhat[1], x, muhat[3], muhat[4], muhat[5] }, der);
+      //   file << x << " " << ene << endl;
+      //   filed << x << " " << der[2] << endl;
+      // }
+      // file.close();
+      // filed.close();
 
-      if(this->count_ == 2) {
-        file.open("psi3.txt");
-        filed.open("dpsi3.txt");
-      } else {
-        file.open("psi3.txt", ios_base::app);
-        filed.open("dpsi3.txt", ios_base::app);
-      }
-      for(int i = 0; i < 500; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 500;
-        vector<double> der(this->d_, 0.0);
-        double ene = getBiasAndDerivatives({ muhat[0], muhat[1], muhat[2], x, muhat[4], muhat[5] }, der);
-        file << x << " " << ene << endl;
-        filed << x << " " << der[3] << endl;
-      }
-      file.close();
-      filed.close();
+      // if(this->count_ == 2) {
+      //   file.open("psi3.txt");
+      //   filed.open("dpsi3.txt");
+      // } else {
+      //   file.open("psi3.txt", ios_base::app);
+      //   filed.open("dpsi3.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 500; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 500;
+      //   vector<double> der(this->d_, 0.0);
+      //   double ene = getBiasAndDerivatives({ muhat[0], muhat[1], muhat[2], x, muhat[4], muhat[5] }, der);
+      //   file << x << " " << ene << endl;
+      //   filed << x << " " << der[3] << endl;
+      // }
+      // file.close();
+      // filed.close();
 
-      if(this->count_ == 2) {
-        file.open("phi4.txt");
-        filed.open("dphi4.txt");
-      } else {
-        file.open("phi4.txt", ios_base::app);
-        filed.open("dphi4.txt", ios_base::app);
-      }
-      for(int i = 0; i < 500; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 500;
-        vector<double> der(this->d_, 0.0);
-        double ene = getBiasAndDerivatives({ muhat[0], muhat[1], muhat[2], muhat[3], x, muhat[5] }, der);
-        file << x << " " << ene << endl;
-        filed << x << " " << der[4] << endl;
-      }
-      file.close();
-      filed.close();
+      // if(this->count_ == 2) {
+      //   file.open("phi4.txt");
+      //   filed.open("dphi4.txt");
+      // } else {
+      //   file.open("phi4.txt", ios_base::app);
+      //   filed.open("dphi4.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 500; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 500;
+      //   vector<double> der(this->d_, 0.0);
+      //   double ene = getBiasAndDerivatives({ muhat[0], muhat[1], muhat[2], muhat[3], x, muhat[5] }, der);
+      //   file << x << " " << ene << endl;
+      //   filed << x << " " << der[4] << endl;
+      // }
+      // file.close();
+      // filed.close();
 
-      if(this->count_ == 2) {
-        file.open("psi4.txt");
-        filed.open("dpsi4.txt");
-      } else {
-        file.open("psi4.txt", ios_base::app);
-        filed.open("dpsi4.txt", ios_base::app);
-      }
-      for(int i = 0; i < 500; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 500;
-        vector<double> der(this->d_, 0.0);
-        double ene = getBiasAndDerivatives({ muhat[0], muhat[1], muhat[2], muhat[3], muhat[4], x }, der);
-        file << x << " " << ene << endl;
-        filed << x << " " << der[5] << endl;
-      }
-      file.close();
-      filed.close();
+      // if(this->count_ == 2) {
+      //   file.open("psi4.txt");
+      //   filed.open("dpsi4.txt");
+      // } else {
+      //   file.open("psi4.txt", ios_base::app);
+      //   filed.open("dpsi4.txt", ios_base::app);
+      // }
+      // for(int i = 0; i < 500; ++i) {
+      //   double x = -M_PI + 2 * i * M_PI / 500;
+      //   vector<double> der(this->d_, 0.0);
+      //   double ene = getBiasAndDerivatives({ muhat[0], muhat[1], muhat[2], muhat[3], muhat[4], x }, der);
+      //   file << x << " " << ene << endl;
+      //   filed << x << " " << der[5] << endl;
+      // }
+      // file.close();
+      // filed.close();
     }
 
     if(this->walkers_mpi_) {
