@@ -562,19 +562,19 @@ void TTSketch::update() {
         this->aca_.updateVshift(vshift);
       } else {
         this->vshiftList_.back() = vshift;
-        // ofstream file;
-        // string filename = "vshift.dat";
-        // if(this->walkers_mpi_) {
-        //   filename = "../" + filename;
-        // }
-        // if(this->count_ == 2) {
-        //   file.open(filename);
-        // } else {
-        //   file.open(filename, ios_base::app);
-        // }
-        // file.precision(15);
-        // file << vshift << "\n";
-        // file.close();
+        ofstream file;
+        string filename = "vshift.dat";
+        if(this->walkers_mpi_) {
+          filename = "../" + filename;
+        }
+        if(this->count_ == 2) {
+          file.open(filename);
+        } else {
+          file.open(filename, ios_base::app);
+        }
+        file.precision(15);
+        file << vshift << "\n";
+        file.close();
       }
       log << "\n";
       if(this->bf_ > 1.0) {
