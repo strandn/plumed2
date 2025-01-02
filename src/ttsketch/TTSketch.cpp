@@ -772,11 +772,11 @@ void TTSketch::update() {
       filed.close();
 
       if(this->count_ == 2) {
-        file.open("phi2.txt");
-        filed.open("dphi2.txt");
+        file.open("phi2_peak.txt");
+        filed.open("dphi2_peak.txt");
       } else {
-        file.open("phi2.txt", ios_base::app);
-        filed.open("dphi2.txt", ios_base::app);
+        file.open("phi2_peak.txt", ios_base::app);
+        filed.open("dphi2_peak.txt", ios_base::app);
       }
       for(int i = 0; i < 500; ++i) {
         double x = -M_PI + 2 * i * M_PI / 500;
