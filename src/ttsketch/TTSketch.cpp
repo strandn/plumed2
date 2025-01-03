@@ -714,6 +714,8 @@ void TTSketch::update() {
         file << x << " " << ene << endl;
         filed << x << " " << der[2] << endl;
       }
+      file.close();
+      filed.close();
       if(this->count_ == 2) {
         file.open("phi2_peak.txt");
         filed.open("dphi2_peak.txt");
@@ -826,7 +828,7 @@ void TTSketch::update() {
       // }
       // file.close();
       // filed.close();
-            // if(this->count_ == 2) {
+      // if(this->count_ == 2) {
       //   file.open("psi2_peak.txt");
       //   filed.open("dpsi2_peak.txt");
       // } else {
