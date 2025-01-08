@@ -377,17 +377,24 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(this->walkers_mpi_) {
       multi_sim_comm.Barrier();
     }
-    if(this->walkers_mpi_ && this->mpi_rank_ != 0) {
-      ifstream file;
-      file.open("../vshift.dat");
-      string text;
-      while (getline(file, text)) {
-        this->vshiftList_.push_back(stod(text));
-      }
-      file.close();
-    } else {
+    // if(this->walkers_mpi_ && this->mpi_rank_ != 0) {
+    //   ifstream file;
+    //   file.open("../vshift.dat");
+    //   string text;
+    //   while (getline(file, text)) {
+    //     this->vshiftList_.push_back(stod(text));
+    //   }
+    //   file.close();
+    // } else {
+    //   log << "  restarting from step " << this->count_ << "\n";
+    //   log << "  " << this->samples_.size() << " samples retrieved\n";
+    // }
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
+      if(!this->do_aca_) {
+        log << "  " << this->vshiftList_.size() << " " << this->ttList_.size() << "\n";
+      }
     }
   }
 }
@@ -1145,19 +1152,19 @@ double TTSketch::getBias(const vector<double>& cv) {
   } else {
     double bias = 0.0;
     this->ttIdxList_.clear();
-    log << this->count_ << " " << this->vshiftList_.size() << " " << this->ttList_.size() << "\n";
-    log.flush();
-    for(unsigned i = 0; i < this->count_ - 1; ++i) {
-      log << i << " " << this->vshiftList_[i] << "\n";
-      log.flush();
-      log << i << " " << dim(siteIndex(this->ttList_[i], 1)) << "\n";
-      log.flush();
-      log << i << " " << dim(siteIndex(this->ttList_[i], 2)) << "\n";
-      log.flush();
-      log << i << " " << dim(siteIndex(this->ttList_[i], 3)) << "\n";
-      log.flush();
-      log << i << " " << dim(siteIndex(this->ttList_[i], 4)) << "\n";
-      log.flush();
+    // log << this->count_ << " " << this->vshiftList_.size() << " " << this->ttList_.size() << "\n";
+    // log.flush();
+    // for(unsigned i = 0; i < this->count_ - 1; ++i) {
+    //   log << i << " " << this->vshiftList_[i] << "\n";
+    //   log.flush();
+    //   log << i << " " << dim(siteIndex(this->ttList_[i], 1)) << "\n";
+    //   log.flush();
+    //   log << i << " " << dim(siteIndex(this->ttList_[i], 2)) << "\n";
+    //   log.flush();
+    //   log << i << " " << dim(siteIndex(this->ttList_[i], 3)) << "\n";
+    //   log.flush();
+    //   log << i << " " << dim(siteIndex(this->ttList_[i], 4)) << "\n";
+    //   log.flush();
       bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
       if(bias > 0) {
         this->ttIdxList_.push_back(i);
