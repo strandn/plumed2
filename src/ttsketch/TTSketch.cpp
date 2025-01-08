@@ -400,14 +400,14 @@ void TTSketch::calculate() {
 
   vector<double> der(this->d_, 0.0);
 
-  for(unsigned i = 0; i < this->count_ - 1; ++i) {
-    multi_sim_comm.Barrier();
-    if(this->mpi_rank_ == 0) {
-      cout << i << " " << this->vshiftList_[i] << endl;
-      PrintData(this->ttList_[i]);
-    }
-    multi_sim_comm.Barrier();
-  }
+  // for(unsigned i = 0; i < this->count_ - 1; ++i) {
+  //   multi_sim_comm.Barrier();
+  //   if(this->mpi_rank_ == 0) {
+  //     cout << i << " " << this->vshiftList_[i] << endl;
+  //     PrintData(this->ttList_[i]);
+  //   }
+  //   multi_sim_comm.Barrier();
+  // }
 
   double ene = getBiasAndDerivatives(cv, der);
   setBias(ene);
