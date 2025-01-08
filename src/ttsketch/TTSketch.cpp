@@ -1154,17 +1154,17 @@ double TTSketch::getBias(const vector<double>& cv) {
     this->ttIdxList_.clear();
     // log << this->count_ << " " << this->vshiftList_.size() << " " << this->ttList_.size() << "\n";
     // log.flush();
-    // for(unsigned i = 0; i < this->count_ - 1; ++i) {
-    //   log << i << " " << this->vshiftList_[i] << "\n";
-    //   log.flush();
-    //   log << i << " " << dim(siteIndex(this->ttList_[i], 1)) << "\n";
-    //   log.flush();
-    //   log << i << " " << dim(siteIndex(this->ttList_[i], 2)) << "\n";
-    //   log.flush();
-    //   log << i << " " << dim(siteIndex(this->ttList_[i], 3)) << "\n";
-    //   log.flush();
-    //   log << i << " " << dim(siteIndex(this->ttList_[i], 4)) << "\n";
-    //   log.flush();
+    for(unsigned i = 0; i < this->count_ - 1; ++i) {
+      // log << i << " " << this->vshiftList_[i] << "\n";
+      // log.flush();
+      // log << i << " " << dim(siteIndex(this->ttList_[i], 1)) << "\n";
+      // log.flush();
+      // log << i << " " << dim(siteIndex(this->ttList_[i], 2)) << "\n";
+      // log.flush();
+      // log << i << " " << dim(siteIndex(this->ttList_[i], 3)) << "\n";
+      // log.flush();
+      // log << i << " " << dim(siteIndex(this->ttList_[i], 4)) << "\n";
+      // log.flush();
       bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
       if(bias > 0) {
         this->ttIdxList_.push_back(i);
