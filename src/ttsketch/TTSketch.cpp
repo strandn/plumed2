@@ -389,6 +389,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
     }
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Barrier();
+    }
   }
 }
 
@@ -1146,11 +1149,11 @@ double TTSketch::getBias(const vector<double>& cv) {
     double bias = 0.0;
     this->ttIdxList_.clear();
     for(unsigned i = 0; i < this->count_ - 1; ++i) {
-      log << i << "\n";
-      log.flush();
-      if(this->mpi_rank_ == 0) {
-        PrintData(this->ttList_[i]);
-      }
+      // log << i << "\n";
+      // log.flush();
+      // if(this->mpi_rank_ == 0) {
+      //   PrintData(this->ttList_[i]);
+      // }
       bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
       if(bias > 0) {
         this->ttIdxList_.push_back(i);
