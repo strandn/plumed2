@@ -365,12 +365,25 @@ TTSketch::TTSketch(const ActionOptions& ao):
       if(count == 1) {
         error("vshift.dat not found or empty");
       }
-      if(count != this->count_) {
+      if(count < this->count_) {
         this->count_ = count;
         if(this->walkers_mpi_) {
           multi_sim_comm.Bcast(this->count_, 0);
         }
         this->ttList_.pop_back();
+      } else if(count > this->count_) {
+        this->vshiftList_.pop_back();
+        ofstream file;
+        string filename = "vshift.dat";
+        if(this->walkers_mpi_) {
+          filename = "../" + filename;
+        }
+        file.open(filename);
+        file.precision(15);
+        for(double vshift : this->vshiftList_) {
+          file << vshift << "\n";
+        }
+        file.close();
       }
     }
 
