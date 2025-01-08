@@ -1147,6 +1147,7 @@ double TTSketch::getBias(const vector<double>& cv) {
     this->ttIdxList_.clear();
     for(unsigned i = 0; i < this->count_ - 1; ++i) {
       log << i << "\n";
+      log.flush();
       bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
       if(bias > 0) {
         this->ttIdxList_.push_back(i);
