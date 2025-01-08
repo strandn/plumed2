@@ -1145,22 +1145,19 @@ double TTSketch::getBias(const vector<double>& cv) {
   } else {
     double bias = 0.0;
     this->ttIdxList_.clear();
+    log << this->count_ << " " << this->vshiftList_.size() << " " << this->ttList_.size() << "\n";
+    log.flush();
     for(unsigned i = 0; i < this->count_ - 1; ++i) {
-      log << i << " ";
+      log << i << " " << this->vshiftList_[i] << "\n";
       log.flush();
-      log << this->vshiftList_[i] << " ";
+      log << i << " " << << dim(siteIndex(this->ttList_[i], 1)) << "\n";
       log.flush();
-      log << dim(siteIndex(this->ttList_[i], 1)) << " ";
+      log << i << " " << << dim(siteIndex(this->ttList_[i], 2)) << "\n";
       log.flush();
-      log << dim(siteIndex(this->ttList_[i], 2)) << " ";
+      log << i << " " << << dim(siteIndex(this->ttList_[i], 3)) << "\n";
       log.flush();
-      log << dim(siteIndex(this->ttList_[i], 3)) << " ";
+      log << i << " " << << dim(siteIndex(this->ttList_[i], 4)) << "\n";
       log.flush();
-      log << dim(siteIndex(this->ttList_[i], 4)) << "\n";
-      log.flush();
-      if(this->mpi_rank_ == 0) {
-        PrintData(this->ttList_[i]);
-      }
       bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
       if(bias > 0) {
         this->ttIdxList_.push_back(i);
