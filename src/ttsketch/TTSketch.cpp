@@ -407,7 +407,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       double vpeak = 0.0;
-      int N = this->pace_ / this->stride_;
+      int N = this->pace_ / this->memorystride_;
       for(int j = 0; j < N; ++j) {
         int jadj = j + this->samples_.size() - N;
         auto& s = this->samples_[jadj];
