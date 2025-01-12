@@ -647,20 +647,20 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       if(this->do_aca_) {
-        ofstream file;
-        if(this->count_ == 2) {
-          file.open("F0.txt");
-        } else {
-          file.open("F0.txt", ios_base::app);
-        }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << max(this->aca_.f({ x, y }), 0.0) << endl;
-          }
-        }
-        file.close();
+        // ofstream file;
+        // if(this->count_ == 2) {
+        //   file.open("F0.txt");
+        // } else {
+        //   file.open("F0.txt", ios_base::app);
+        // }
+        // for(int i = 0; i < 100; ++i) {
+        //   double x = -M_PI + 2 * i * M_PI / 100;
+        //   for(int j = 0; j < 100; ++j) {
+        //     double y = -M_PI + 2 * j * M_PI / 100;
+        //     file << x << " " << y << " " << max(this->aca_.f({ x, y }), 0.0) << endl;
+        //   }
+        // }
+        // file.close();
         
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
@@ -1140,6 +1140,31 @@ void TTSketch::update() {
       // file.close();
       // filed.close();
     }
+
+    ofstream file, filex, filey;
+    if(this->count_ == 2) {
+      file.open("F.txt");
+      filex.open("dFdx.txt");
+      filey.open("dFdy.txt");
+    } else {
+      file.open("F.txt", ios_base::app);
+      filex.open("dFdx.txt", ios_base::app);
+      filey.open("dFdy.txt", ios_base::app);
+    }
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        vector<double> der(this->d_, 0.0);
+        double ene = getBiasAndDerivatives({ x, y }, der);
+        file << x << " " << y << " " << ene << endl;
+        filex << x << " " << y << " " << der[0] << endl;
+        filey << x << " " << y << " " << der[1] << endl;
+      }
+    }
+    file.close();
+    filex.close();
+    filey.close();
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
