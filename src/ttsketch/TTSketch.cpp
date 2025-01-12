@@ -498,6 +498,7 @@ void TTSketch::update() {
 
   if(nowAddATT) {
     double vshift = 0.0;
+    this->adj_vshift_ = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
@@ -574,7 +575,6 @@ void TTSketch::update() {
         this->aca_.updateG(this->ttList_.back());
       }
       
-      this->vshift_ = this->adj_vshift_ = 0.0;
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
       vector<double> topsample;
