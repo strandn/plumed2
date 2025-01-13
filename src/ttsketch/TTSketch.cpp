@@ -1141,6 +1141,19 @@ void TTSketch::update() {
       // filed.close();
     }
 
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Bcast(this->count_, 0);
+      multi_sim_comm.Bcast(vshift, 0);
+      multi_sim_comm.Bcast(this->adj_vshift_, 0);
+      if(this->mpi_rank_ != 0) {
+        this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
+        if(this->do_aca_) {
+          this->aca_.readVb(this->count_);
+        }
+        this->vshiftList_.push_back(vshift);
+      }
+    }
+
     ofstream file, filex, filey;
     if(this->count_ == 2) {
       file.open("F.txt");
@@ -1165,19 +1178,6 @@ void TTSketch::update() {
     file.close();
     filex.close();
     filey.close();
-
-    if(this->walkers_mpi_) {
-      multi_sim_comm.Bcast(this->count_, 0);
-      multi_sim_comm.Bcast(vshift, 0);
-      multi_sim_comm.Bcast(this->adj_vshift_, 0);
-      if(this->mpi_rank_ != 0) {
-        this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
-        if(this->do_aca_) {
-          this->aca_.readVb(this->count_);
-        }
-        this->vshiftList_.push_back(vshift);
-      }
-    }
   }
   if(getStep() % adjpace == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
