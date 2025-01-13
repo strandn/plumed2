@@ -367,6 +367,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
         this->aca_.readVb(this->count_);
       }
     } else {
+      if(this->walkers_mpi_) {
+        multi_sim_comm.Barrier();
+      }
       ifstream file;
       string filename = "vshift.dat";
       if(this->walkers_mpi_) {
@@ -391,18 +394,28 @@ TTSketch::TTSketch(const ActionOptions& ao):
         this->ttList_.pop_back();
       } else if(count > this->count_) {
         this->vshiftList_.pop_back();
-        ofstream file;
-        string filename = "vshift.dat";
         if(this->walkers_mpi_) {
-          filename = "../" + filename;
+          multi_sim_comm.Barrier();
         }
-        file.open(filename);
-        file.precision(15);
-        for(double vshift : this->vshiftList_) {
-          file << vshift << "\n";
+        if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+          ofstream file;
+          string filename = "vshift.dat";
+          if(this->walkers_mpi_) {
+            filename = "../" + filename;
+          }
+          file.open(filename);
+          file.precision(15);
+          for(double vshift : this->vshiftList_) {
+            file << vshift << "\n";
+          }
+          file.close();
         }
-        file.close();
       }
+      log << "  vshiftList ";
+      for(double vshift : this->vshiftList_) {
+        log << vshift << " ";
+      }
+      log << "\n";
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
