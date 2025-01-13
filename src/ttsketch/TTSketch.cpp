@@ -1181,6 +1181,7 @@ void TTSketch::update() {
     file.close();
     filex.close();
     filey.close();
+    fileadj.close();
   }
   if(getStep() % adjpace == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
