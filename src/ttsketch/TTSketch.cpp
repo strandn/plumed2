@@ -1154,15 +1154,17 @@ void TTSketch::update() {
       }
     }
 
-    ofstream file, filex, filey;
+    ofstream file, filex, filey, fileadj;
     if(this->count_ == 2) {
       file.open("F.txt");
       filex.open("dFdx.txt");
       filey.open("dFdy.txt");
+      fileadj.open("Fadj.txt");
     } else {
       file.open("F.txt", ios_base::app);
       filex.open("dFdx.txt", ios_base::app);
       filey.open("dFdy.txt", ios_base::app);
+      fileadj.open("Fadj.txt", ios_base::app);
     }
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
@@ -1173,6 +1175,7 @@ void TTSketch::update() {
         file << x << " " << y << " " << ene << endl;
         filex << x << " " << y << " " << der[0] << endl;
         filey << x << " " << y << " " << der[1] << endl;
+        fileadj << x << " " << y << " " << getAdjBias({ x, y }) << endl;
       }
     }
     file.close();
