@@ -47,6 +47,7 @@ private:
   int memorystride_;
   double adj_vmax_;
   double vshift_;
+  double adj_vshift_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -118,7 +119,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   do_aca_(false),
   memorystride_(0),
   adj_vmax_(0.0),
-  vshift_(0.0)
+  vshift_(0.0),
+  adj_vshift_(0.0)
 {
   bool noconv, aca_noconv = false;
   parseFlag("NOCONV", noconv);
@@ -376,10 +378,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
       log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
     }
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->vshift_, 0);
+      multi_sim_comm.Bcast(this->adj_vshift_, 0);
     }
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       log << "  restarting from step " << this->count_ << "\n";
@@ -454,6 +458,7 @@ void TTSketch::update() {
 
   if(nowAddATT) {
     this->vshift_ = 0.0;
+    this->adj_vshift_ = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
@@ -564,6 +569,7 @@ void TTSketch::update() {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
       }
       log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
@@ -1074,6 +1080,7 @@ void TTSketch::update() {
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
+      multi_sim_comm.Bcast(this->adj_vshift_, 0);
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
         if(this->do_aca_) {
@@ -1154,7 +1161,7 @@ double TTSketch::getBias(const vector<double>& cv) {
 
 double TTSketch::getAdjBias(const vector<double>& cv) {
   double bias = getBias(cv);
-  return bias - this->adj_vmax_ + this->vmax_;
+  return bias - this->adj_vshift_;
 }
 
 void TTSketch::paraSketch() {
