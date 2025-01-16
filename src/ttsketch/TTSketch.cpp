@@ -40,15 +40,13 @@ private:
   unsigned count_;
   double bf_;
   bool conv_;
-  std::vector<double> vshiftList_;
   bool walkers_mpi_;
   int mpi_size_;
   int mpi_rank_;
   bool do_aca_;
   int memorystride_;
-  vector<unsigned> ttIdxList_;
   double adj_vmax_;
-  double adj_vshift_;
+  double vshift_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -120,7 +118,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   do_aca_(false),
   memorystride_(0),
   adj_vmax_(0.0),
-  adj_vshift_(0.0)
+  vshift_(0.0)
 {
   bool noconv, aca_noconv = false;
   parseFlag("NOCONV", noconv);
@@ -366,56 +364,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
         this->ttList_.pop_back();
         this->aca_.readVb(this->count_);
       }
-    } else {
-      if(this->walkers_mpi_) {
-        multi_sim_comm.Barrier();
-      }
-      ifstream file;
-      string filename = "vshift.dat";
-      if(this->walkers_mpi_) {
-        filename = "../" + filename;
-      }
-      file.open(filename);
-      string text;
-      unsigned count = 1;
-      while (getline(file, text)) {
-        this->vshiftList_.push_back(stod(text));
-        ++count;
-      }
-      file.close();
-      if(count == 1) {
-        error("vshift.dat not found or empty");
-      }
-      if(count < this->count_) {
-        this->count_ = count;
-        if(this->walkers_mpi_) {
-          multi_sim_comm.Bcast(this->count_, 0);
-        }
-        this->ttList_.pop_back();
-      } else if(count > this->count_) {
-        this->vshiftList_.pop_back();
-        if(this->walkers_mpi_) {
-          multi_sim_comm.Barrier();
-        }
-        if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-          ofstream file;
-          string filename = "vshift.dat";
-          if(this->walkers_mpi_) {
-            filename = "../" + filename;
-          }
-          file.open(filename);
-          file.precision(15);
-          for(double vshift : this->vshiftList_) {
-            file << vshift << "\n";
-          }
-          file.close();
-        }
-      }
-      log << "  vshiftList ";
-      for(double vshift : this->vshiftList_) {
-        log << vshift << " ";
-      }
-      log << "\n";
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -426,18 +374,16 @@ TTSketch::TTSketch(const ActionOptions& ao):
           vpeak = bias;
         }
       }
-      this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
+      this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
     }
 
     if(this->walkers_mpi_) {
-      multi_sim_comm.Bcast(this->adj_vshift_, 0);
+      multi_sim_comm.Bcast(this->vshift_, 0);
     }
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
-      if(!this->do_aca_) {
-        log << "  " << this->vshiftList_.size() << " " << this->ttList_.size() << "\n";
-      }
     }
   }
 }
@@ -507,8 +453,7 @@ void TTSketch::update() {
   }
 
   if(nowAddATT) {
-    double vshift = 0.0;
-    this->adj_vshift_ = 0.0;
+    this->vshift_ = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
@@ -590,12 +535,11 @@ void TTSketch::update() {
       vector<double> topsample;
       vector<vector<double>> topsamples(this->d_);
       if(this->do_aca_) {
-        this->aca_.updateVshift(0.0);
+        // this->aca_.updateVshift(0.0);
         auto vtopresult = this->aca_.vtop();
         vpeak = vtopresult.first;
         topsample = vtopresult.second;
       } else {
-        this->vshiftList_.push_back(0.0);
         for(auto& s : this->samples_) {
           vector<double> der(this->d_, 0.0);
           double bias = getBiasAndDerivatives(s, der);
@@ -611,44 +555,20 @@ void TTSketch::update() {
           }
         }
       }
-      vshift = max(vpeak - this->vmax_, 0.0);
-      if(this->do_aca_) {
-        this->aca_.updateVshift(vshift);
-      } else {
-        this->vshiftList_.back() = vshift;
-        ofstream file;
-        string filename = "vshift.dat";
-        if(this->walkers_mpi_) {
-          filename = "../" + filename;
-        }
-        if(this->count_ == 2) {
-          file.open(filename);
-        } else {
-          file.open(filename, ios_base::app);
-        }
-        file.precision(15);
-        file << vshift << "\n";
-        file.close();
-      }
+      this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      // if(this->do_aca_) {
+      //   this->aca_.updateVshift(this->vshift_ );
+      // }
       log << "\n";
       if(this->bf_ > 1.0) {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
       }
-      log << "Vtop = " << vpeak << " Vshift = " << vshift << "\n";
+      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
       log << "\n\n";
       log.flush();
-
-      vpeak = 0.0;
-      for(auto& s : this->samples_) {
-        double bias = getBias(s);
-        if(bias > vpeak) {
-          vpeak = bias;
-        }
-      }
-      this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
 
       string ttfilename = "ttsketch.h5";
       if(this->walkers_mpi_) {
@@ -1153,14 +1073,12 @@ void TTSketch::update() {
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->count_, 0);
-      multi_sim_comm.Bcast(vshift, 0);
-      multi_sim_comm.Bcast(this->adj_vshift_, 0);
+      multi_sim_comm.Bcast(this->vshift_, 0);
       if(this->mpi_rank_ != 0) {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
         if(this->do_aca_) {
           this->aca_.readVb(this->count_);
         }
-        this->vshiftList_.push_back(vshift);
       }
     }
 
@@ -1207,10 +1125,10 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(this->do_aca_) {
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else {
-    for(unsigned i : this->ttIdxList_) {
-      double rho = ttEval(this->ttList_[i], this->basis_, cv, this->conv_);
+    for(auto& tt : this->ttList_) {
+      double rho = ttEval(tt, this->basis_, cv, this->conv_);
       if(rho > 1.0) {
-        auto deri = ttGrad(this->ttList_[i], this->basis_, cv, this->conv_);
+        auto deri = ttGrad(tt, this->basis_, cv, this->conv_);
         transform(deri.begin(), deri.end(), deri.begin(), bind(multiplies<double>(), placeholders::_1, this->kbt_ / rho));
         transform(der.begin(), der.end(), deri.begin(), der.begin(), plus<double>());
       }
@@ -1220,30 +1138,23 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
 }
 
 double TTSketch::getBias(const vector<double>& cv) {
+  double bias = 0.0;
   if(this->do_aca_) {
     if(length(this->aca_.vb()) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
+    bias = ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else {
-    double bias = 0.0;
-    this->ttIdxList_.clear();
-    for(unsigned i = 0; i < this->count_ - 1; ++i) {
-      bias += this->kbt_ * std::log(max(ttEval(this->ttList_[i], this->basis_, cv, this->conv_), 1.0)) - this->vshiftList_[i];
-      if(bias > 0) {
-        this->ttIdxList_.push_back(i);
-      } else {
-        bias = 0.0;
-        this->ttIdxList_.clear();
-      }
+    for(auto& tt : this->ttList_) {
+      bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
     }
-    return bias;
   }
+  return max(bias - this->vshift_, 0.0);
 }
 
 double TTSketch::getAdjBias(const vector<double>& cv) {
   double bias = getBias(cv);
-  return bias - this->adj_vshift_;
+  return bias - this->adj_vmax_ + this->vmax_;
 }
 
 void TTSketch::paraSketch() {
