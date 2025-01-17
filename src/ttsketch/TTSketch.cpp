@@ -48,6 +48,7 @@ private:
   double adj_vmax_;
   double vshift_;
   double adj_vshift_;
+  int output_2d_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -101,6 +102,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
   keys.addOutputComponent("adjbias", "default", "Bias potential shifted down");
   keys.add("optional", "ADJ_VMAX", "Max adjusted Vbias");
+  keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -282,6 +284,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   addComponent("adjbias");
   componentIsNotPeriodic("adjbias");
+
+  parse("OUTPUT_2D", this->output_2d_);
+  if(this->output_2d_ < 0) {
+    error("OUTPUT_2D must be nonnegative");
+  }
 
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -523,6 +530,32 @@ void TTSketch::update() {
       log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
       log.flush();
 
+      if(this->output_2d_ > 0) {
+        for(unsigned k = 0; k < this->d_ - 1; ++k) {
+          vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
+          marginal2d(this->ttList_.back(), this->basis_, k + 1, marginals);
+          OFile file;
+          file.link(*this);
+          file.enforceSuffix("");
+          file.open("ttsketch_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(k + 1)->getName() + ".dat");
+          file.setHeavyFlush();
+          file.setupPrintValue(getPntrToArgument(k));
+          file.setupPrintValue(getPntrToArgument(k + 1));
+          auto xdom = this->basis_[k].dom();
+          auto ydom = this->basis_[k + 1].dom();
+          for(int i = 0; i < this->output_2d_; ++i) {
+            for(int j = 0; j < this->output_2d_; ++j) {
+              double x = xdom.first + i * (xdom.second - xdom.first) / this->output_2d_;
+              double y = ydom.first + j * (ydom.second - ydom.first) / this->output_2d_;
+              file.printField(getPntrToArgument(k), x);
+              file.printField(getPntrToArgument(k + 1), y);
+              file.printField("hh" + getPntrToArgument(k)->getName() + getPntrToArgument(k + 1)->getName(), marginals[i][j]);
+              file.printField();
+            }
+          }
+        }
+      }
+
       double rhomax = 0.0;
       for(auto& s : this->lastsamples_) {
         double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
@@ -540,7 +573,7 @@ void TTSketch::update() {
       vector<double> topsample;
       vector<vector<double>> topsamples(this->d_);
       if(this->do_aca_) {
-        // this->aca_.updateVshift(0.0);
+        this->aca_.updateVshift(0.0);
         auto vtopresult = this->aca_.vtop();
         vpeak = vtopresult.first;
         topsample = vtopresult.second;
@@ -561,9 +594,9 @@ void TTSketch::update() {
         }
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      // if(this->do_aca_) {
-      //   this->aca_.updateVshift(this->vshift_ );
-      // }
+      if(this->do_aca_) {
+        this->aca_.updateVshift(this->vshift_);
+      }
       log << "\n";
       if(this->bf_ > 1.0) {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
