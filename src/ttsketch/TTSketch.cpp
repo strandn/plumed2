@@ -528,7 +528,7 @@ void TTSketch::update() {
       auto sigmahatv = sigmahat.getVector();
       transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
       for(int i = 0; i < 9; ++i) {
-        cout << diff[i] << " " < sigmahatv[i] << endl;
+        cout << diff[i] << " " << sigmahatv[i] << endl;
       }
       log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
       log.flush();
