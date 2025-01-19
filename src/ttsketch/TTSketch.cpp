@@ -530,6 +530,7 @@ void TTSketch::update() {
       for(int i = 0; i < 9; ++i) {
         cout << diff[i] << " " << sigmahatv[i] << endl;
       }
+      cout << norm(diff) << " " << norm(sigmahatv) << endl;
       log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
       log.flush();
 
