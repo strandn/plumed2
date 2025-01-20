@@ -109,30 +109,30 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
   int d = length(tt);
   auto s = siteInds(tt);
   vector<ITensor> basis_int0(d);
-  cout << 1 << endl;
   for(int i = 1; i <= d; ++i) {
     basis_int0[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
       basis_int0[i - 1].set(s(i) = j, basis[i - 1].int0(j));
     }
   }
-  cout << 2 << endl;
   auto Z = tt(1) * basis_int0[0];
   for(int i = 2; i <= d; ++i) {
     Z *= tt(i) * basis_int0[i - 1];
   }
   auto rho = tt;
   rho /= elt(Z);
-  cout << 3 << endl;
   for(int i = 0; i < bins; ++i) {
     for(int j = 0; j < bins; ++j) {
+      cout << 1 << " " << i << " " << j << endl;
       double x = basis[pos - 1].dom().first + i * (basis[pos - 1].dom().second - basis[pos - 1].dom().first) / bins;
       double y = basis[pos].dom().first + j * (basis[pos].dom().second - basis[pos].dom().first) / bins;
       ITensor xevals, yevals;
+      cout << 2 << " " << i << " " << j << endl;
       for(int k = 1; k <= dim(s(pos)); ++k) {
         xevals.set(s(pos) = k, basis[pos - 1](x, k, false));
         yevals.set(s(pos + 1) = k, basis[pos](y, k, false));
       }
+      cout << 3 << " " << i << " " << j << endl;
       auto val = rho(1) * (pos == 1 ? xevals : basis_int0[0]);
       for(int k = 2; k <= d; ++k) {
         if(pos == k) {
@@ -144,9 +144,9 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
         }
       }
       grid[i][j] = elt(val);
+      cout << 4 << " " << i << " " << j << endl;
     }
   }
-  cout << 4 << endl;
 }
 
 }
