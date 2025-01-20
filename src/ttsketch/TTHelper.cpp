@@ -109,18 +109,21 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
   int d = length(tt);
   auto s = siteInds(tt);
   vector<ITensor> basis_int0(d);
+  cout << 1 << endl;
   for(int i = 1; i <= d; ++i) {
     basis_int0[i - 1] = ITensor(s(i));
     for(int j = 1; j <= dim(s(i)); ++j) {
       basis_int0[i - 1].set(s(i) = j, basis[i - 1].int0(j));
     }
   }
+  cout << 2 << endl;
   auto Z = tt(1) * basis_int0[0];
   for(int i = 2; i <= d; ++i) {
     Z *= tt(i) * basis_int0[i - 1];
   }
   auto rho = tt;
   rho /= elt(Z);
+  cout << 3 << endl;
   for(int i = 0; i < bins; ++i) {
     for(int j = 0; j < bins; ++j) {
       double x = basis[pos - 1].dom().first + i * (basis[pos - 1].dom().second - basis[pos - 1].dom().first) / bins;
@@ -143,6 +146,7 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
       grid[i][j] = elt(val);
     }
   }
+  cout << 4 << endl;
 }
 
 }
