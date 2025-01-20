@@ -123,16 +123,15 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
   rho /= elt(Z);
   for(int i = 0; i < bins; ++i) {
     for(int j = 0; j < bins; ++j) {
-      cout << 1 << " " << i << " " << j << endl;
       double x = basis[pos - 1].dom().first + i * (basis[pos - 1].dom().second - basis[pos - 1].dom().first) / bins;
       double y = basis[pos].dom().first + j * (basis[pos].dom().second - basis[pos].dom().first) / bins;
       ITensor xevals, yevals;
-      cout << 2 << " " << i << " " << j << endl;
+      xevals = ITensor(s(pos));
+      yevals = ITensor(s(pos + 1));
       for(int k = 1; k <= dim(s(pos)); ++k) {
         xevals.set(s(pos) = k, basis[pos - 1](x, k, false));
         yevals.set(s(pos + 1) = k, basis[pos](y, k, false));
       }
-      cout << 3 << " " << i << " " << j << endl;
       auto val = rho(1) * (pos == 1 ? xevals : basis_int0[0]);
       for(int k = 2; k <= d; ++k) {
         if(pos == k) {
@@ -144,7 +143,6 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
         }
       }
       grid[i][j] = elt(val);
-      cout << 4 << " " << i << " " << j << endl;
     }
   }
 }
