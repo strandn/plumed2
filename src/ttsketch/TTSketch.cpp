@@ -538,7 +538,8 @@ void TTSketch::update() {
         for(unsigned k = 0; k < this->d_ - 1; ++k) {
           vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
           marginal2d(this->ttList_.back(), this->basis_, k + 1, marginals);
-          string filename = "ttsketch_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(k + 1)->getName() + ".dat";
+          string filename = "ttsketch_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(k + 1)->getName() + "_" +
+                            to_string(this->count_ - 2) + ".dat";
           if(this->walkers_mpi_) {
             filename = "../" + filename;
           }
