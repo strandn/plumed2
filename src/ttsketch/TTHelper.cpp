@@ -125,9 +125,7 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
     for(int j = 0; j < bins; ++j) {
       double x = basis[pos - 1].dom().first + i * (basis[pos - 1].dom().second - basis[pos - 1].dom().first) / bins;
       double y = basis[pos].dom().first + j * (basis[pos].dom().second - basis[pos].dom().first) / bins;
-      ITensor xevals, yevals;
-      xevals = ITensor(s(pos));
-      yevals = ITensor(s(pos + 1));
+      ITensor xevals(s(pos)), yevals(s(pos + 1));
       for(int k = 1; k <= dim(s(pos)); ++k) {
         xevals.set(s(pos) = k, basis[pos - 1](x, k, false));
         yevals.set(s(pos + 1) = k, basis[pos](y, k, false));
