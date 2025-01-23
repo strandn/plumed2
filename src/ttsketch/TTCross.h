@@ -24,7 +24,6 @@ private:
   std::vector<std::vector<std::vector<double>>> J_;
   std::vector<std::vector<double>> u_;
   std::vector<std::vector<double>> v_;
-  std::vector<double> resfirst_;
   Log* log_;
   bool conv_;
   bool convg_;
