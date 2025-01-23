@@ -378,7 +378,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       if(this->do_aca_) {
         double vpeak = 0.0;
-        for(auto& s : this->samples_) {
+        for(auto& s : this->aca_.aca_samples()) {
           double bias = getBias(s);
           if(bias > vpeak) {
             vpeak = bias;
