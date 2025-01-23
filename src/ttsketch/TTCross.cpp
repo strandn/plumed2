@@ -104,7 +104,7 @@ void TTCross::continuousACA() {
 
       vector<double> uv(this->samples_.size());
       transform(this->u_[r - 1].begin(), this->u_[r - 1].end(), this->v_[r - 1].begin(), uv.begin(), multiplies<double>());
-      transform(Rk.begin(), Rk.end(), uv.begin(), rank_v.begin(), minus<double>());
+      transform(Rk.begin(), Rk.end(), uv.begin(), Rk.begin(), minus<double>());
       double norm_ratio = sqrt(norm(Rk) / norm(A));
       *this->log_ << "rank = " << r << " res = " << res_new << " |Rk|/|A| = " << norm_ratio << " xy = ( ";
       for(double elt : xy) {
