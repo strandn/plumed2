@@ -37,10 +37,10 @@ double TTCross::f(const vector<double>& x) const {
   if(this->vb_.length() == 0) {
     result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0));
   } else {
-    // result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
-    //              this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
-    //              this->convg_), 1.0)) - this->vshift_, 0.0);
-    result = max(ttEval(this->vb_, this->basis_, x, this->conv_) + this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0)) - this->vshift_, 0.0);
+    result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
+                 this->convg_), 1.0)) - this->vshift_, 0.0);
+    // result = max(ttEval(this->vb_, this->basis_, x, this->conv_) + this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0)) - this->vshift_, 0.0);
   }
   return result;
 }
