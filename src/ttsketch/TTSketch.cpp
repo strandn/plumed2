@@ -1209,8 +1209,9 @@ double TTSketch::getBias(const vector<double>& cv) {
     for(auto& tt : this->ttList_) {
       bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
     }
+    bias = max(bias - this->vshift_, 0.0);
   }
-  return max(bias - this->vshift_, 0.0);
+  return bias;
 }
 
 double TTSketch::getAdjBias(const vector<double>& cv) {
