@@ -1203,8 +1203,8 @@ double TTSketch::getBias(const vector<double>& cv) {
     if(length(this->aca_.vb()) == 0) {
       return 0.0;
     }
-    bias = max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
-    // bias = ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
+    // bias = max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
+    bias = ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else {
     for(auto& tt : this->ttList_) {
       bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
