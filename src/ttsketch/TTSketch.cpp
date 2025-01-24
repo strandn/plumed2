@@ -1179,12 +1179,15 @@ void TTSketch::update() {
 
 double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
   double bias = getBias(cv);
-  if(bias == 0.0) {
-    return 0.0;
-  }
   if(this->do_aca_) {
+    if(length(this->aca_.vb()) == 0) {
+      return 0.0;
+    }
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else {
+    if(bias == 0.0) {
+      return 0.0;
+    }
     for(auto& tt : this->ttList_) {
       double rho = ttEval(tt, this->basis_, cv, this->conv_);
       if(rho > 1.0) {
