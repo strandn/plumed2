@@ -33,8 +33,6 @@
 #include "tools/Communicator.h"
 #include <ctime>
 #include <numeric>
-#include <corecrt_math_defines.h>
-#include <fstream>
 
 namespace PLMD {
 namespace bias {
