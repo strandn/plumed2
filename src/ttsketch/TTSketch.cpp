@@ -692,7 +692,7 @@ void TTSketch::update() {
           double x = -M_PI + 2 * i * M_PI / 100;
           for(int j = 0; j < 100; ++j) {
             double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, y, -1.2 }); << endl;
+            file << x << " " << y << " " << getBias({ x, y, -1.2 }) << endl;
           }
         }
         file.close();
@@ -705,7 +705,7 @@ void TTSketch::update() {
           double x = -M_PI + 2 * i * M_PI / 100;
           for(int j = 0; j < 100; ++j) {
             double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, y, 1.0 }); << endl;
+            file << x << " " << y << " " << getBias({ x, y, 1.0 }) << endl;
           }
         }
         file.close();
@@ -718,7 +718,7 @@ void TTSketch::update() {
           double x = -M_PI + 2 * i * M_PI / 100;
           for(int j = 0; j < 100; ++j) {
             double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, -1.2, y }); << endl;
+            file << x << " " << y << " " << getBias({ x, -1.2, y }) << endl;
           }
         }
         file.close();
@@ -731,7 +731,7 @@ void TTSketch::update() {
           double x = -M_PI + 2 * i * M_PI / 100;
           for(int j = 0; j < 100; ++j) {
             double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, 1.0, y }); << endl;
+            file << x << " " << y << " " << getBias({ x, 1.0, y }) << endl;
           }
         }
         file.close();
@@ -744,7 +744,7 @@ void TTSketch::update() {
           double x = -M_PI + 2 * i * M_PI / 100;
           for(int j = 0; j < 100; ++j) {
             double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ -1.2, x, y }); << endl;
+            file << x << " " << y << " " << getBias({ -1.2, x, y }) << endl;
           }
         }
         file.close();
@@ -757,7 +757,7 @@ void TTSketch::update() {
           double x = -M_PI + 2 * i * M_PI / 100;
           for(int j = 0; j < 100; ++j) {
             double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ 1.0, x, y }); << endl;
+            file << x << " " << y << " " << getBias({ 1.0, x, y }) << endl;
           }
         }
         file.close();
