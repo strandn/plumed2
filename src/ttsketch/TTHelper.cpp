@@ -104,7 +104,7 @@ pair<Matrix<double>, vector<double>> covMat(const MPS& tt, const vector<BasisFun
   return make_pair(sigma, ei);
 }
 
-void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<vector<double>>& grid) {
+void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<vector<double>>& grid, bool conv) {
   int bins = grid.size();
   int d = length(tt);
   auto s = siteInds(tt);
@@ -127,8 +127,8 @@ void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos, vector<v
       double y = basis[pos].dom().first + j * (basis[pos].dom().second - basis[pos].dom().first) / bins;
       ITensor xevals(s(pos)), yevals(s(pos + 1));
       for(int k = 1; k <= dim(s(pos)); ++k) {
-        xevals.set(s(pos) = k, basis[pos - 1](x, k, false));
-        yevals.set(s(pos + 1) = k, basis[pos](y, k, false));
+        xevals.set(s(pos) = k, basis[pos - 1](x, k, conv));
+        yevals.set(s(pos + 1) = k, basis[pos](y, k, conv));
       }
       auto val = rho(1) * (pos == 1 ? xevals : basis_int0[0]);
       for(int k = 2; k <= d; ++k) {
