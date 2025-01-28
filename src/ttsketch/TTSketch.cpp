@@ -1161,84 +1161,84 @@ void TTSketch::update() {
       // filed.close();
 
       ofstream file;
-        if(this->count_ == 2) {
-          file.open("phi2phi3_0.txt");
-        } else {
-          file.open("phi2phi3_0", ios_base::app);
+      if(this->count_ == 2) {
+        file.open("phi2phi3_0.txt");
+      } else {
+        file.open("phi2phi3_0", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ x, y, -1.2 }) << endl;
         }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, y, -1.2 }) << endl;
-          }
+      }
+      file.close();
+      if(this->count_ == 2) {
+        file.open("phi2phi3_1.txt");
+      } else {
+        file.open("phi2phi3_1", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ x, y, 1.0 }) << endl;
         }
-        file.close();
-        if(this->count_ == 2) {
-          file.open("phi2phi3_1.txt");
-        } else {
-          file.open("phi2phi3_1", ios_base::app);
+      }
+      file.close();
+      if(this->count_ == 2) {
+        file.open("phi2phi4_0.txt");
+      } else {
+        file.open("phi2phi4_0", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ x, -1.2, y }) << endl;
         }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, y, 1.0 }) << endl;
-          }
+      }
+      file.close();
+      if(this->count_ == 2) {
+        file.open("phi2phi4_1.txt");
+      } else {
+        file.open("phi2phi4_1", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ x, 1.0, y }) << endl;
         }
-        file.close();
-        if(this->count_ == 2) {
-          file.open("phi2phi4_0.txt");
-        } else {
-          file.open("phi2phi4_0", ios_base::app);
+      }
+      file.close();
+      if(this->count_ == 2) {
+        file.open("phi3phi4_0.txt");
+      } else {
+        file.open("phi3phi4_0", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ -1.2, x, y }) << endl;
         }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, -1.2, y }) << endl;
-          }
+      }
+      file.close();
+      if(this->count_ == 2) {
+        file.open("phi3phi4_1.txt");
+      } else {
+        file.open("phi3phi4_1", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          file << x << " " << y << " " << getBias({ 1.0, x, y }) << endl;
         }
-        file.close();
-        if(this->count_ == 2) {
-          file.open("phi2phi4_1.txt");
-        } else {
-          file.open("phi2phi4_1", ios_base::app);
-        }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, 1.0, y }) << endl;
-          }
-        }
-        file.close();
-        if(this->count_ == 2) {
-          file.open("phi3phi4_0.txt");
-        } else {
-          file.open("phi3phi4_0", ios_base::app);
-        }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ -1.2, x, y }) << endl;
-          }
-        }
-        file.close();
-        if(this->count_ == 2) {
-          file.open("phi3phi4_1.txt");
-        } else {
-          file.open("phi3phi4_1", ios_base::app);
-        }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ 1.0, x, y }) << endl;
-          }
-        }
-        file.close();
+      }
+      file.close();
     }
 
     if(this->walkers_mpi_) {

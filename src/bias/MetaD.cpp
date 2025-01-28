@@ -33,6 +33,8 @@
 #include "tools/Communicator.h"
 #include <ctime>
 #include <numeric>
+#include <corecrt_math_defines.h>
+#include <fstream>
 
 namespace PLMD {
 namespace bias {
@@ -2081,6 +2083,64 @@ void MetaD::update()
   // Frequency adaptive metadynamics - update hill addition frequency
   if(freq_adaptive_ && getStep()%fa_update_frequency_==0) {
     updateFrequencyAdaptiveStride();
+  }
+
+  if(getStep() == 1) {
+    std::ofstream file;
+    file.open("phi2phi3_0.txt");
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ x, y, -1.2 }) << std::endl;
+      }
+    }
+    file.close();
+    file.open("phi2phi3_1");
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ x, y, 1.0 }) << std::endl;
+      }
+    }
+    file.close();
+    file.open("phi2phi4_0");
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ x, -1.2, y }) << std::endl;
+      }
+    }
+    file.close();
+    file.open("phi2phi4_1");
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ x, 1.0, y }) << std::endl;
+      }
+    }
+    file.close();
+    file.open("phi3phi4_0");
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ -1.2, x, y }) << std::endl;
+      }
+    }
+    file.close();
+    file.open("phi3phi4_1");
+    for(int i = 0; i < 100; ++i) {
+      double x = -M_PI + 2 * i * M_PI / 100;
+      for(int j = 0; j < 100; ++j) {
+        double y = -M_PI + 2 * j * M_PI / 100;
+        file << x << " " << y << " " << getBias({ 1.0, x, y }) << std::endl;
+      }
+    }
+    file.close();
   }
 }
 
