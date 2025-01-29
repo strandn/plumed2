@@ -1168,7 +1168,7 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           file.open("phi2phi3_0.txt");
         } else {
-          file.open("phi2phi3_0", ios_base::app);
+          file.open("phi2phi3_0.txt", ios_base::app);
         }
         for(int i = 0; i < 100; ++i) {
           double x = -M_PI + 2 * i * M_PI / 100;
@@ -1181,7 +1181,7 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           file.open("phi2phi3_1.txt");
         } else {
-          file.open("phi2phi3_1", ios_base::app);
+          file.open("phi2phi3_1.txt", ios_base::app);
         }
         for(int i = 0; i < 100; ++i) {
           double x = -M_PI + 2 * i * M_PI / 100;
@@ -1194,7 +1194,7 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           file.open("phi2phi4_0.txt");
         } else {
-          file.open("phi2phi4_0", ios_base::app);
+          file.open("phi2phi4_0.txt", ios_base::app);
         }
         for(int i = 0; i < 100; ++i) {
           double x = -M_PI + 2 * i * M_PI / 100;
@@ -1207,7 +1207,7 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           file.open("phi2phi4_1.txt");
         } else {
-          file.open("phi2phi4_1", ios_base::app);
+          file.open("phi2phi4_1.txt", ios_base::app);
         }
         for(int i = 0; i < 100; ++i) {
           double x = -M_PI + 2 * i * M_PI / 100;
@@ -1220,7 +1220,7 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           file.open("phi3phi4_0.txt");
         } else {
-          file.open("phi3phi4_0", ios_base::app);
+          file.open("phi3phi4_0.txt", ios_base::app);
         }
         for(int i = 0; i < 100; ++i) {
           double x = -M_PI + 2 * i * M_PI / 100;
@@ -1233,7 +1233,7 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           file.open("phi3phi4_1.txt");
         } else {
-          file.open("phi3phi4_1", ios_base::app);
+          file.open("phi3phi4_1.txt", ios_base::app);
         }
         for(int i = 0; i < 100; ++i) {
           double x = -M_PI + 2 * i * M_PI / 100;
