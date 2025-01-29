@@ -115,7 +115,7 @@ void TTCross::continuousACA() {
       *this->log_ << ")\n";
       this->log_->flush();
 
-      if(norm_ratio < this->cutoff_) {
+      if(norm_ratio < this->cutoff_ || res_new == 0.0) {
         break;
       }
 
