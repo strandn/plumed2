@@ -24,6 +24,7 @@ private:
   std::vector<std::vector<std::vector<double>>> J_;
   std::vector<std::vector<double>> u_;
   std::vector<std::vector<double>> v_;
+  std::vector<double> resfirst_;
   Log* log_;
   bool conv_;
   bool convg_;
@@ -49,7 +50,6 @@ public:
   void addSample(std::vector<double>& sample);
   bool conv() const { return this->conv_; }
   const itensor::MPS& vb() const { return this->vb_; }
-  const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }
 };
 
 }

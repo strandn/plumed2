@@ -102,7 +102,15 @@ void TTCross::continuousACA() {
     for(int r = 1; r <= this->maxrank_; ++r) {
       auto [res_new, ik] = diagACA(Rk);
       auto& xy = this->samples_[ik];
+      if(this->I_[i + 1].empty()) {
+        this->resfirst_.push_back(res_new);
+      } else if(res_new > this->resfirst_[i]) {
+        this->resfirst_[i] = res_new;
+      } else if(res_new / this->resfirst_[i] < this->cutoff_ || res_new == 0.0) {
+        break;
+      }
 
+      updateIJ(xy);
       vector<double> uv(this->samples_.size());
       transform(this->u_[r - 1].begin(), this->u_[r - 1].end(), this->v_[r - 1].begin(), uv.begin(), multiplies<double>());
       transform(Rk.begin(), Rk.end(), uv.begin(), Rk.begin(), minus<double>());
@@ -114,12 +122,6 @@ void TTCross::continuousACA() {
       }
       *this->log_ << ")\n";
       this->log_->flush();
-
-      if(norm_ratio < this->cutoff_ || res_new == 0.0) {
-        break;
-      }
-
-      updateIJ(xy);
     }
   }
 }
