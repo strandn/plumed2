@@ -257,9 +257,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && (aca_cutoff < 0.0 || aca_cutoff >= 1.0)) {
     error("TTCross requires ACA_CUTOFF that is nonnegative and less than 1");
   }
-  if(aca_cutoff == 0.0) {
-    aca_cutoff = 1.0e-9;
-  }
+  // if(aca_cutoff == 0.0) {
+  //   aca_cutoff = 1.0e-9;
+  // }
   if(this->do_aca_) {
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 5 * (nbasis - 1), this->walkers_mpi_);
   }
