@@ -36,13 +36,13 @@ namespace PLMD {
 /// Calculate the dot product between two vectors
 template <typename T> T dotProduct( const std::vector<T>& A, const std::vector<T>& B ) {
   plumed_assert( A.size()==B.size() );
-  T val; for(unsigned i=0; i<A.size(); ++i) { val+=A[i]*B[i]; }
+  T val=0; for(unsigned i=0; i<A.size(); ++i) { val+=A[i]*B[i]; }
   return val;
 }
 
 /// Calculate the dot product between a vector and itself
 template <typename T> T norm( const std::vector<T>& A ) {
-  T val; for(unsigned i=0; i<A.size(); ++i) { val+=A[i]*A[i]; }
+  T val=0; for(unsigned i=0; i<A.size(); ++i) { val+=A[i]*A[i]; }
   return val;
 }
 
