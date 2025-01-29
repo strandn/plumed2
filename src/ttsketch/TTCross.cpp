@@ -102,6 +102,7 @@ void TTCross::continuousACA() {
     for(int r = 1; r <= this->maxrank_; ++r) {
       auto [res_new, ik] = diagACA(Rk);
       auto& xy = this->samples_[ik];
+      updateIJ(xy);
 
       vector<double> uv(this->samples_.size());
       transform(this->u_[r - 1].begin(), this->u_[r - 1].end(), this->v_[r - 1].begin(), uv.begin(), multiplies<double>());
@@ -118,8 +119,6 @@ void TTCross::continuousACA() {
       if(norm_ratio < this->cutoff_ || res_new < 1.0e-12) {
         break;
       }
-
-      updateIJ(xy);
     }
   }
 }
