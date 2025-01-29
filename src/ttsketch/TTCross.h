@@ -50,6 +50,7 @@ public:
   void addSample(std::vector<double>& sample);
   bool conv() const { return this->conv_; }
   const itensor::MPS& vb() const { return this->vb_; }
+  const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }
 };
 
 }
