@@ -37,7 +37,7 @@ double conv_df(double s, void* params) {
 }
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), gaussian_(false), dx_(0.0), w_(0.0) {}
+  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), gaussian_(false), dx_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int conv_n, double conv_epsabs,
@@ -47,7 +47,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
     gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
-    gaussian_(gaussian), w_(w)
+    gaussian_(gaussian)
 {
   if(gaussian) {
     this->dx_ = (dom.second - dom.first) / (nbasis - 2);

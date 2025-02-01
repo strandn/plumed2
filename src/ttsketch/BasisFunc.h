@@ -21,7 +21,6 @@ private:
   bool gaussian_;
   double dx_;
   std::vector<double> centers_;
-  double w_;
 
 public:
   BasisFunc();
