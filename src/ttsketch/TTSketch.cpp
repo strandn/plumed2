@@ -583,30 +583,32 @@ void TTSketch::update() {
 
       if(this->output_2d_ > 0) {
         for(unsigned k = 0; k < this->d_ - 1; ++k) {
-          vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
-          marginal2d(this->ttList_.back(), this->basis_, k + 1, marginals, true);
-          string filename = "ttsketch_conv_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(k + 1)->getName() + "_" +
-                            to_string(this->count_ - 2) + ".dat";
-          if(this->walkers_mpi_) {
-            filename = "../" + filename;
-          }
-          OFile file;
-          file.link(*this);
-          file.enforceSuffix("");
-          file.open(filename);
-          file.setHeavyFlush();
-          file.setupPrintValue(getPntrToArgument(k));
-          file.setupPrintValue(getPntrToArgument(k + 1));
-          auto xdom = this->basis_[k].dom();
-          auto ydom = this->basis_[k + 1].dom();
-          for(int i = 0; i < this->output_2d_; ++i) {
-            for(int j = 0; j < this->output_2d_; ++j) {
-              double x = xdom.first + i * (xdom.second - xdom.first) / this->output_2d_;
-              double y = ydom.first + j * (ydom.second - ydom.first) / this->output_2d_;
-              file.printField(getPntrToArgument(k), x);
-              file.printField(getPntrToArgument(k + 1), y);
-              file.printField("hh" + getPntrToArgument(k)->getName() + getPntrToArgument(k + 1)->getName(), marginals[i][j]);
-              file.printField();
+          for(unsigned l = k + 1; l < this->d_ - 1; ++l) {
+            vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
+            marginal2d(this->ttList_.back(), this->basis_, k, l, marginals, true);
+            string filename = "ttsketch_conv_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(l)->getName() + "_" +
+                              to_string(this->count_ - 2) + ".dat";
+            if(this->walkers_mpi_) {
+              filename = "../" + filename;
+            }
+            OFile file;
+            file.link(*this);
+            file.enforceSuffix("");
+            file.open(filename);
+            file.setHeavyFlush();
+            file.setupPrintValue(getPntrToArgument(k));
+            file.setupPrintValue(getPntrToArgument(l));
+            auto xdom = this->basis_[k].dom();
+            auto ydom = this->basis_[l].dom();
+            for(int i = 0; i < this->output_2d_; ++i) {
+              for(int j = 0; j < this->output_2d_; ++j) {
+                double x = xdom.first + i * (xdom.second - xdom.first) / this->output_2d_;
+                double y = ydom.first + j * (ydom.second - ydom.first) / this->output_2d_;
+                file.printField(getPntrToArgument(k), x);
+                file.printField(getPntrToArgument(l), y);
+                file.printField("hh" + getPntrToArgument(k)->getName() + getPntrToArgument(l)->getName(), marginals[i][j]);
+                file.printField();
+              }
             }
           }
         }
