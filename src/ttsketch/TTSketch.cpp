@@ -235,7 +235,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
                                          nbasis, !noconv, nbins, w[i], conv_n,
                                          conv_epsabs, conv_epsrel, conv_limit,
-                                         conv_key));
+                                         conv_key, false));
   }
   this->conv_ = !noconv;
 
@@ -550,30 +550,32 @@ void TTSketch::update() {
 
       if(this->output_2d_ > 0) {
         for(unsigned k = 0; k < this->d_ - 1; ++k) {
-          vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
-          marginal2d(this->ttList_.back(), this->basis_, k + 1, marginals, false);
-          string filename = "ttsketch_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(k + 1)->getName() + "_" +
-                            to_string(this->count_ - 2) + ".dat";
-          if(this->walkers_mpi_) {
-            filename = "../" + filename;
-          }
-          OFile file;
-          file.link(*this);
-          file.enforceSuffix("");
-          file.open(filename);
-          file.setHeavyFlush();
-          file.setupPrintValue(getPntrToArgument(k));
-          file.setupPrintValue(getPntrToArgument(k + 1));
-          auto xdom = this->basis_[k].dom();
-          auto ydom = this->basis_[k + 1].dom();
-          for(int i = 0; i < this->output_2d_; ++i) {
-            for(int j = 0; j < this->output_2d_; ++j) {
-              double x = xdom.first + i * (xdom.second - xdom.first) / this->output_2d_;
-              double y = ydom.first + j * (ydom.second - ydom.first) / this->output_2d_;
-              file.printField(getPntrToArgument(k), x);
-              file.printField(getPntrToArgument(k + 1), y);
-              file.printField("hh" + getPntrToArgument(k)->getName() + getPntrToArgument(k + 1)->getName(), marginals[i][j]);
-              file.printField();
+          for(unsigned l = k + 1; l < this->d_ - 1; ++l) {
+            vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
+            marginal2d(this->ttList_.back(), this->basis_, k, l, marginals, false);
+            string filename = "ttsketch_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(l)->getName() + "_" +
+                              to_string(this->count_ - 2) + ".dat";
+            if(this->walkers_mpi_) {
+              filename = "../" + filename;
+            }
+            OFile file;
+            file.link(*this);
+            file.enforceSuffix("");
+            file.open(filename);
+            file.setHeavyFlush();
+            file.setupPrintValue(getPntrToArgument(k));
+            file.setupPrintValue(getPntrToArgument(l));
+            auto xdom = this->basis_[k].dom();
+            auto ydom = this->basis_[l].dom();
+            for(int i = 0; i < this->output_2d_; ++i) {
+              for(int j = 0; j < this->output_2d_; ++j) {
+                double x = xdom.first + i * (xdom.second - xdom.first) / this->output_2d_;
+                double y = ydom.first + j * (ydom.second - ydom.first) / this->output_2d_;
+                file.printField(getPntrToArgument(k), x);
+                file.printField(getPntrToArgument(l), y);
+                file.printField("hh" + getPntrToArgument(k)->getName() + getPntrToArgument(l)->getName(), marginals[i][j]);
+                file.printField();
+              }
             }
           }
         }
@@ -1295,15 +1297,12 @@ void TTSketch::update() {
 
 double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
   double bias = getBias(cv);
+  if(bias == 0.0) {
+    return 0.0;
+  }
   if(this->do_aca_) {
-    if(length(this->aca_.vb()) == 0) {
-      return 0.0;
-    }
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else {
-    if(bias == 0.0) {
-      return 0.0;
-    }
     for(auto& tt : this->ttList_) {
       double rho = ttEval(tt, this->basis_, cv, this->conv_);
       if(rho > 1.0) {
@@ -1317,20 +1316,18 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
 }
 
 double TTSketch::getBias(const vector<double>& cv) {
-  double bias = 0.0;
   if(this->do_aca_) {
     if(length(this->aca_.vb()) == 0) {
       return 0.0;
     }
-    // bias = max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
-    bias = ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
+    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
   } else {
+    double bias = 0.0;
     for(auto& tt : this->ttList_) {
       bias += this->kbt_ * std::log(max(ttEval(tt, this->basis_, cv, this->conv_), 1.0));
     }
-    bias = max(bias - this->vshift_, 0.0);
+    return max(bias - this->vshift_, 0.0);
   }
-  return bias;
 }
 
 double TTSketch::getAdjBias(const vector<double>& cv) {

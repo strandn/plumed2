@@ -12,11 +12,15 @@ namespace PLMD {
 namespace ttsketch {
 
 TTCross::TTCross()
-  : G_(nullptr), n_(0), kbt_(0.0), cutoff_(0.0), maxrank_(0), d_(0), pos_(0), log_(nullptr), conv_(true), convg_(true), walkers_mpi_(false) { }
+  : G_(nullptr), n_(0), kbt_(0.0), cutoff_(0.0), maxrank_(0), d_(0), pos_(0),
+    vshift_(0.0), log_(nullptr), conv_(true), convg_(true),
+    walkers_mpi_(false) { }
 
-TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff, int maxrank, Log& log, bool conv, bool convg, int nbins, bool walkers_mpi)
+TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
+                 int maxrank, Log& log, bool conv, bool convg, int nbins,
+                 bool walkers_mpi)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt),
-    cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0),
+    cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
     I_(vector<vector<vector<double>>>(basis.size())),
     J_(vector<vector<vector<double>>>(basis.size())), log_(&log), conv_(conv),
     convg_(convg), nbins_(nbins), grid_(basis.size(), vector<double>(nbins)),
@@ -37,11 +41,9 @@ double TTCross::f(const vector<double>& x) const {
   if(this->vb_.length() == 0) {
     result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0));
   } else {
-    // result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
-    //              this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
-    //              this->convg_), 1.0)) - this->vshift_, 0.0);
-    result = max(ttEval(this->vb_, this->basis_, x, this->conv_) +
-                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0)) - this->vshift_, 0.0);
+    result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
+                 this->convg_), 1.0)) - this->vshift_, 0.0);
   }
   return result;
 }
@@ -259,6 +261,7 @@ void TTCross::reset() {
     pivots.clear();
   }
   J_[0].push_back(vector<double>());
+  this->resfirst_.clear();
 }
 
 void TTCross::writeVb(unsigned count) const {

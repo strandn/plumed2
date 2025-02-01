@@ -18,13 +18,20 @@ private:
   std::vector<std::vector<double>> gridd_;
   std::vector<double> xdata_;
   double w_;
+  bool gaussian_;
+  double dx_;
+  std::vector<double> centers_;
+  double w_;
 
 public:
   BasisFunc();
   BasisFunc(std::pair<double, double> dom, int nbasis, bool conv, int nbins,
             double w, int conv_n, double conv_epsabs, double conv_epsrel,
-            int conv_limit, int conv_key);
+            int conv_limit, int conv_key, bool gaussian);
   double fourier(double x, int pos) const;
+  double gaussian(double x, int pos) const;
+  double fourierd(double x, int pos) const;
+  double gaussiand(double x, int pos) const;
   double operator()(double x, int pos, bool conv) const;
   double grad(double x, int pos, bool conv) const;
   double interpolate(double x, int pos, bool grad) const;
