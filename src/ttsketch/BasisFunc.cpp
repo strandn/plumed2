@@ -234,25 +234,19 @@ double BasisFunc::int1(int pos) const {
     if(pos == 1) {
       return (pow(this->dom_.second, 2) - pow(this->dom_.first, 2)) / 2;
     } else {
-      return this->dx_ / 2 * (2 * this->dx_ * (exp(-pow(this->dom_.second -
-             2 * this->dom_.first + this->centers_[pos - 2], 2) /
-             (2 * pow(this->dx_, 2))) - exp(-pow(this->dom_.first -
-             2 * this->dom_.second + this->centers_[pos - 2], 2) /
-             (2 * pow(this->dx_, 2)))) + (this->dom_.second -
-             this->dom_.first + this->centers_[pos - 2]) * sqrt(2 * M_PI) *
-             erf((this->dom_.first - this->centers_[pos - 2]) /
-             (sqrt(2) * this->dx_)) + (this->dom_.first - this->dom_.second -
-             this->centers_[pos - 2]) * sqrt(2 * M_PI) *
-             erf((2 * this->dom_.first - this->dom_.second -
-             this->centers_[pos - 2]) / (sqrt(2) * this->dx_)) +
-             sqrt(2 * M_PI) * (this->centers_[pos - 2] *
-             erf((-this->dom_.first + this->centers_[pos - 2]) /
-             (sqrt(2) * this->dx_)) - (this->dom_.first - this->dom_.second +
-             this->centers_[pos - 2]) * erf((this->dom_.first -
-             2 * this->dom_.second + this->centers_[pos - 2]) /
-             (sqrt(2) * this->dx_)) + (this->dom_.first - this->dom_.second) *
-             erf((-this->dom_.second + this->centers_[pos - 2]) /
-             (sqrt(2) * this->dx_))));
+      double sqrt2pi = sqrt(2 * M_PI);
+      double dx_sq = pow(this->dx_, 2);
+      double x1 = this->dom_.first;
+      double x2 = this->dom_.second;
+      double c = this->centers_[pos - 2];
+      double term1 = exp(-pow(x2 - 2 * x1 + c, 2) / (2 * dx_sq)) -
+                    exp(-pow(x1 - 2 * x2 + c, 2) / (2 * dx_sq));
+      double term2 = (x2 - x1 + c) * sqrt2pi * erf((x1 - c) / (sqrt(2) * this->dx_));
+      double term3 = (x1 - x2 - c) * sqrt2pi * erf((2 * x1 - x2 - c) / (sqrt(2) * this->dx_));
+      double term4 = sqrt2pi * (c * erf((-x1 + c) / (sqrt(2) * this->dx_)) -
+                      (x1 - x2 + c) * erf((x1 - 2 * x2 + c) / (sqrt(2) * this->dx_)) +
+                      (x1 - x2) * erf((-x2 + c) / (sqrt(2) * this->dx_)));
+      return this->dx_ / 2 * (2 * this->dx_ * term1 + term2 + term3 + term4);
     }
   } else {
     if(pos == 1) {
@@ -270,40 +264,35 @@ double BasisFunc::int2(int pos) const {
     if(pos == 1) {
       return (pow(this->dom_.second, 3) - pow(this->dom_.first, 3)) / 3;
     } else {
-      return this->dx_ / 2 * (2 * this->dx_ * (this->dom_.first *
-             (2 * exp(-pow(this->dom_.first - this->centers_[pos - 2], 2) /
-             (2 * pow(this->dx_, 2))) + 2 * exp(-pow(this->dom_.second -
-             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))) -
-             exp(-pow(this->dom_.first - 2 * this->dom_.second +
-             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2)))) +
-             this->dom_.second * (exp(-pow(this->dom_.second -
-             2 * this->dom_.first + this->centers_[pos - 2], 2) /
-             (2 * pow(this->dx_, 2))) - 2 * exp(-pow(this->dom_.first -
-             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))) -
-             2 * exp(-pow(this->dom_.second - this->centers_[pos - 2], 2) /
-             (2 * pow(this->dx_, 2)))) + this->centers_[pos - 2] *
-             (exp(-pow(this->dom_.second - 2 * this->dom_.first +
-             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))) -
-             exp(-pow(this->dom_.first - 2 * this->dom_.second +
-             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))))) +
-             (pow(this->dom_.second - this->dom_.first +
-             this->centers_[pos - 2], 2) + pow(this->dx_, 2)) *
-             sqrt(2 * M_PI) * erf((this->dom_.first -
-             this->centers_[pos - 2]) / (sqrt(2) * this->dx_)) -
-             (pow(this->dom_.second - this->dom_.first +
-             this->centers_[pos - 2], 2) + pow(this->dx_, 2)) *
-             sqrt(2 * M_PI) * erf((2 * this->dom_.first - this->dom_.second -
-             this->centers_[pos - 2]) / (sqrt(2) * this->dx_)) +
-             sqrt(2 * M_PI) * ((pow(this->centers_, 2) + pow(this->dx_, 2)) *
-             erf((-this->dom_.first + this->centers_[pos - 2]) /
-             (sqrt(2) * this->dx_)) - (pow(this->dom_.first -
-             this->dom_.second + this->centers_[pos - 2], 2) +
-             pow(this->dx_, 2)) * erf((this->dom_.first -
-             2 * this->dom_.second + this->centers_[pos - 2]) /
-             (sqrt(2) * this->dx_)) + (this->dom_.first - this->dom_.second) *
-             (this->dom_.first - this->dom_.second +
-             2 * this->centers_[pos - 2]) * erf((-this->dom_.second +
-             this->centers_[pos - 2]) / (sqrt(2) * this->dx_))));
+      double a = dom.first;
+      double b = dom.second;
+      double centersi = centers[pos - 2];
+      double dx_sq = pow(this->dx_, 2);
+      double sqrt2pi = sqrt(2 * M_PI);
+      double sqrt2_dx = sqrt(2) * this->dx_;
+      double exp1 = exp(-pow(a - centersi, 2) / (2 * dx_sq));
+      double exp2 = exp(-pow(b - centersi, 2) / (2 * dx_sq));
+      double exp3 = exp(-pow(a - 2 * b + centersi, 2) / (2 * dx_sq));
+      double exp4 = exp(-pow(-2 * a + b + centersi, 2) / (2 * dx_sq));
+      double term1 = this->dx_ / 2 * (2 * this->dx_ * (
+          a * (2 * exp1 + 2 * exp2 - exp3) +
+          b * (-2 * exp1 - 2 * exp2 + exp4) +
+          centersi * (-exp3 + exp4)
+      ));
+      double diff1_sq = pow(b - a + centersi, 2) + dx_sq;
+      double diff2_sq = pow(a - b + centersi, 2) + dx_sq;
+      double centersi_sq = pow(centersi, 2) + dx_sq;
+      double erf1 = erf((a - centersi) / sqrt2_dx);
+      double erf2 = erf((2 * a - b - centersi) / sqrt2_dx);
+      double erf3 = erf((-a + centersi) / sqrt2_dx);
+      double erf4 = erf((a - 2 * b + centersi) / sqrt2_dx);
+      double erf5 = erf((-b + centersi) / sqrt2_dx);
+      double term2 = diff1_sq * sqrt2pi * erf1 - diff1_sq * sqrt2pi * erf2;
+      double term3 = sqrt2pi * (
+          centersi_sq * erf3 - diff2_sq * erf4 +
+          (a - b) * (a - b + 2 * centersi) * erf5
+      );
+      return term1 + term2 + term3;
     }
   } else {
     if(pos == 1) {
