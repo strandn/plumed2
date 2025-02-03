@@ -1408,19 +1408,19 @@ void TTSketch::paraSketch() {
   log << "\n";
   log.flush();
 
-  // if(this->basis_[0].kernel()) {
-  //   for(int i = 1; i <= this->d_; ++i) {
-  //     auto s = siteIndex(G, i);
-  //     ITensor ginv(s, prime(s));
-  //     for(int j = 1; j <= dim(s); ++j) {
-  //       for(int l = 1; l <= dim(s); ++l) {
-  //         ginv.set(s = j, prime(s) = l, this->basis_[i - 1].ginv());
-  //       }
-  //     }
-  //     G.ref(i) *= ginv;
-  //     G.ref(i).noPrime();
-  //   }
-  // }
+  if(this->basis_[0].kernel()) {
+    for(int i = 1; i <= this->d_; ++i) {
+      auto s = siteIndex(G, i);
+      ITensor ginv(s, prime(s));
+      for(int j = 1; j <= dim(s); ++j) {
+        for(int l = 1; l <= dim(s); ++l) {
+          ginv.set(s = j, prime(s) = l, this->basis_[i - 1].ginv()(j - 1, l - 1));
+        }
+      }
+      G.ref(i) *= ginv;
+      G.ref(i).noPrime();
+    }
+  }
 
   this->ttList_.push_back(G);
   ++this->count_;
