@@ -549,10 +549,10 @@ void TTSketch::update() {
       log.flush();
 
       if(this->output_2d_ > 0) {
-        for(unsigned k = 0; k < this->d_ - 1; ++k) {
-          for(unsigned l = k + 1; l < this->d_ - 1; ++l) {
+        for(unsigned k = 0; k < this->d_; ++k) {
+          for(unsigned l = k + 1; l < this->d_; ++l) {
             vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
-            marginal2d(this->ttList_.back(), this->basis_, k, l, marginals, false);
+            marginal2d(this->ttList_.back(), this->basis_, k + 1, l + 1, marginals, false);
             string filename = "ttsketch_" + getPntrToArgument(k)->getName() + "_" + getPntrToArgument(l)->getName() + "_" +
                               to_string(this->count_ - 2) + ".dat";
             if(this->walkers_mpi_) {

@@ -234,18 +234,18 @@ double BasisFunc::int1(int pos) const {
     if(pos == 1) {
       return (pow(this->dom_.second, 2) - pow(this->dom_.first, 2)) / 2;
     } else {
-      double sqrt2pi = sqrt(2 * M_PI);
-      double dx_sq = pow(this->dx_, 2);
-      double x1 = this->dom_.first;
-      double x2 = this->dom_.second;
+      double a = this->dom_.first;
+      double b = this->dom_.second;
       double c = this->centers_[pos - 2];
-      double term1 = exp(-pow(x2 - 2 * x1 + c, 2) / (2 * dx_sq)) -
-                    exp(-pow(x1 - 2 * x2 + c, 2) / (2 * dx_sq));
-      double term2 = (x2 - x1 + c) * sqrt2pi * erf((x1 - c) / (sqrt(2) * this->dx_));
-      double term3 = (x1 - x2 - c) * sqrt2pi * erf((2 * x1 - x2 - c) / (sqrt(2) * this->dx_));
-      double term4 = sqrt2pi * (c * erf((-x1 + c) / (sqrt(2) * this->dx_)) -
-                      (x1 - x2 + c) * erf((x1 - 2 * x2 + c) / (sqrt(2) * this->dx_)) +
-                      (x1 - x2) * erf((-x2 + c) / (sqrt(2) * this->dx_)));
+      double dx_sq = pow(this->dx_, 2);
+      double sqrt2pi = sqrt(2 * M_PI);
+      double term1 = exp(-pow(b - 2 * a + c, 2) / (2 * dx_sq)) -
+                    exp(-pow(a - 2 * b + c, 2) / (2 * dx_sq));
+      double term2 = (b - a + c) * sqrt2pi * erf((a - c) / (sqrt(2) * this->dx_));
+      double term3 = (a - b - c) * sqrt2pi * erf((2 * a - b - c) / (sqrt(2) * this->dx_));
+      double term4 = sqrt2pi * (c * erf((-a + c) / (sqrt(2) * this->dx_)) -
+                      (a - b + c) * erf((a - 2 * b + c) / (sqrt(2) * this->dx_)) +
+                      (a - b) * erf((-b + c) / (sqrt(2) * this->dx_)));
       return this->dx_ / 2 * (2 * this->dx_ * term1 + term2 + term3 + term4);
     }
   } else {
@@ -266,31 +266,31 @@ double BasisFunc::int2(int pos) const {
     } else {
       double a = dom.first;
       double b = dom.second;
-      double centersi = centers[pos - 2];
+      double c = centers[pos - 2];
       double dx_sq = pow(this->dx_, 2);
       double sqrt2pi = sqrt(2 * M_PI);
       double sqrt2_dx = sqrt(2) * this->dx_;
-      double exp1 = exp(-pow(a - centersi, 2) / (2 * dx_sq));
-      double exp2 = exp(-pow(b - centersi, 2) / (2 * dx_sq));
-      double exp3 = exp(-pow(a - 2 * b + centersi, 2) / (2 * dx_sq));
-      double exp4 = exp(-pow(-2 * a + b + centersi, 2) / (2 * dx_sq));
+      double exp1 = exp(-pow(a - c, 2) / (2 * dx_sq));
+      double exp2 = exp(-pow(b - c, 2) / (2 * dx_sq));
+      double exp3 = exp(-pow(a - 2 * b + c, 2) / (2 * dx_sq));
+      double exp4 = exp(-pow(-2 * a + b + c, 2) / (2 * dx_sq));
       double term1 = this->dx_ / 2 * (2 * this->dx_ * (
           a * (2 * exp1 + 2 * exp2 - exp3) +
           b * (-2 * exp1 - 2 * exp2 + exp4) +
-          centersi * (-exp3 + exp4)
+          c * (-exp3 + exp4)
       ));
-      double diff1_sq = pow(b - a + centersi, 2) + dx_sq;
-      double diff2_sq = pow(a - b + centersi, 2) + dx_sq;
-      double centersi_sq = pow(centersi, 2) + dx_sq;
-      double erf1 = erf((a - centersi) / sqrt2_dx);
-      double erf2 = erf((2 * a - b - centersi) / sqrt2_dx);
-      double erf3 = erf((-a + centersi) / sqrt2_dx);
-      double erf4 = erf((a - 2 * b + centersi) / sqrt2_dx);
-      double erf5 = erf((-b + centersi) / sqrt2_dx);
+      double diff1_sq = pow(b - a + c, 2) + dx_sq;
+      double diff2_sq = pow(a - b + c, 2) + dx_sq;
+      double c_sq = pow(c, 2) + dx_sq;
+      double erf1 = erf((a - c) / sqrt2_dx);
+      double erf2 = erf((2 * a - b - c) / sqrt2_dx);
+      double erf3 = erf((-a + c) / sqrt2_dx);
+      double erf4 = erf((a - 2 * b + c) / sqrt2_dx);
+      double erf5 = erf((-b + c) / sqrt2_dx);
       double term2 = diff1_sq * sqrt2pi * erf1 - diff1_sq * sqrt2pi * erf2;
       double term3 = sqrt2pi * (
-          centersi_sq * erf3 - diff2_sq * erf4 +
-          (a - b) * (a - b + 2 * centersi) * erf5
+          c_sq * erf3 - diff2_sq * erf4 +
+          (a - b) * (a - b + 2 * c) * erf5
       );
       return term1 + term2 + term3;
     }
