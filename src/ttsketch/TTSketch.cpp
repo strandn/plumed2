@@ -6,7 +6,6 @@
 #include "core/PlumedMain.h"
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
-#include "tools/Matrix.h"
 #include "tools/File.h"
 #include <numeric>
 
@@ -71,6 +70,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
   keys.addFlag("NOCONV", false, "Specifies that TTSketch densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
+  keys.addFlag("KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis");
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.addFlag("DO_ACA", false, "Approximate Vbias not as explicit sum but rather as TTCross approximation");
   keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
@@ -124,8 +124,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   adj_vshift_(0.0)
 {
-  bool noconv, aca_noconv = false;
+  bool kernel, noconv, aca_noconv = false;
   parseFlag("NOCONV", noconv);
+  parseFlag("KERNEL_BASIS", kernel);
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parseFlag("DO_ACA", this->do_aca_);
   parseFlag("ACA_NOCONV", aca_noconv);
@@ -232,10 +233,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]),
-                                         nbasis, !noconv, nbins, w[i], conv_n,
-                                         conv_epsabs, conv_epsrel, conv_limit,
-                                         conv_key, false));
+    this->basis_.push_back(BasisFunc(make_pair(interval_min[i],
+                                     interval_max[i]), nbasis, !noconv, nbins,
+                                     w[i], conv_n, conv_epsabs, conv_epsrel,
+                                     conv_limit, conv_key, kernel));
   }
   this->conv_ = !noconv;
 
@@ -1406,6 +1407,20 @@ void TTSketch::paraSketch() {
   }
   log << "\n";
   log.flush();
+
+  if(this->basis_[0].kernel()) {
+    for(int i = 1; i <= this->d_; ++i) {
+      auto s = siteIndex(G, i);
+      ITensor ginv(s, prime(s));
+      for(int j = 1; j <= dim(s); ++j) {
+        for(int l = 1; l <= dim(s); ++l) {
+          ginv.set(s = j, prime(s) = l, this->basis_[i - 1].ginv());
+        }
+      }
+      G.ref(i) *= ginv;
+      G.ref(i).noPrime();
+    }
+  }
 
   this->ttList_.push_back(G);
   ++this->count_;

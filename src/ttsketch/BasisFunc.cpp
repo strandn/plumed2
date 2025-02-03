@@ -37,24 +37,53 @@ double conv_df(double s, void* params) {
 }
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), gaussian_(false), dx_(0.0) {}
+  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int conv_n, double conv_epsabs,
                      double conv_epsrel, int conv_limit, int conv_key,
-                     bool gaussian)
+                     bool kernel)
   : dom_(dom), nbasis_(nbasis), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
     gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
-    gaussian_(gaussian)
+    kernel_(kernel)
 {
-  if(gaussian) {
+  if(kernel) {
     this->dx_ = (dom.second - dom.first) / (nbasis - 2);
     this->centers_ = vector<double>(nbasis - 1);
     for(int i = 0; i < nbasis - 1; ++i) {
       this->centers_[i] = dom.first + i * this->dx_;
     }
+    Matrix<double> gram(nbasis, nbasis);
+    gram(0, 0) = this->dom_.second - this->dom_.first;
+    for(int i = 1; i < nbasis; ++i) {
+      gram(i, 0) = gram(0, i) = this->dx_ * sqrt(M_PI / 2) *
+                                (erf((this->dom_.second -
+                                2 * this->dom_.first + this->centers_[i - 1]) /
+                                (sqrt(2) * this->dx_)) -
+                                erf((this->dom_.first - 2 * this->dom_.second +
+                                this->centers_[i - 1]) /
+                                (sqrt(2) * this->dx_)));
+      for(int j = i; j < nbasis; ++j) {
+        double result = 0.0;
+        for(int k = -1; k <= 1; ++k) {
+          for(int l = -1; l <= 1; ++l) {
+            result += this->dx_ / 2 * exp(-pow((this->dom_.first -
+                      this->dom_.second) * (k - l) + this->centers_[i - 1] -
+                      this->centers_[j - 1], 2) / (4 * pow(this->dx_, 2))) *
+                      sqrt(M_PI) * (erf((this->dom_.first * (k + l - 2) -
+                      this->dom_.second * (k + l) + this->centers_[i - 1] +
+                      this->centers_[j - 1]) / (2 * this->dx_)) -
+                      erf((this->dom_.first * (k + l) - this->dom_.second *
+                      (k + l + 2) + this->centers_[i - 1] +
+                      this->centers_[j - 1]) / (2 * this->dx_)));
+          }
+        }
+        gram(i, j) = gram(j, i) = result;
+      }
+    }
+    pseudoInvert(gram, this->ginv_);
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
@@ -134,7 +163,7 @@ double BasisFunc::gaussiand(double x, int pos) const {
 }
 
 double BasisFunc::operator()(double x, int pos, bool conv) const {
-  if(this->gaussian_) {
+  if(this->kernel_) {
     if(conv && this->nbins_ > 0) {
       if(pos == 1) {
         return 1.0;
@@ -161,7 +190,7 @@ double BasisFunc::operator()(double x, int pos, bool conv) const {
 }
 
 double BasisFunc::grad(double x, int pos, bool conv) const {
-  if(this->gaussian_) {
+  if(this->kernel_) {
     if(conv && this->nbins_ > 0) {
       if(pos == 1) {
         return 0.0;
@@ -208,7 +237,7 @@ double BasisFunc::interpolate(double x, int pos, bool grad) const {
 }
 
 double BasisFunc::int0(int pos) const {
-  if(this->gaussian_) {
+  if(this->kernel_) {
     if(pos == 1) {
       return this->dom_.second - this->dom_.first;
     } else {
@@ -230,7 +259,7 @@ double BasisFunc::int0(int pos) const {
 }
 
 double BasisFunc::int1(int pos) const {
-  if(this->gaussian_) {
+  if(this->kernel_) {
     if(pos == 1) {
       return (pow(this->dom_.second, 2) - pow(this->dom_.first, 2)) / 2;
     } else {
@@ -260,7 +289,7 @@ double BasisFunc::int1(int pos) const {
 }
 
 double BasisFunc::int2(int pos) const {
-  if(this->gaussian_) {
+  if(this->kernel_) {
     if(pos == 1) {
       return (pow(this->dom_.second, 3) - pow(this->dom_.first, 3)) / 3;
     } else {

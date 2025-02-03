@@ -1,5 +1,6 @@
 #ifndef __PLUMED_ttsketch_BasisFunc_h
 #define __PLUMED_ttsketch_BasisFunc_h
+#include "tools/Matrix.h"
 #include <utility>
 #include <vector>
 
@@ -18,15 +19,16 @@ private:
   std::vector<std::vector<double>> gridd_;
   std::vector<double> xdata_;
   double w_;
-  bool gaussian_;
+  bool kernel_;
   double dx_;
   std::vector<double> centers_;
+  Matrix<double> ginv_;
 
 public:
   BasisFunc();
   BasisFunc(std::pair<double, double> dom, int nbasis, bool conv, int nbins,
             double w, int conv_n, double conv_epsabs, double conv_epsrel,
-            int conv_limit, int conv_key, bool gaussian);
+            int conv_limit, int conv_key, bool kernel);
   double fourier(double x, int pos) const;
   double gaussian(double x, int pos) const;
   double fourierd(double x, int pos) const;
@@ -41,6 +43,8 @@ public:
   double int0(int pos) const;
   double int1(int pos) const;
   double int2(int pos) const;
+  bool kernel() const { return this->kernel_; }
+  const Matrix<double>& ginv() const { return this->ginv_; }
 };
 
 }
