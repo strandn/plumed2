@@ -264,9 +264,9 @@ double BasisFunc::int2(int pos) const {
     if(pos == 1) {
       return (pow(this->dom_.second, 3) - pow(this->dom_.first, 3)) / 3;
     } else {
-      double a = dom.first;
-      double b = dom.second;
-      double c = centers[pos - 2];
+      double a = this->dom_.first;
+      double b = this->dom_.second;
+      double c = this->centers_[pos - 2];
       double dx_sq = pow(this->dx_, 2);
       double sqrt2pi = sqrt(2 * M_PI);
       double sqrt2_dx = sqrt(2) * this->dx_;
