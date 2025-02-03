@@ -614,6 +614,14 @@ void TTSketch::update() {
           }
         }
       }
+
+      double rhomax = 0.0;
+      for(auto& s : this->lastsamples_) {
+        double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
+        if(rho > rhomax) {
+          rhomax = rho;
+        }
+      }
       this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
       if(this->do_aca_) {
         this->aca_.updateG(this->ttList_.back());
