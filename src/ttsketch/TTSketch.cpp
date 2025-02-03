@@ -1409,7 +1409,7 @@ void TTSketch::paraSketch() {
   log.flush();
 
   if(this->basis_[0].kernel()) {
-    for(int i = 1; i <= this->d_; ++i) {
+    for(unsigned i = 1; i <= this->d_; ++i) {
       auto s = siteIndex(G, i);
       ITensor ginv(s, prime(s));
       for(int j = 1; j <= dim(s); ++j) {
