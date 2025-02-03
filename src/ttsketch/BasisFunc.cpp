@@ -208,35 +208,114 @@ double BasisFunc::interpolate(double x, int pos, bool grad) const {
 }
 
 double BasisFunc::int0(int pos) const {
-  if(pos == 1) {
-    return sqrt(2 * this->L_);
-  } else if(pos % 2 == 0) {
-    return 2 * sqrt(this->L_) / (M_PI * (pos / 2)) * sin(M_PI * (pos / 2));
+  if(this->gaussian_) {
+    if(pos == 1) {
+      return this->dom_.second - this->dom_.first;
+    } else {
+      return -this->dx_ * sqrt(M_PI / 2) * (erf((2 * this->dom_.first -
+             this->dom_.second - this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)) + erf((this->dom_.first -
+             2 * this->dom_.second + this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)));
+    }
   } else {
-    return 0.0;
+    if(pos == 1) {
+      return sqrt(2 * this->L_);
+    } else if(pos % 2 == 0) {
+      return 2 * sqrt(this->L_) / (M_PI * (pos / 2)) * sin(M_PI * (pos / 2));
+    } else {
+      return 0.0;
+    }
   }
 }
 
 double BasisFunc::int1(int pos) const {
-  if(pos == 1) {
-    return this->shift_ * sqrt(2 * this->L_);
-  } else if(pos % 2 == 0) {
-    return 2 * this->shift_ * sqrt(this->L_) / (M_PI * (pos / 2)) * sin(M_PI * (pos / 2));
+  if(this->gaussian_) {
+    if(pos == 1) {
+      return (pow(this->dom_.second, 2) - pow(this->dom_.first, 2)) / 2;
+    } else {
+      return this->dx_ / 2 * (2 * this->dx_ * (exp(-pow(this->dom_.second -
+             2 * this->dom_.first + this->centers_[pos - 2], 2) /
+             (2 * pow(this->dx_, 2))) - exp(-pow(this->dom_.first -
+             2 * this->dom_.second + this->centers_[pos - 2], 2) /
+             (2 * pow(this->dx_, 2)))) + (this->dom_.second -
+             this->dom_.first + this->centers_[pos - 2]) * sqrt(2 * M_PI) *
+             erf((this->dom_.first - this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)) + (this->dom_.first - this->dom_.second -
+             this->centers_[pos - 2]) * sqrt(2 * M_PI) *
+             erf((2 * this->dom_.first - this->dom_.second -
+             this->centers_[pos - 2]) / (sqrt(2) * this->dx_)) +
+             sqrt(2 * M_PI) * (this->centers_[pos - 2] *
+             erf((-this->dom_.first + this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)) - (this->dom_.first - this->dom_.second +
+             this->centers_[pos - 2]) * erf((this->dom_.first -
+             2 * this->dom_.second + this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)) + (this->dom_.first - this->dom_.second) *
+             erf((-this->dom_.second + this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_))));
+    }
   } else {
-    return 2 * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
+    if(pos == 1) {
+      return this->shift_ * sqrt(2 * this->L_);
+    } else if(pos % 2 == 0) {
+      return 2 * this->shift_ * sqrt(this->L_) / (M_PI * (pos / 2)) * sin(M_PI * (pos / 2));
+    } else {
+      return 2 * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
+    }
   }
 }
 
 double BasisFunc::int2(int pos) const {
-  if(pos == 1) {
-    return sqrt(2 * this->L_) / 3 * (3 * pow(this->shift_, 2) + pow(this->L_, 2));
-  } else if(pos % 2 == 0) {
-    return 2 * sqrt(this->L_) / pow(M_PI * (pos / 2), 3) *
-           (2 * pow(this->L_, 2) * M_PI * (pos / 2) * cos(M_PI * (pos / 2)) +
-           (pow(M_PI * (pos / 2), 2) * (pow(this->shift_, 2) +
-           pow(this->L_, 2)) - 2 * pow(this->L_, 2)) * sin(M_PI * (pos / 2)));
+  if(this->gaussian_) {
+    if(pos == 1) {
+      return (pow(this->dom_.second, 3) - pow(this->dom_.first, 3)) / 3;
+    } else {
+      return this->dx_ / 2 * (2 * this->dx_ * (this->dom_.first *
+             (2 * exp(-pow(this->dom_.first - this->centers_[pos - 2], 2) /
+             (2 * pow(this->dx_, 2))) + 2 * exp(-pow(this->dom_.second -
+             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))) -
+             exp(-pow(this->dom_.first - 2 * this->dom_.second +
+             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2)))) +
+             this->dom_.second * (exp(-pow(this->dom_.second -
+             2 * this->dom_.first + this->centers_[pos - 2], 2) /
+             (2 * pow(this->dx_, 2))) - 2 * exp(-pow(this->dom_.first -
+             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))) -
+             2 * exp(-pow(this->dom_.second - this->centers_[pos - 2], 2) /
+             (2 * pow(this->dx_, 2)))) + this->centers_[pos - 2] *
+             (exp(-pow(this->dom_.second - 2 * this->dom_.first +
+             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))) -
+             exp(-pow(this->dom_.first - 2 * this->dom_.second +
+             this->centers_[pos - 2], 2) / (2 * pow(this->dx_, 2))))) +
+             (pow(this->dom_.second - this->dom_.first +
+             this->centers_[pos - 2], 2) + pow(this->dx_, 2)) *
+             sqrt(2 * M_PI) * erf((this->dom_.first -
+             this->centers_[pos - 2]) / (sqrt(2) * this->dx_)) -
+             (pow(this->dom_.second - this->dom_.first +
+             this->centers_[pos - 2], 2) + pow(this->dx_, 2)) *
+             sqrt(2 * M_PI) * erf((2 * this->dom_.first - this->dom_.second -
+             this->centers_[pos - 2]) / (sqrt(2) * this->dx_)) +
+             sqrt(2 * M_PI) * ((pow(this->centers_, 2) + pow(this->dx_, 2)) *
+             erf((-this->dom_.first + this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)) - (pow(this->dom_.first -
+             this->dom_.second + this->centers_[pos - 2], 2) +
+             pow(this->dx_, 2)) * erf((this->dom_.first -
+             2 * this->dom_.second + this->centers_[pos - 2]) /
+             (sqrt(2) * this->dx_)) + (this->dom_.first - this->dom_.second) *
+             (this->dom_.first - this->dom_.second +
+             2 * this->centers_[pos - 2]) * erf((-this->dom_.second +
+             this->centers_[pos - 2]) / (sqrt(2) * this->dx_))));
+    }
   } else {
-    return 4 * this->shift_ * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
+    if(pos == 1) {
+      return sqrt(2 * this->L_) / 3 * (3 * pow(this->shift_, 2) + pow(this->L_, 2));
+    } else if(pos % 2 == 0) {
+      return 2 * sqrt(this->L_) / pow(M_PI * (pos / 2), 3) *
+            (2 * pow(this->L_, 2) * M_PI * (pos / 2) * cos(M_PI * (pos / 2)) +
+            (pow(M_PI * (pos / 2), 2) * (pow(this->shift_, 2) +
+            pow(this->L_, 2)) - 2 * pow(this->L_, 2)) * sin(M_PI * (pos / 2)));
+    } else {
+      return 4 * this->shift_ * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
+    }
   }
 }
 
