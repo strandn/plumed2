@@ -22,8 +22,6 @@ private:
   double vshift_;
   std::vector<std::vector<std::vector<double>>> I_;
   std::vector<std::vector<std::vector<double>>> J_;
-  std::vector<std::vector<double>> u_;
-  std::vector<std::vector<double>> v_;
   std::vector<double> resfirst_;
   Log* log_;
   bool conv_;
@@ -32,13 +30,16 @@ private:
   std::vector<std::vector<double>> grid_;
   std::vector<std::vector<double>> samples_;
   bool walkers_mpi_;
+  bool auto_rank_;
 
 public:
   TTCross();
-  TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff, int maxrank, Log& log, bool conv, bool convg, int nbins, bool walkers_mpi);
+  TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
+          int maxrank, Log& log, bool conv, bool convg, int nbins,
+          bool walkers_mpi, bool auto_rank);
   double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
-  std::pair<double, int> diagACA(const std::vector<double>& Rk);
+  std::pair<double, int> diagACA(const std::vector<double>& Rk, std::vector<std::vector<double>>& u, std::vector<std::vector<double>>& v) const;
   void continuousACA();
   void updateG(const itensor::MPS& G) { this->G_ = &G; }
   void updateVshift(double vshift) { this->vshift_ = vshift; }
@@ -51,6 +52,7 @@ public:
   bool conv() const { return this->conv_; }
   const itensor::MPS& vb() const { return this->vb_; }
   const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }
+  void approximate(std::vector<double>& approx);
 };
 
 }

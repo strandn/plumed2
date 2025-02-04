@@ -74,6 +74,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.addFlag("DO_ACA", false, "Approximate Vbias not as explicit sum but rather as TTCross approximation");
   keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
+  keys.addFlag("ACA_AUTO_RANK", false, "Specifies that during TTCross, an optimal rank will be chosen based on error analysis");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
@@ -124,12 +125,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   adj_vshift_(0.0)
 {
-  bool kernel, noconv, aca_noconv = false;
+  bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
   parseFlag("KERNEL_BASIS", kernel);
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parseFlag("DO_ACA", this->do_aca_);
   parseFlag("ACA_NOCONV", aca_noconv);
+  parseFlag("ACA_AUTO_RANK", aca_auto_rank);
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -258,11 +260,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && (aca_cutoff < 0.0 || aca_cutoff >= 1.0)) {
     error("TTCross requires ACA_CUTOFF that is nonnegative and less than 1");
   }
-  // if(aca_cutoff == 0.0) {
-  //   aca_cutoff = 1.0e-9;
-  // }
   if(this->do_aca_) {
-    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log, !aca_noconv, !noconv, 5 * (nbasis - 1), this->walkers_mpi_);
+    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
+                         !aca_noconv, !noconv, 5 * (nbasis - 1),
+                         this->walkers_mpi_, aca_auto_rank);
   }
 
   string filename = "COLVAR";
@@ -542,10 +543,6 @@ void TTSketch::update() {
       auto diff = sigma.getVector();
       auto sigmahatv = sigmahat.getVector();
       transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
-      // for(int i = 0; i < 9; ++i) {
-      //   cout << diff[i] << " " << sigmahatv[i] << endl;
-      // }
-      // cout << norm(diff) << " " << norm(sigmahatv) << endl;
       log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
       log.flush();
 
@@ -675,20 +672,22 @@ void TTSketch::update() {
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
 
       if(this->do_aca_) {
-        // ofstream file;
-        // if(this->count_ == 2) {
-        //   file.open("F0.txt");
-        // } else {
-        //   file.open("F0.txt", ios_base::app);
-        // }
-        // for(int i = 0; i < 100; ++i) {
-        //   double x = -M_PI + 2 * i * M_PI / 100;
-        //   for(int j = 0; j < 100; ++j) {
-        //     double y = -M_PI + 2 * j * M_PI / 100;
-        //     file << x << " " << y << " " << max(this->aca_.f({ x, y }), 0.0) << endl;
-        //   }
-        // }
-        // file.close();
+        if(this->d_ == 2) {
+          ofstream file;
+          if(this->count_ == 2) {
+            file.open("F0.txt");
+          } else {
+            file.open("F0.txt", ios_base::app);
+          }
+          for(int i = 0; i < 100; ++i) {
+            double x = -M_PI + 2 * i * M_PI / 100;
+            for(int j = 0; j < 100; ++j) {
+              double y = -M_PI + 2 * j * M_PI / 100;
+              file << x << " " << y << " " << max(this->aca_.f({ x, y }), 0.0) << endl;
+            }
+          }
+          file.close();
+        }
         
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
@@ -723,30 +722,32 @@ void TTSketch::update() {
 
       this->lastsamples_.clear();
       
-      // ofstream file, filex, filey;
-      // if(this->count_ == 2) {
-      //   file.open("F.txt");
-      //   filex.open("dFdx.txt");
-      //   filey.open("dFdy.txt");
-      // } else {
-      //   file.open("F.txt", ios_base::app);
-      //   filex.open("dFdx.txt", ios_base::app);
-      //   filey.open("dFdy.txt", ios_base::app);
-      // }
-      // for(int i = 0; i < 100; ++i) {
-      //   double x = -M_PI + 2 * i * M_PI / 100;
-      //   for(int j = 0; j < 100; ++j) {
-      //     double y = -M_PI + 2 * j * M_PI / 100;
-      //     vector<double> der(this->d_, 0.0);
-      //     double ene = getBiasAndDerivatives({ x, y }, der);
-      //     file << x << " " << y << " " << ene << endl;
-      //     filex << x << " " << y << " " << der[0] << endl;
-      //     filey << x << " " << y << " " << der[1] << endl;
-      //   }
-      // }
-      // file.close();
-      // filex.close();
-      // filey.close();
+      if(this->d_ == 2) {
+        ofstream file, filex, filey;
+        if(this->count_ == 2) {
+          file.open("F.txt");
+          filex.open("dFdx.txt");
+          filey.open("dFdy.txt");
+        } else {
+          file.open("F.txt", ios_base::app);
+          filex.open("dFdx.txt", ios_base::app);
+          filey.open("dFdy.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            vector<double> der(this->d_, 0.0);
+            double ene = getBiasAndDerivatives({ x, y }, der);
+            file << x << " " << y << " " << ene << endl;
+            filex << x << " " << y << " " << der[0] << endl;
+            filey << x << " " << y << " " << der[1] << endl;
+          }
+        }
+        file.close();
+        filex.close();
+        filey.close();
+      }
 
       // ofstream file, filed;
       // if(this->count_ == 2) {
@@ -1262,35 +1263,6 @@ void TTSketch::update() {
         }
       }
     }
-
-    // ofstream file, filex, filey, fileadj;
-    // if(this->count_ == 2) {
-    //   file.open("F.txt");
-    //   filex.open("dFdx.txt");
-    //   filey.open("dFdy.txt");
-    //   fileadj.open("Fadj.txt");
-    // } else {
-    //   file.open("F.txt", ios_base::app);
-    //   filex.open("dFdx.txt", ios_base::app);
-    //   filey.open("dFdy.txt", ios_base::app);
-    //   fileadj.open("Fadj.txt", ios_base::app);
-    // }
-    // for(int i = 0; i < 100; ++i) {
-    //   double x = -M_PI + 2 * i * M_PI / 100;
-    //   for(int j = 0; j < 100; ++j) {
-    //     double y = -M_PI + 2 * j * M_PI / 100;
-    //     vector<double> der(this->d_, 0.0);
-    //     double ene = getBiasAndDerivatives({ x, y }, der);
-    //     file << x << " " << y << " " << ene << endl;
-    //     filex << x << " " << y << " " << der[0] << endl;
-    //     filey << x << " " << y << " " << der[1] << endl;
-    //     fileadj << x << " " << y << " " << getAdjBias({ x, y }) << endl;
-    //   }
-    // }
-    // file.close();
-    // filex.close();
-    // filey.close();
-    // fileadj.close();
   }
   if(getStep() % adjpace == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
@@ -1388,7 +1360,7 @@ void TTSketch::paraSketch() {
         AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
-    pseudoInvert(AMat, PMat);
+    Invert(AMat, PMat);
 
     for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= rank; ++j) {
