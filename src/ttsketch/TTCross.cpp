@@ -190,13 +190,13 @@ void TTCross::approximate(vector<double>& approx) {
     }
     Matrix<double> AinvMat;
     Invert(Ahat, AinvMat);
-    Ainv[ii] = ITensor(prime(l[ii - 1]), l[ii - 1]);
+    Ainv[ii - 1] = ITensor(prime(l[ii - 1]), l[ii - 1]);
     for(int jj = 0; jj < ranks[ii - 1]; ++jj) {
       for(int kk = 0; kk < ranks[ii - 1]; ++kk) {
-        Ainv[ii].set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
+        Ainv[ii - 1].set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
       }
     }
-    PrintData(Ainv[ii]);
+    PrintData(Ainv[ii - 1]);
   }
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     for(int ii = 1; ii <= this->d_; ++ii) {
