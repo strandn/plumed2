@@ -83,7 +83,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
         gram(i, j) = gram(j, i) = result;
       }
     }
-    pseudoInvert(gram, this->ginv_);
+    Invert(gram, this->ginv_);
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;

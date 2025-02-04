@@ -1360,7 +1360,7 @@ void TTSketch::paraSketch() {
         AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
-    Invert(AMat, PMat);
+    pseudoInvert(AMat, PMat);
 
     for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= rank; ++j) {
