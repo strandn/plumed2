@@ -197,7 +197,7 @@ void TTCross::approximate(vector<double>& approx) {
     }
   }
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
-    for(unsigned ii = 1; ii <= this->d_; ++ii) {
+    for(int ii = 1; ii <= this->d_; ++ii) {
       if(ii == 1) {
         evals[0] = ITensor(prime(l[0]));
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
@@ -229,7 +229,7 @@ void TTCross::approximate(vector<double>& approx) {
       }
     }
     ITensor result = evals[0];
-    for(int j = 1; j < d; ++j) {
+    for(int j = 1; j < this->d_; ++j) {
       result *= Ainv[j - 1] * evals[j];
     }
     approx[i] = elt(result);
