@@ -97,7 +97,7 @@ void TTCross::continuousACA() {
     vector<vector<vector<double>>> ulist(order - 1), vlist(order - 1);
     vector<vector<double>> Rklist(order - 1, vector<double>(A));
     int r = 1;
-    while(true) {
+    while(r < this->maxrank_) {
       this->pos_ = 0;
       for(int i = 0; i < order - 1; ++i) {
         *this->log_ << "pos = " << i + 1 << "\n";
