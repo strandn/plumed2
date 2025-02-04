@@ -121,8 +121,8 @@ void TTCross::continuousACA() {
       approximate(diff);
       transform(diff.begin(), diff.end(), A.begin(), diff.begin(), minus<double>());
       double error_new = sqrt(norm(diff) / norm(A));
-      log << "Relative l2 error = " << error_new << "\n";
-      log.flush();
+      *this->log_ << "Relative l2 error = " << error_new << "\n";
+      this->log_->flush();
       if(error_new > error) {
         for(auto& pivots : this->I_) {
           pivots.pop_back();
@@ -170,13 +170,15 @@ void TTCross::continuousACA() {
 }
 
 void TTCross::approximate(vector<double>& approx) {
+  vector<Index> l(this->d_ - 1);
   vector<ITensor> evals(this->d_);
   vector<int> ranks(this->d_ - 1);
   vector<ITensor> Ainv(this->d_ - 1);
-  for(unsigned i = 1; i < this->d_; ++i) {
+  for(int i = 1; i < this->d_; ++i) {
     ranks[i - 1] = this->I_[i].size();
   }
-  for(unsigned ii = 1; ii < this->d_; ++ii) {
+  for(int ii = 1; ii < this->d_; ++ii) {
+    l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     Matrix<double> Ahat(ranks[ii - 1], ranks[ii - 1]);
     for(int jj = 0; jj < ranks[ii - 1]; ++jj) {
       for(int kk = 0; kk < ranks[ii - 1]; ++kk) {
@@ -196,9 +198,6 @@ void TTCross::approximate(vector<double>& approx) {
   }
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     for(unsigned ii = 1; ii <= this->d_; ++ii) {
-      if(ii != this->d_) {
-        l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
-      }
       if(ii == 1) {
         evals[0] = ITensor(prime(l[0]));
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
