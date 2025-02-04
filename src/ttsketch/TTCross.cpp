@@ -178,6 +178,7 @@ void TTCross::approximate(vector<double>& approx) {
     ranks[i - 1] = this->I_[i].size();
   }
   for(int ii = 1; ii < this->d_; ++ii) {
+    cout << ii << endl;
     l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     Matrix<double> Ahat(ranks[ii - 1], ranks[ii - 1]);
     for(int jj = 0; jj < ranks[ii - 1]; ++jj) {
@@ -195,9 +196,11 @@ void TTCross::approximate(vector<double>& approx) {
         Ainv[ii].set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
       }
     }
+    PrintData(Ainv[ii]);
   }
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     for(int ii = 1; ii <= this->d_; ++ii) {
+      cout << i << " " << ii << endl;
       if(ii == 1) {
         evals[0] = ITensor(prime(l[0]));
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
@@ -227,11 +230,13 @@ void TTCross::approximate(vector<double>& approx) {
           }
         }
       }
+      PrintData(evals[ii - 1]);
     }
     ITensor result = evals[0];
     for(int j = 1; j < this->d_; ++j) {
       result *= Ainv[j - 1] * evals[j];
     }
+    PrintData(result);
     approx[i] = elt(result);
   }
 }
