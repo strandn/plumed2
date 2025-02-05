@@ -1,5 +1,6 @@
 #include "BasisFunc.h"
 #include <gsl/gsl_integration.h>
+#include <iostream>
 
 using namespace std;
 
@@ -84,6 +85,66 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
       }
     }
     Invert(gram, this->ginv_);
+
+    int ntest = 10;
+    vector<double> xtest(ntest);
+    for(int i = 0; i < ntest; ++i) {
+      xtest[i] = dom.first + i * (dom.second - dom.first) / (ntest - 1);
+    }
+    cout << "Testing gaussian()" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      for(int j = 0; j < ntest; ++j) {
+        cout << (*this)(xtest[j], i, false) << " ";
+      }
+      cout << endl;
+    }
+    cout << endl << "Testing gaussiand()" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      for(int j = 0; j < ntest; ++j) {
+        cout << grad(xtest[j], i, false) << " ";
+      }
+      cout << endl;
+    }
+    cout << endl << "Testing gaussian() with conv" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      for(int j = 0; j < ntest; ++j) {
+        cout << (*this)(xtest[j], i, true) << " ";
+      }
+      cout << endl;
+    }
+    cout << endl << "Testing gaussiand() with conv" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      for(int j = 0; j < ntest; ++j) {
+        cout << grad(xtest[j], i, true) << " ";
+      }
+      cout << endl;
+    }
+    cout << endl << "Testing int0" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      cout << int0(i) << endl;
+    }
+    cout << endl << "Testing int1" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      cout << int1(i) << endl;
+    }
+    cout << endl << "Testing int2" << endl << endl;
+    for(int i = 1; i <= this->nbasis; ++i) {
+      cout << int2(i) << endl;
+    }
+    cout << endl << "Testing gram" << endl << endl;
+    for(int i = 0; i < this->nbasis; ++i) {
+      for(int j = 0; j < this->nbasis; ++j) {
+        cout << gram(i, j) << " ";
+      }
+      cout << endl;
+    }
+    cout << endl << "Testing ginv" << endl << endl;
+    for(int i = 0; i < this->nbasis; ++i) {
+      for(int j = 0; j < this->nbasis; ++j) {
+        cout << this->ginv_(i, j) << " ";
+      }
+      cout << endl;
+    }
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
@@ -164,7 +225,8 @@ double BasisFunc::gaussiand(double x, int pos) const {
 
 double BasisFunc::operator()(double x, int pos, bool conv) const {
   if(this->kernel_) {
-    if(conv && this->nbins_ > 0) {
+    //TODO check that if kernel basis, should not need to specify nbins
+    if(conv) {
       if(pos == 1) {
         return 1.0;
       } else {
@@ -191,7 +253,7 @@ double BasisFunc::operator()(double x, int pos, bool conv) const {
 
 double BasisFunc::grad(double x, int pos, bool conv) const {
   if(this->kernel_) {
-    if(conv && this->nbins_ > 0) {
+    if(conv) {
       if(pos == 1) {
         return 0.0;
       }
