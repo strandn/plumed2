@@ -92,79 +92,41 @@ void TTCross::continuousACA() {
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     A[i] = f(this->samples_[i]);
   }
-  if(this->auto_rank_) {
-    double error = numeric_limits<double>::max();
-    vector<vector<vector<double>>> ulist(order - 1), vlist(order - 1);
-    vector<vector<double>> Rklist(order - 1, vector<double>(A));
-    int r = 1;
-    while(r < this->maxrank_) {
-      this->pos_ = 0;
-      for(int i = 0; i < order - 1; ++i) {
-        *this->log_ << "pos = " << i + 1 << "\n";
-        this->log_->flush();
-        ++this->pos_;
-        auto [res_new, ik] = diagACA(Rklist[i], ulist[i], vlist[i]);
-        auto& xy = this->samples_[ik];
-        updateIJ(xy);
-        vector<double> uv(this->samples_.size());
-        transform(ulist[i][r - 1].begin(), ulist[i][r - 1].end(), vlist[i][r - 1].begin(), uv.begin(), multiplies<double>());
-        transform(Rklist[i].begin(), Rklist[i].end(), uv.begin(), Rklist[i].begin(), minus<double>());
-        double norm_ratio = sqrt(norm(Rklist[i]) / norm(A));
-        *this->log_ << "rank = " << r << " res = " << res_new << " |Rk|/|A| = " << norm_ratio << " xy = ( ";
-        for(double elt : xy) {
-          *this->log_ << elt << " ";
-        }
-        *this->log_ << ")\n";
-        this->log_->flush();
+  this->pos_ = 0;
+  for(int i = 0; i < order - 1; ++i) {
+    *this->log_ << "pos = " << i + 1 << "\n";
+    this->log_->flush();
+    ++this->pos_;
+    auto Rk = A;
+    vector<vector<double>> u, v;
+    double err = numeric_limits<double>::max();
+    for(int r = 1; r <= this->maxrank_; ++r) {
+      auto [res_new, ik] = diagACA(Rk, u, v);
+      auto& xy = this->samples_[ik];
+      if(this->I_[i + 1].empty()) {
+        this->resfirst_.push_back(res_new);
+      } else if(res_new > this->resfirst_[i]) {
+        this->resfirst_[i] = res_new;
       }
-      vector<double> diff(this->samples_.size());
-      approximate(diff);
-      transform(diff.begin(), diff.end(), A.begin(), diff.begin(), minus<double>());
-      double error_new = sqrt(norm(diff) / norm(A));
-      *this->log_ << "Relative l2 error = " << error_new << "\n";
-      this->log_->flush();
-      if(error_new > error) {
-        for(auto& pivots : this->I_) {
-          pivots.pop_back();
-        }
-        for(auto& pivots : this->J_) {
-          pivots.pop_back();
-        }
-        break;
+      vector<double> uv(this->samples_.size());
+      transform(u[r - 1].begin(), u[r - 1].end(), v[r - 1].begin(), uv.begin(), multiplies<double>());
+      transform(Rk.begin(), Rk.end(), uv.begin(), Rk.begin(), minus<double>());
+      double err_new = sqrt(norm(Rk) / norm(A));
+      *this->log_ << "rank = " << r << " res = " << res_new << " |Rk|/|A| = " << err_new << " xy = ( ";
+      for(double elt : xy) {
+        *this->log_ << elt << " ";
       }
-      error = error_new;
-      ++r;
-    }
-  } else {
-    this->pos_ = 0;
-    for(int i = 0; i < order - 1; ++i) {
-      *this->log_ << "pos = " << i + 1 << "\n";
+      *this->log_ << ")\n";
       this->log_->flush();
-      ++this->pos_;
-      auto Rk = A;
-      vector<vector<double>> u, v;
-      for(int r = 1; r <= this->maxrank_; ++r) {
-        auto [res_new, ik] = diagACA(Rk, u, v);
-        auto& xy = this->samples_[ik];
-        if(this->I_[i + 1].empty()) {
-          this->resfirst_.push_back(res_new);
-        } else if(res_new > this->resfirst_[i]) {
-          this->resfirst_[i] = res_new;
-        } else if(res_new / this->resfirst_[i] < this->cutoff_ || res_new == 0.0) {
+      if(this->auto_rank_) {
+        if(err_new > err) {
           break;
         }
-        updateIJ(xy);
-        vector<double> uv(this->samples_.size());
-        transform(u[r - 1].begin(), u[r - 1].end(), v[r - 1].begin(), uv.begin(), multiplies<double>());
-        transform(Rk.begin(), Rk.end(), uv.begin(), Rk.begin(), minus<double>());
-        double norm_ratio = sqrt(norm(Rk) / norm(A));
-        *this->log_ << "rank = " << r << " res = " << res_new << " |Rk|/|A| = " << norm_ratio << " xy = ( ";
-        for(double elt : xy) {
-          *this->log_ << elt << " ";
-        }
-        *this->log_ << ")\n";
-        this->log_->flush();
+      } else if(res_new / this->resfirst_[i] < this->cutoff_ || res_new == 0.0) {
+        break;
       }
+      updateIJ(xy);
+      err = err_new;
     }
   }
 }
@@ -178,7 +140,6 @@ void TTCross::approximate(vector<double>& approx) {
     ranks[i - 1] = this->I_[i].size();
   }
   for(int ii = 1; ii < this->d_; ++ii) {
-    // cout << ii << endl;
     l[ii - 1] = Index(ranks[ii - 1], "Link,l=" + to_string(ii));
     Matrix<double> Ahat(ranks[ii - 1], ranks[ii - 1]);
     for(int jj = 0; jj < ranks[ii - 1]; ++jj) {
@@ -196,11 +157,9 @@ void TTCross::approximate(vector<double>& approx) {
         Ainv[ii - 1].set(prime(l[ii - 1]) = jj + 1, l[ii - 1] = kk + 1, AinvMat(jj, kk));
       }
     }
-    // PrintData(Ainv[ii - 1]);
   }
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     for(int ii = 1; ii <= this->d_; ++ii) {
-      // cout << i << " " << ii << endl;
       if(ii == 1) {
         evals[0] = ITensor(prime(l[0]));
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
@@ -230,13 +189,11 @@ void TTCross::approximate(vector<double>& approx) {
           }
         }
       }
-      // PrintData(evals[ii - 1]);
     }
     ITensor result = evals[0];
     for(int j = 1; j < this->d_; ++j) {
       result *= Ainv[j - 1] * evals[j];
     }
-    // PrintData(result);
     approx[i] = elt(result);
   }
 }
