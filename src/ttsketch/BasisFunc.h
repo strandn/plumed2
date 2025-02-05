@@ -23,12 +23,13 @@ private:
   double dx_;
   std::vector<double> centers_;
   Matrix<double> ginv_;
+  int mpi_rank_;
 
 public:
   BasisFunc();
   BasisFunc(std::pair<double, double> dom, int nbasis, bool conv, int nbins,
             double w, int conv_n, double conv_epsabs, double conv_epsrel,
-            int conv_limit, int conv_key, bool kernel);
+            int conv_limit, int conv_key, bool kernel, int mpi_rank);
   double fourier(double x, int pos) const;
   double gaussian(double x, int pos) const;
   double fourierd(double x, int pos) const;

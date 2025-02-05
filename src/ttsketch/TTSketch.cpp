@@ -238,7 +238,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->basis_.push_back(BasisFunc(make_pair(interval_min[i],
                                      interval_max[i]), nbasis, !noconv, nbins,
                                      w[i], conv_n, conv_epsabs, conv_epsrel,
-                                     conv_limit, conv_key, kernel));
+                                     conv_limit, conv_key, kernel,
+                                     this->mpi_rank_));
   }
   this->conv_ = !noconv;
 
