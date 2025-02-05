@@ -153,7 +153,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   int nbins = 1000;
   parse("NBINS", nbins);
-  if(!noconv && nbins <= 0) {
+  if(!kernel && !noconv && nbins <= 0) {
     error("Gaussian smoothing requires positive NBINS");
   }
   vector<double> w;
@@ -213,7 +213,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("NBASIS must be greater than 1");
   }
-  if(nbasis % 2 == 0) {
+  if(!kernel && nbasis % 2 == 0) {
     ++nbasis;
   }
   parse("ALPHA", this->alpha_);

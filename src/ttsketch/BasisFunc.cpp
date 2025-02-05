@@ -165,7 +165,6 @@ double BasisFunc::gaussiand(double x, int pos) const {
 
 double BasisFunc::operator()(double x, int pos, bool conv) const {
   if(this->kernel_) {
-    //TODO check that if kernel basis, should not need to specify nbins
     if(conv) {
       if(pos == 1) {
         return 1.0;
