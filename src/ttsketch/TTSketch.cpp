@@ -125,6 +125,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   adj_vshift_(0.0)
 {
+  if(this->walkers_mpi_) {
+    this->mpi_size_ = multi_sim_comm.Get_size();
+    this->mpi_rank_ = multi_sim_comm.Get_rank();
+  }
+  
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
   parseFlag("KERNEL_BASIS", kernel);
@@ -273,11 +278,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   parse("PRINTSTRIDE", printstride);
   if(printstride <= 0 || printstride > this->pace_) {
     error("PRINTSTRIDE must be positive and no greater than PACE");
-  }
-
-  if(this->walkers_mpi_) {
-    this->mpi_size_ = multi_sim_comm.Get_size();
-    this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
 
   parse("ADJ_VMAX", this->adj_vmax_);
