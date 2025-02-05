@@ -303,26 +303,26 @@ double BasisFunc::int2(int pos) const {
       double exp1 = exp(-pow(a - c, 2) / (2 * dx_sq));
       double exp2 = exp(-pow(b - c, 2) / (2 * dx_sq));
       double exp3 = exp(-pow(a - 2 * b + c, 2) / (2 * dx_sq));
-      double exp4 = exp(-pow(-2 * a + b + c, 2) / (2 * dx_sq));
-      double term1 = this->dx_ / 2 * (2 * this->dx_ * (
+      double exp4 = exp(-pow(b - 2 * a + c, 2) / (2 * dx_sq));
+      double term1 = 2 * this->dx_ * (
           a * (2 * exp1 + 2 * exp2 - exp3) +
-          b * (-2 * exp1 - 2 * exp2 + exp4) +
-          c * (-exp3 + exp4)
-      ));
+          b * (exp4 - 2 * exp1 - 2 * exp2) +
+          c * (exp4 - exp3)
+      );
       double diff1_sq = pow(b - a + c, 2) + dx_sq;
       double diff2_sq = pow(a - b + c, 2) + dx_sq;
       double c_sq = pow(c, 2) + dx_sq;
       double erf1 = erf((a - c) / sqrt2_dx);
       double erf2 = erf((2 * a - b - c) / sqrt2_dx);
-      double erf3 = erf((-a + c) / sqrt2_dx);
+      double erf3 = erf((c - a) / sqrt2_dx);
       double erf4 = erf((a - 2 * b + c) / sqrt2_dx);
-      double erf5 = erf((-b + c) / sqrt2_dx);
+      double erf5 = erf((c - b) / sqrt2_dx);
       double term2 = diff1_sq * sqrt2pi * erf1 - diff1_sq * sqrt2pi * erf2;
       double term3 = sqrt2pi * (
           c_sq * erf3 - diff2_sq * erf4 +
           (a - b) * (a - b + 2 * c) * erf5
       );
-      return term1 + term2 + term3;
+      return this->dx_ / 2 * (term1 + term2 + term3);
     }
   } else {
     if(pos == 1) {
