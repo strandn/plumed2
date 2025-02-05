@@ -86,7 +86,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     }
     Invert(gram, this->ginv_);
 
-    if(this->mpi_rank_ == 0) {
+    if(mpi_rank == 0) {
       int ntest = 10;
       vector<double> xtest(ntest);
       for(int i = 0; i < ntest; ++i) {
