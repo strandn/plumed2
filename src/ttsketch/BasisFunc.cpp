@@ -92,55 +92,55 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
       xtest[i] = dom.first + i * (dom.second - dom.first) / (ntest - 1);
     }
     cout << "Testing gaussian()" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       for(int j = 0; j < ntest; ++j) {
         cout << (*this)(xtest[j], i, false) << " ";
       }
       cout << endl;
     }
     cout << endl << "Testing gaussiand()" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       for(int j = 0; j < ntest; ++j) {
         cout << grad(xtest[j], i, false) << " ";
       }
       cout << endl;
     }
     cout << endl << "Testing gaussian() with conv" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       for(int j = 0; j < ntest; ++j) {
         cout << (*this)(xtest[j], i, true) << " ";
       }
       cout << endl;
     }
     cout << endl << "Testing gaussiand() with conv" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       for(int j = 0; j < ntest; ++j) {
         cout << grad(xtest[j], i, true) << " ";
       }
       cout << endl;
     }
     cout << endl << "Testing int0" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       cout << int0(i) << endl;
     }
     cout << endl << "Testing int1" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       cout << int1(i) << endl;
     }
     cout << endl << "Testing int2" << endl << endl;
-    for(int i = 1; i <= this->nbasis; ++i) {
+    for(int i = 1; i <= nbasis; ++i) {
       cout << int2(i) << endl;
     }
     cout << endl << "Testing gram" << endl << endl;
-    for(int i = 0; i < this->nbasis; ++i) {
-      for(int j = 0; j < this->nbasis; ++j) {
+    for(int i = 0; i < nbasis; ++i) {
+      for(int j = 0; j < nbasis; ++j) {
         cout << gram(i, j) << " ";
       }
       cout << endl;
     }
     cout << endl << "Testing ginv" << endl << endl;
-    for(int i = 0; i < this->nbasis; ++i) {
-      for(int j = 0; j < this->nbasis; ++j) {
+    for(int i = 0; i < nbasis; ++i) {
+      for(int j = 0; j < nbasis; ++j) {
         cout << this->ginv_(i, j) << " ";
       }
       cout << endl;
