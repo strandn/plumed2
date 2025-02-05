@@ -346,11 +346,17 @@ void BasisFunc::test() const {
     xtest[i] = this->dom_.first + i * (this->dom_.second - this->dom_.first) / (ntest - 1);
   }
   cout << "Testing gaussian()" << endl << endl;
+  cout << this->L_ << " " << this->dx_ << endl;
+  for(int i = 1; i < this->nbasis_; ++i) {
+    cout << this->centers_[i - 1] << " ";
+  }
+  cout << endl;
+  for(int j = 0; j < ntest; ++j) {
+    cout << xtest[j] << " ";
+  }
+  cout << endl << endl;
   for(int i = 1; i <= this->nbasis_; ++i) {
-    for(int j = 0; j < ntest; ++j) {
-      cout << (*this)(xtest[j], i, false) << " ";
-    }
-    cout << endl;
+    
   }
   cout << endl << "Testing gaussiand()" << endl << endl;
   for(int i = 1; i <= this->nbasis_; ++i) {
