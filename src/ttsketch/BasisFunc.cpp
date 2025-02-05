@@ -155,7 +155,7 @@ double BasisFunc::gaussiand(double x, int pos) const {
   } else {
     double result = 0.0;
     for(int k = -1; k <= 1; ++k) {
-      result += (this->centers_[pos - 2] - x + 2 * k * this->L_, 2) /
+      result += (this->centers_[pos - 2] - x + 2 * k * this->L_) /
                 pow(this->dx_, 2) * exp(-pow(x - this->centers_[pos - 2] +
                 2 * k * this->L_, 2) / (2 * pow(this->dx_, 2)));
     }
