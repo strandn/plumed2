@@ -129,7 +129,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->mpi_size_ = multi_sim_comm.Get_size();
     this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
-  
+
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
   parseFlag("KERNEL_BASIS", kernel);
@@ -244,7 +244,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
                                      interval_max[i]), nbasis, !noconv, nbins,
                                      w[i], conv_n, conv_epsabs, conv_epsrel,
                                      conv_limit, conv_key, kernel,
-                                     this->mpi_rank_));
+                                     this->mpi_rank_, i));
   }
   this->conv_ = !noconv;
 

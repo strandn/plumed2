@@ -38,17 +38,17 @@ double conv_df(double s, void* params) {
 }
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0), mpi_rank_(0) {}
+  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0), mpi_rank_(0), k_rank_(0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int conv_n, double conv_epsabs,
                      double conv_epsrel, int conv_limit, int conv_key,
-                     bool kernel, int mpi_rank)
+                     bool kernel, int mpi_rank, int k_rank)
   : dom_(dom), nbasis_(nbasis), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
     gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
-    kernel_(kernel), mpi_rank_(mpi_rank)
+    kernel_(kernel), mpi_rank_(mpi_rank), k_rank_(k_rank)
 {
   if(kernel) {
     this->dx_ = (dom.second - dom.first) / (nbasis - 2);
@@ -86,7 +86,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     }
     Invert(gram, this->ginv_);
 
-    if(mpi_rank == 0) {
+    if(mpi_rank == 0 && k_rank == 0) {
       int ntest = 10;
       vector<double> xtest(ntest);
       for(int i = 0; i < ntest; ++i) {
