@@ -51,7 +51,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     kernel_(kernel)
 {
   if(kernel) {
-    this->dx_ = (dom.second - dom.first) / (nbasis - 2);
+    this->dx_ = (dom.second - dom.first) / (nbasis - 1);
     this->centers_ = vector<double>(nbasis - 1);
     for(int i = 0; i < nbasis - 1; ++i) {
       this->centers_[i] = dom.first + i * this->dx_;
