@@ -356,7 +356,10 @@ void BasisFunc::test() const {
   }
   cout << endl << endl;
   for(int i = 1; i <= this->nbasis_; ++i) {
-    
+    for(int j = 0; j < ntest; ++j) {
+      cout << (*this)(xtest[j], i, false) << " ";
+    }
+    cout << endl;
   }
   cout << endl << "Testing gaussiand()" << endl << endl;
   for(int i = 1; i <= this->nbasis_; ++i) {
