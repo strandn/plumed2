@@ -38,17 +38,17 @@ double conv_df(double s, void* params) {
 }
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0), mpi_rank_(0), k_rank_(0) {}
+  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                      int nbins, double w, int conv_n, double conv_epsabs,
                      double conv_epsrel, int conv_limit, int conv_key,
-                     bool kernel, int mpi_rank, int k_rank)
+                     bool kernel)
   : dom_(dom), nbasis_(nbasis), nbins_(conv ? nbins : 0),
     L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2),
     grid_(nbasis, vector<double>(nbins, 0.0)),
     gridd_(nbasis, vector<double>(nbins, 0.0)), xdata_(nbins, 0.0), w_(w),
-    kernel_(kernel), mpi_rank_(mpi_rank), k_rank_(k_rank)
+    kernel_(kernel)
 {
   if(kernel) {
     this->dx_ = (dom.second - dom.first) / (nbasis - 2);
@@ -56,10 +56,10 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     for(int i = 0; i < nbasis - 1; ++i) {
       this->centers_[i] = dom.first + i * this->dx_;
     }
-    Matrix<double> gram(nbasis, nbasis);
-    gram(0, 0) = this->dom_.second - this->dom_.first;
+    this->gram_ = Matrix<double>(nbasis, nbasis);
+    this->gram_(0, 0) = this->dom_.second - this->dom_.first;
     for(int i = 1; i < nbasis; ++i) {
-      gram(i, 0) = gram(0, i) = this->dx_ * sqrt(M_PI / 2) *
+      this->gram_(i, 0) = this->gram_(0, i) = this->dx_ * sqrt(M_PI / 2) *
                                 (erf((this->dom_.second -
                                 2 * this->dom_.first + this->centers_[i - 1]) /
                                 (sqrt(2) * this->dx_)) -
@@ -81,73 +81,10 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
                       this->centers_[j - 1]) / (2 * this->dx_)));
           }
         }
-        gram(i, j) = gram(j, i) = result;
+        this->gram_(i, j) = this->gram_(j, i) = result;
       }
     }
-    Invert(gram, this->ginv_);
-
-    if(mpi_rank == 0 && k_rank == 0) {
-      int ntest = 10;
-      vector<double> xtest(ntest);
-      for(int i = 0; i < ntest; ++i) {
-        xtest[i] = dom.first + i * (dom.second - dom.first) / (ntest - 1);
-      }
-      cout << "Testing gaussian()" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        for(int j = 0; j < ntest; ++j) {
-          cout << (*this)(xtest[j], i, false) << " ";
-        }
-        cout << endl;
-      }
-      cout << endl << "Testing gaussiand()" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        for(int j = 0; j < ntest; ++j) {
-          cout << grad(xtest[j], i, false) << " ";
-        }
-        cout << endl;
-      }
-      cout << endl << "Testing gaussian() with conv" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        for(int j = 0; j < ntest; ++j) {
-          cout << (*this)(xtest[j], i, true) << " ";
-        }
-        cout << endl;
-      }
-      cout << endl << "Testing gaussiand() with conv" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        for(int j = 0; j < ntest; ++j) {
-          cout << grad(xtest[j], i, true) << " ";
-        }
-        cout << endl;
-      }
-      cout << endl << "Testing int0" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        cout << int0(i) << endl;
-      }
-      cout << endl << "Testing int1" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        cout << int1(i) << endl;
-      }
-      cout << endl << "Testing int2" << endl << endl;
-      for(int i = 1; i <= nbasis; ++i) {
-        cout << int2(i) << endl;
-      }
-      cout << endl << "Testing gram" << endl << endl;
-      for(int i = 0; i < nbasis; ++i) {
-        for(int j = 0; j < nbasis; ++j) {
-          cout << gram(i, j) << " ";
-        }
-        cout << endl;
-      }
-      cout << endl << "Testing ginv" << endl << endl;
-      for(int i = 0; i < nbasis; ++i) {
-        for(int j = 0; j < nbasis; ++j) {
-          cout << this->ginv_(i, j) << " ";
-        }
-        cout << endl;
-      }
-      cout << endl;
-    }
+    Invert(this->gram_, this->ginv_);
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
@@ -400,6 +337,69 @@ double BasisFunc::int2(int pos) const {
       return 4 * this->shift_ * pow(this->L_, 1.5) / pow(M_PI * (pos / 2), 2) * (sin(M_PI * (pos / 2)) - M_PI * (pos / 2) * cos(M_PI * (pos / 2)));
     }
   }
+}
+
+void BasisFunc::test() const {
+  int ntest = 10;
+  vector<double> xtest(ntest);
+  for(int i = 0; i < ntest; ++i) {
+    xtest[i] = this->dom_.first + i * (this->dom_.second - this->dom_.first) / (ntest - 1);
+  }
+  cout << "Testing gaussian()" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    for(int j = 0; j < ntest; ++j) {
+      cout << (*this)(xtest[j], i, false) << " ";
+    }
+    cout << endl;
+  }
+  cout << endl << "Testing gaussiand()" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    for(int j = 0; j < ntest; ++j) {
+      cout << grad(xtest[j], i, false) << " ";
+    }
+    cout << endl;
+  }
+  cout << endl << "Testing gaussian() with conv" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    for(int j = 0; j < ntest; ++j) {
+      cout << (*this)(xtest[j], i, true) << " ";
+    }
+    cout << endl;
+  }
+  cout << endl << "Testing gaussiand() with conv" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    for(int j = 0; j < ntest; ++j) {
+      cout << grad(xtest[j], i, true) << " ";
+    }
+    cout << endl;
+  }
+  cout << endl << "Testing int0" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    cout << int0(i) << endl;
+  }
+  cout << endl << "Testing int1" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    cout << int1(i) << endl;
+  }
+  cout << endl << "Testing int2" << endl << endl;
+  for(int i = 1; i <= this->nbasis_; ++i) {
+    cout << int2(i) << endl;
+  }
+  cout << endl << "Testing gram" << endl << endl;
+  for(int i = 0; i < this->nbasis_; ++i) {
+    for(int j = 0; j < this->nbasis_; ++j) {
+      cout << this->gram_(i, j) << " ";
+    }
+    cout << endl;
+  }
+  cout << endl << "Testing ginv" << endl << endl;
+  for(int i = 0; i < this->nbasis_; ++i) {
+    for(int j = 0; j < this->nbasis_; ++j) {
+      cout << this->ginv_(i, j) << " ";
+    }
+    cout << endl;
+  }
+  cout << endl;
 }
 
 }

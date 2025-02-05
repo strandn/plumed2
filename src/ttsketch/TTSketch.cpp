@@ -125,11 +125,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   adj_vshift_(0.0)
 {
-  if(this->walkers_mpi_) {
-    this->mpi_size_ = multi_sim_comm.Get_size();
-    this->mpi_rank_ = multi_sim_comm.Get_rank();
-  }
-
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
   parseFlag("KERNEL_BASIS", kernel);
@@ -243,8 +238,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     this->basis_.push_back(BasisFunc(make_pair(interval_min[i],
                                      interval_max[i]), nbasis, !noconv, nbins,
                                      w[i], conv_n, conv_epsabs, conv_epsrel,
-                                     conv_limit, conv_key, kernel,
-                                     this->mpi_rank_, i));
+                                     conv_limit, conv_key, kernel));
   }
   this->conv_ = !noconv;
 
@@ -278,6 +272,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
   parse("PRINTSTRIDE", printstride);
   if(printstride <= 0 || printstride > this->pace_) {
     error("PRINTSTRIDE must be positive and no greater than PACE");
+  }
+
+  if(this->walkers_mpi_) {
+    this->mpi_size_ = multi_sim_comm.Get_size();
+    this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
 
   parse("ADJ_VMAX", this->adj_vmax_);
@@ -484,6 +483,8 @@ void TTSketch::update() {
     this->vshift_ = 0.0;
     this->adj_vshift_ = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      this->basis_[0].test();
+
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
