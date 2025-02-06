@@ -525,6 +525,8 @@ void TTSketch::update() {
   if(nowAddATT) {
     this->vshift_ = 0.0;
     this->adj_vshift_ = 0.0;
+    double hf = 1.0;
+    double vmean = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
@@ -541,8 +543,6 @@ void TTSketch::update() {
         log << small << " " << large << "\n";
       }
 
-      double hf = 1.0;
-      double vmean = 0.0;
       if(this->bf_ > 1.0) {
         vector<double> vlist(N);
         for(unsigned i = 0; i < N; ++i) {
@@ -688,7 +688,7 @@ void TTSketch::update() {
     }
 
     multi_sim_comm.Barrier();
-    
+
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) { 
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
