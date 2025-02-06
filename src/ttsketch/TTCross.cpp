@@ -118,7 +118,7 @@ void TTCross::continuousACA() {
       }
       *this->log_ << ")\n";
       this->log_->flush();
-      if(res_new == 0.0) {
+      if(res_new < 1.0e-10) {
         break;
       }
       if(this->auto_rank_) {
