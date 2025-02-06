@@ -685,7 +685,11 @@ void TTSketch::update() {
       if(this->do_aca_) {
         this->aca_.updateG(this->ttList_.back());
       }
-      
+    }
+
+    multi_sim_comm.Barrier();
+    
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) { 
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
       vector<double> topsample;
@@ -1315,6 +1319,7 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
+      // cout << this->mpi_rank_ << endl;
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
       multi_sim_comm.Bcast(this->adj_vshift_, 0);
@@ -1323,7 +1328,6 @@ void TTSketch::update() {
         if(this->do_aca_) {
           this->aca_.readVb(this->count_);
         } else if(this->do_sump_) {
-          cout << this->mpi_rank_ << endl;
           this->ttSum_ = ttSumRead("../ttsketch.h5", this->count_);
         }
       }
