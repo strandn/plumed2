@@ -483,8 +483,7 @@ void TTSketch::update() {
     this->vshift_ = 0.0;
     this->adj_vshift_ = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      this->basis_[0].test();
-
+      // this->basis_[0].test();
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
