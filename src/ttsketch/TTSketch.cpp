@@ -673,6 +673,11 @@ void TTSketch::update() {
             this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_, "MaxDim=", this->r_});
           }
         }
+        string ttfilename = "ttsketch.h5";
+        if(this->walkers_mpi_) {
+          ttfilename = "../" + ttfilename;
+        }
+        ttSumWrite(ttfilename, this->ttSum_, this->count_);
       } else {
         this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
       }
