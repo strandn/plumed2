@@ -316,9 +316,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_sump_ && (this->sump_cutoff_ < 0.0 || this->sump_cutoff_ >= 1.0)) {
     error("TTCross requires SUMP_CUTOFF that is nonnegative and less than 1");
   }
-  parse("ACA_RANK", this->sump_rank_);
-  if(this->do_sump_ && this->sump_rank_ <= 0) {
-    error("TTCross requires positive SUMP_RANK");
+  parse("SUMP_RANK", this->sump_rank_);
+  if(this->do_sump_ && this->sump_rank_ < 0) {
+    error("TTCross requires nonnegative SUMP_RANK");
   }
   parse("SUMP_HEIGHT", this->sump_height_);
   if(this->do_sump_ && this->sump_height_ <= 0.0) {
