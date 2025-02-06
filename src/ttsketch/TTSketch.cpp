@@ -679,6 +679,7 @@ void TTSketch::update() {
         }
         cout << "before" << endl;
         ttSumWrite(ttfilename, this->ttSum_, this->count_);
+        cout << "after" << endl;
       } else {
         this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
       }
