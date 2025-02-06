@@ -677,9 +677,8 @@ void TTSketch::update() {
         if(this->walkers_mpi_) {
           ttfilename = "../" + ttfilename;
         }
-        cout << "before" << endl;
+        PrintData(this->ttSum_);
         ttSumWrite(ttfilename, this->ttSum_, this->count_);
-        cout << "after" << endl;
       } else {
         this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
       }
