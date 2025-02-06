@@ -48,6 +48,11 @@ private:
   double vshift_;
   double adj_vshift_;
   int output_2d_;
+  bool do_sump_;
+  double sump_cutoff_;
+  double sump_rank_;
+  MPS ttSum_;
+  double sump_height_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -75,6 +80,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.addFlag("DO_ACA", false, "Approximate Vbias not as explicit sum but rather as TTCross approximation");
   keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
   keys.addFlag("ACA_AUTO_RANK", false, "Specifies that during TTCross, an optimal rank will be chosen based on error analysis");
+  keys.addFlag("DO_SUMP", false, "Approximate Vbias as sum of TTs");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
@@ -93,7 +99,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "NBASIS", "20", "Number of Fourier basis functions per dimension");
   keys.add("compulsory", "ALPHA", "0.05", "Weight coefficient for random tensor train construction");
-  keys.add("compulsory", "LAMBDA", "100.0", "Ratio of largest to smallest allowed density magnitudes");
+  keys.add("optional", "LAMBDA", "Ratio of largest to smallest allowed density magnitudes");
   keys.add("optional", "BIASFACTOR", "For well-tempering");
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
@@ -104,6 +110,9 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.addOutputComponent("adjbias", "default", "Bias potential shifted down");
   keys.add("optional", "ADJ_VMAX", "Max adjusted Vbias");
   keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
+  keys.add("optional", "SUMP_CUTOFF", "Convergence threshold for TT sum");
+  keys.add("optional", "SUMP_RANK", "Largest possible rank for TT sum");
+  keys.add("optional", "SUMP_HEIGHT", "Largest increment value for term in TT sum, in units of kT");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -112,6 +121,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   cutoff_(0.0),
   kbt_(0.0),
   vmax_(numeric_limits<double>::max()),
+  lambda_(100.0),
   isFirstStep_(true),
   count_(1),
   bf_(1.0),
@@ -123,7 +133,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   memorystride_(0),
   adj_vmax_(0.0),
   vshift_(0.0),
-  adj_vshift_(0.0)
+  adj_vshift_(0.0),
+  do_sump_(false),
+  sump_cutoff_(0.0),
+  sump_rank_(0)
 {
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
@@ -132,6 +145,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   parseFlag("DO_ACA", this->do_aca_);
   parseFlag("ACA_NOCONV", aca_noconv);
   parseFlag("ACA_AUTO_RANK", aca_auto_rank);
+  parseFlag("DO_SUMP", this->do_sump_);
+  if(this->do_aca_ && this->do_sump_) {
+    error("Cannot enable both ACA and SUMP, choose one");
+  }
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -221,7 +238,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("ALPHA must be positive and no greater than 1");
   }
   parse("LAMBDA", this->lambda_);
-  if(this->lambda_ <= 1.0) {
+  if(!this->do_sump_ && this->lambda_ <= 1.0) {
     error("LAMBDA must be greater than 1");
   }
   parse("BIASFACTOR", this->bf_);
@@ -250,15 +267,15 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("MEMORYSTRIDE must be positive and no greater than PACE");
   }
 
-  int aca_rank = 0;
-  parse("ACA_RANK", aca_rank);
-  if(this->do_aca_ && aca_rank <= 0) {
-    error("TTCross requires positive ACA_RANK");
-  }
   double aca_cutoff = 0.0;
   parse("ACA_CUTOFF", aca_cutoff);
   if(this->do_aca_ && (aca_cutoff < 0.0 || aca_cutoff >= 1.0)) {
     error("TTCross requires ACA_CUTOFF that is nonnegative and less than 1");
+  }
+  int aca_rank = numeric_limits<int>::max();
+  parse("ACA_RANK", aca_rank);
+  if(this->do_aca_ && aca_rank <= 0) {
+    error("TTCross requires positive ACA_RANK");
   }
   if(this->do_aca_) {
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
@@ -294,6 +311,20 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->output_2d_ < 0) {
     error("OUTPUT_2D must be nonnegative");
   }
+
+  parse("SUMP_CUTOFF", this->sump_cutoff_);
+  if(this->do_sump_ && (this->sump_cutoff_ < 0.0 || this->sump_cutoff_ >= 1.0)) {
+    error("TTCross requires SUMP_CUTOFF that is nonnegative and less than 1");
+  }
+  parse("ACA_RANK", this->sump_rank_);
+  if(this->do_sump_ && this->sump_rank_ <= 0) {
+    error("TTCross requires positive SUMP_RANK");
+  }
+  parse("SUMP_HEIGHT", this->sump_height_);
+  if(this->do_sump_ && this->sump_height_ <= 0.0) {
+    error("SUMP_HEIGHT must be greater than 0");
+  }
+  this->sump_height_ *= this->kbt_;
 
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -377,6 +408,17 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
         this->ttList_.pop_back();
         this->aca_.readVb(this->count_);
+      }
+    } else if(this->do_sump_) {
+      try {
+        ttSumRead(this->count_);
+      } catch(...) {
+        --this->count_;
+        if(this->walkers_mpi_) {
+          multi_sim_comm.Bcast(this->count_, 0);
+        }
+        this->ttList_.pop_back();
+        ttSumRead(this->count_);
       }
     }
 
@@ -483,7 +525,6 @@ void TTSketch::update() {
     this->vshift_ = 0.0;
     this->adj_vshift_ = 0.0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      // this->basis_[0].test();
       unsigned N = this->lastsamples_.size();
       log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
@@ -620,7 +661,20 @@ void TTSketch::update() {
           rhomax = rho;
         }
       }
-      this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
+      if(this->do_sump_) {
+        this->ttList_.back() *= this->sump_height_ * hf / rhomax;
+        if(this->count_ == 2) {
+          this->ttSum_ = this->ttList_.back();
+        } else {
+          if(this->sump_rank_ > 0) {
+            this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_});
+          } else {
+            this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_, "MaxDim=", this->r_});
+          }
+        }
+      } else {
+        this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
+      }
       if(this->do_aca_) {
         this->aca_.updateG(this->ttList_.back());
       }
@@ -1261,6 +1315,8 @@ void TTSketch::update() {
         this->ttList_.push_back(ttRead("../ttsketch.h5", this->count_));
         if(this->do_aca_) {
           this->aca_.readVb(this->count_);
+        } else if(this->do_sump_) {
+          this->ttSum_ = ttSumRead("../ttsketch.h5", this->count_);
         }
       }
     }
@@ -1278,6 +1334,8 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   }
   if(this->do_aca_) {
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
+  } else if(this->do_sump_) {
+    der = ttGrad(this->ttSum_, this->basis_, cv, this->conv_);
   } else {
     for(auto& tt : this->ttList_) {
       double rho = ttEval(tt, this->basis_, cv, this->conv_);
@@ -1297,6 +1355,11 @@ double TTSketch::getBias(const vector<double>& cv) {
       return 0.0;
     }
     return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
+  } else if (this->do_sump_) {
+    if(length(this->ttSum_) == 0) {
+      return 0.0;
+    }
+    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_), 0.0);
   } else {
     double bias = 0.0;
     for(auto& tt : this->ttList_) {

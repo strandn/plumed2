@@ -9,13 +9,22 @@ namespace ttsketch {
 void ttWrite(const string& filename, const MPS& tt, unsigned count) {
   auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
   h5_write(f, "tt_" + to_string(count - 1), tt);
-  // close(f);
 }
 
 MPS ttRead(const string& filename, unsigned count) {
   auto f = h5_open(filename, 'r');
   auto tt = h5_read<MPS>(f, "tt_" + to_string(count - 1));
-  // close(f);
+  return tt;
+}
+
+void ttSumWrite(const string& filename, const MPS& tt, unsigned count) {
+  auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
+  h5_write(f, "vb_" + to_string(count - 1), tt);
+}
+
+MPS ttSumRead(const string& filename, unsigned count) {
+  auto f = h5_open(filename, 'r');
+  auto tt = h5_read<MPS>(f, "vb_" + to_string(count - 1));
   return tt;
 }
 
