@@ -677,7 +677,7 @@ void TTSketch::update() {
         if(this->walkers_mpi_) {
           ttfilename = "../" + ttfilename;
         }
-        PrintData(this->ttSum_);
+        // PrintData(this->ttSum_);
         ttSumWrite(ttfilename, this->ttSum_, this->count_);
       } else {
         this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
@@ -1323,6 +1323,7 @@ void TTSketch::update() {
         if(this->do_aca_) {
           this->aca_.readVb(this->count_);
         } else if(this->do_sump_) {
+          cout << this->mpi_rank_ << endl;
           this->ttSum_ = ttSumRead("../ttsketch.h5", this->count_);
         }
       }
