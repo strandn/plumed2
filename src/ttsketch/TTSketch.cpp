@@ -411,14 +411,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
     } else if(this->do_sump_) {
       try {
-        ttSumRead(this->count_);
+        ttSumRead(ttfilename, this->count_);
       } catch(...) {
         --this->count_;
         if(this->walkers_mpi_) {
           multi_sim_comm.Bcast(this->count_, 0);
         }
         this->ttList_.pop_back();
-        ttSumRead(this->count_);
+        ttSumRead(ttfilename, this->count_);
       }
     }
 
