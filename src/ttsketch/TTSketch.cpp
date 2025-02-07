@@ -677,6 +677,12 @@ void TTSketch::update() {
           } else {
             this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_, "MaxDim=", this->r_});
           }
+          log << "\nFinal ranks ";
+          for(unsigned i = 1; i < this->d_; ++i) {
+            log << dim(linkIndex(this->ttSum_, i)) << " ";
+          }
+          log << "\n";
+          log.flush();
         }
         string ttfilename = "ttsketch.h5";
         if(this->walkers_mpi_) {
