@@ -668,7 +668,7 @@ void TTSketch::update() {
           this->ttSum_ = this->ttList_.back();
         } else {
           for(unsigned i = 1; i <= this->d_; ++i) {
-            this->ttSum_(i) *= delta(siteIndex(this->ttSum_, i), siteIndex(this->ttList_.back(), i));
+            this->ttSum_.ref(i) *= delta(siteIndex(this->ttSum_, i), siteIndex(this->ttList_.back(), i));
           }
           // PrintData(this->ttSum_);
           // PrintData(this->ttList_.back());
