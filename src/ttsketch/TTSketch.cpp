@@ -673,17 +673,17 @@ void TTSketch::update() {
           // PrintData(this->ttSum_);
           // PrintData(this->ttList_.back());
           if(this->sump_rank_ > 0) {
-            this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_});
+            this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_, "MaxDim=", this->sump_rank_});
           } else {
-            this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_, "MaxDim=", this->r_});
+            this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_});
           }
-          log << "\nFinal ranks ";
-          for(unsigned i = 1; i < this->d_; ++i) {
-            log << dim(linkIndex(this->ttSum_, i)) << " ";
-          }
-          log << "\n";
-          log.flush();
         }
+        log << "\nFinal ranks ";
+        for(unsigned i = 1; i < this->d_; ++i) {
+          log << dim(linkIndex(this->ttSum_, i)) << " ";
+        }
+        log << "\n";
+        log.flush();
         string ttfilename = "ttsketch.h5";
         if(this->walkers_mpi_) {
           ttfilename = "../" + ttfilename;
