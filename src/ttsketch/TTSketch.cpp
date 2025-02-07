@@ -1373,12 +1373,12 @@ double TTSketch::getBias(const vector<double>& cv) {
     if(length(this->aca_.vb()) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()) - this->vshift_, 0.0);
+    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
   } else if (this->do_sump_) {
     if(length(this->ttSum_) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_), 0.0);
+    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_) - this->vshift_, 0.0);
   } else {
     double bias = 0.0;
     for(auto& tt : this->ttList_) {
