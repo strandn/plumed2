@@ -677,8 +677,6 @@ void TTSketch::update() {
         if(this->walkers_mpi_) {
           ttfilename = "../" + ttfilename;
         }
-        // PrintData(this->ttSum_);
-        ttSumWrite(ttfilename, this->ttSum_, this->count_);
       } else {
         this->ttList_.back() *= pow(this->lambda_, hf) / rhomax;
       }
@@ -732,6 +730,9 @@ void TTSketch::update() {
         ttfilename = "../" + ttfilename;
       }
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
+      if(this->do_sump_) {
+        ttSumWrite(ttfilename, this->ttSum_, this->count_);
+      }
 
       if(this->do_aca_) {
         if(this->d_ == 2) {
@@ -1315,7 +1316,6 @@ void TTSketch::update() {
     }
 
     if(this->walkers_mpi_) {
-      // cout << this->mpi_rank_ << endl;
       multi_sim_comm.Bcast(this->count_, 0);
       multi_sim_comm.Bcast(this->vshift_, 0);
       multi_sim_comm.Bcast(this->adj_vshift_, 0);

@@ -18,7 +18,7 @@ MPS ttRead(const string& filename, unsigned count) {
 }
 
 void ttSumWrite(const string& filename, const MPS& tt, unsigned count) {
-  auto f = count == 2 ? h5_open(filename, 'w') : h5_open(filename, 'a');
+  auto f = h5_open(filename, 'a');
   h5_write(f, "vb_" + to_string(count - 1), tt);
 }
 
