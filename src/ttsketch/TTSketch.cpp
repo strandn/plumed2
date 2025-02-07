@@ -667,8 +667,11 @@ void TTSketch::update() {
         if(this->count_ == 2) {
           this->ttSum_ = this->ttList_.back();
         } else {
-          PrintData(this->ttSum_);
-          PrintData(this->ttList_.back());
+          for(unsigned i = 1; i <= this->d_; ++i) {
+            this->ttSum_(i) *= delta(siteIndex(this->ttSum_, i), siteIndex(this->ttList_.back(), i));
+          }
+          // PrintData(this->ttSum_);
+          // PrintData(this->ttList_.back());
           if(this->sump_rank_ > 0) {
             this->ttSum_.plusEq(this->ttList_.back(), {"Cutoff=", this->sump_cutoff_});
           } else {
