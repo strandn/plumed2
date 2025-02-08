@@ -712,9 +712,11 @@ void TTSketch::update() {
       }
       log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
       this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
+      cout << "before" << endl;
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
+      cout << "after" << endl;
       log << "\n\n";
       log.flush();
 
