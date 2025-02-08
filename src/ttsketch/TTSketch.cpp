@@ -691,6 +691,8 @@ void TTSketch::update() {
       for(auto& s : (this->do_aca_ ? this->aca_.aca_samples() : this->samples_)) {
         vector<double> der(this->d_, 0.0);
         double bias = getBiasAndDerivatives(s, der);
+        cout << s[0] << " " << s[1] << " " << s[2] << " " << s[3] << endl;
+        cout << bias << endl << endl;
         if(bias > vpeak) {
           vpeak = bias;
           topsample = s;
@@ -727,11 +729,9 @@ void TTSketch::update() {
         ttfilename = "../" + ttfilename;
       }
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
-      cout << 8 << endl;
       if(this->do_sump_) {
         ttSumWrite(ttfilename, this->ttSum_, this->count_);
       }
-      cout << 9 << endl;
 
       if(this->do_aca_) {
         if(this->d_ == 2) {
@@ -750,7 +750,6 @@ void TTSketch::update() {
           }
           file.close();
         }
-        cout << 10 << endl;
         
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
