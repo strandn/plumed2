@@ -718,6 +718,7 @@ void TTSketch::update() {
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
+      cout << 7 << endl;
       log << "\n\n";
       log.flush();
 
@@ -726,9 +727,11 @@ void TTSketch::update() {
         ttfilename = "../" + ttfilename;
       }
       ttWrite(ttfilename, this->ttList_.back(), this->count_);
+      cout << 8 << endl;
       if(this->do_sump_) {
         ttSumWrite(ttfilename, this->ttSum_, this->count_);
       }
+      cout << 9 << endl;
 
       if(this->do_aca_) {
         if(this->d_ == 2) {
@@ -747,6 +750,7 @@ void TTSketch::update() {
           }
           file.close();
         }
+        cout << 10 << endl;
         
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
