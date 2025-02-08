@@ -609,9 +609,6 @@ void TTSketch::update() {
             }
           }
         }
-      }
-
-      if(this->output_2d_ > 0) {
         for(unsigned k = 0; k < this->d_; ++k) {
           for(unsigned l = k + 1; l < this->d_; ++l) {
             vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
@@ -643,6 +640,7 @@ void TTSketch::update() {
           }
         }
       }
+      cout << 1 << endl;
 
       double rhomax = 0.0;
       for(auto& s : this->lastsamples_) {
@@ -651,6 +649,7 @@ void TTSketch::update() {
           rhomax = rho;
         }
       }
+      cout << 2 << endl;
       if(this->do_sump_) {
         this->ttList_.back() *= this->sump_height_ * hf / rhomax;
         if(this->count_ == 2) {
@@ -683,6 +682,7 @@ void TTSketch::update() {
       if(this->do_aca_) {
         this->aca_.updateG(this->ttList_.back());
       }
+      cout << 3 << endl;
       
       double vpeak = 0.0;
       vector<double> gradtop(this->d_, 0.0);
@@ -703,6 +703,7 @@ void TTSketch::update() {
         }
       }
       this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      cout << 4 << endl;
       // if(this->do_aca_) {
       //   this->aca_.updateVshift(this->vshift_);
       // }
@@ -711,12 +712,12 @@ void TTSketch::update() {
         log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
       }
       log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+      cout << 5 << endl;
       this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
-      cout << "before" << endl;
+      cout << 6 << endl;
       for(unsigned j = 0; j < this->d_; ++j) {
         log << topsample[j] << " ";
       }
-      cout << "after" << endl;
       log << "\n\n";
       log.flush();
 
