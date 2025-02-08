@@ -13,14 +13,14 @@ namespace ttsketch {
 
 TTCross::TTCross()
   : G_(nullptr), n_(0), kbt_(0.0), cutoff_(0.0), maxrank_(0), d_(0), pos_(0),
-    vshift_(0.0), log_(nullptr), conv_(true), convg_(true),
-    walkers_mpi_(false), auto_rank_(false) { }
+    log_(nullptr), conv_(true), convg_(true), walkers_mpi_(false),
+    auto_rank_(false) { }
 
 TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
                  int maxrank, Log& log, bool conv, bool convg, int nbins,
                  bool walkers_mpi, bool auto_rank)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt),
-    cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
+    cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0),
     I_(vector<vector<vector<double>>>(basis.size())),
     J_(vector<vector<vector<double>>>(basis.size())), log_(&log), conv_(conv),
     convg_(convg), nbins_(nbins), grid_(basis.size(), vector<double>(nbins)),
@@ -41,9 +41,12 @@ double TTCross::f(const vector<double>& x) const {
   if(this->vb_.length() == 0) {
     result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0));
   } else {
-    result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
+    // result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
+    //              this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
+    //              this->convg_), 1.0)) - this->vshift_, 0.0);
+    result = max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
-                 this->convg_), 1.0)) - this->vshift_, 0.0);
+                 this->convg_), 1.0));
   }
   return result;
 }
@@ -327,17 +330,17 @@ void TTCross::updateVb() {
   this->log_->flush();
 }
 
-pair<double, vector<double>> TTCross::vtop() const {
-  double max = 0.0;
-  vector<double> topsample;
-  for(auto& s : this->samples_) {
-    if(f(s) > max) {
-      max = f(s);
-      topsample = s;
-    }
-  }
-  return make_pair(max, topsample);
-}
+// pair<double, vector<double>> TTCross::vtop() const {
+//   double max = 0.0;
+//   vector<double> topsample;
+//   for(auto& s : this->samples_) {
+//     if(f(s) > max) {
+//       max = f(s);
+//       topsample = s;
+//     }
+//   }
+//   return make_pair(max, topsample);
+// }
 
 void TTCross::reset() {
   for(auto& pivots : this->I_) {

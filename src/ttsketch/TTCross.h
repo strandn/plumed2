@@ -19,7 +19,7 @@ private:
   int maxrank_;
   int d_;
   int pos_;
-  double vshift_;
+  // double vshift_;
   std::vector<std::vector<std::vector<double>>> I_;
   std::vector<std::vector<std::vector<double>>> J_;
   std::vector<double> resfirst_;
@@ -42,9 +42,9 @@ public:
   std::pair<double, int> diagACA(const std::vector<double>& Rk, std::vector<std::vector<double>>& u, std::vector<std::vector<double>>& v) const;
   void continuousACA();
   void updateG(const itensor::MPS& G) { this->G_ = &G; }
-  void updateVshift(double vshift) { this->vshift_ = vshift; }
+  // void updateVshift(double vshift) { this->vshift_ = vshift; }
   void updateVb();
-  std::pair<double, std::vector<double>> vtop() const;
+  // std::pair<double, std::vector<double>> vtop() const;
   void reset();
   void writeVb(unsigned count) const;
   void readVb(unsigned count);
