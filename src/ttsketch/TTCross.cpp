@@ -210,7 +210,7 @@ void TTCross::updateVb() {
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     A0[i] = f(this->samples_[i]);
   }
-  *this->log_ << "Starting TT-cross ACA...\n";
+  *this->log_ << "\nStarting TT-cross ACA...\n";
   continuousACA();
 
   auto sites = SiteSet(this->d_, this->n_);
