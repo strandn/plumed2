@@ -640,7 +640,6 @@ void TTSketch::update() {
           }
         }
       }
-      cout << 1 << endl;
 
       double rhomax = 0.0;
       for(auto& s : this->lastsamples_) {
@@ -649,7 +648,6 @@ void TTSketch::update() {
           rhomax = rho;
         }
       }
-      cout << 2 << endl;
       if(this->do_sump_) {
         this->ttList_.back() *= this->sump_height_ * hf / rhomax;
         if(this->count_ == 2) {
@@ -682,47 +680,6 @@ void TTSketch::update() {
       if(this->do_aca_) {
         this->aca_.updateG(this->ttList_.back());
       }
-      cout << 3 << endl;
-      
-      double vpeak = 0.0;
-      vector<double> gradtop(this->d_, 0.0);
-      vector<double> topsample;
-      vector<vector<double>> topsamples(this->d_);
-      for(auto& s : (this->do_aca_ ? this->aca_.aca_samples() : this->samples_)) {
-        vector<double> der(this->d_, 0.0);
-        double bias = getBiasAndDerivatives(s, der);
-        cout << s[0] << " " << s[1] << " " << s[2] << " " << s[3] << endl;
-        cout << bias << endl << endl;
-        if(bias > vpeak) {
-          vpeak = bias;
-          topsample = s;
-        }
-        for(unsigned i = 0; i < this->d_; ++i) {
-          if(abs(der[i]) > gradtop[i]) {
-            gradtop[i] = abs(der[i]);
-            topsamples[i] = s;
-          }
-        }
-      }
-      this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      cout << 4 << endl;
-      // if(this->do_aca_) {
-      //   this->aca_.updateVshift(this->vshift_);
-      // }
-      log << "\n";
-      if(this->bf_ > 1.0) {
-        log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
-      }
-      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
-      cout << 5 << endl;
-      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
-      cout << 6 << endl;
-      for(unsigned j = 0; j < this->d_; ++j) {
-        log << topsample[j] << " ";
-      }
-      cout << 7 << endl;
-      log << "\n\n";
-      log.flush();
 
       string ttfilename = "ttsketch.h5";
       if(this->walkers_mpi_) {
@@ -753,19 +710,41 @@ void TTSketch::update() {
         
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
+      }
 
-        for(auto& s : this->samples_) {
-          vector<double> der(this->d_, 0.0);
-          getBiasAndDerivatives(s, der);
-          for(unsigned i = 0; i < this->d_; ++i) {
-            if(abs(der[i]) > gradtop[i]) {
-              gradtop[i] = abs(der[i]);
-              topsamples[i] = s;
-            }
+      double vpeak = 0.0;
+      vector<double> gradtop(this->d_, 0.0);
+      vector<double> topsample;
+      vector<vector<double>> topsamples(this->d_);
+      for(auto& s : (this->do_aca_ ? this->aca_.aca_samples() : this->samples_)) {
+        vector<double> der(this->d_, 0.0);
+        double bias = getBiasAndDerivatives(s, der);
+        if(bias > vpeak) {
+          vpeak = bias;
+          topsample = s;
+        }
+        for(unsigned i = 0; i < this->d_; ++i) {
+          if(abs(der[i]) > gradtop[i]) {
+            gradtop[i] = abs(der[i]);
+            topsamples[i] = s;
           }
         }
-        log << "\n";
       }
+      this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      // if(this->do_aca_) {
+      //   this->aca_.updateVshift(this->vshift_);
+      // }
+      log << "\n";
+      if(this->bf_ > 1.0) {
+        log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
+      }
+      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
+      for(unsigned j = 0; j < this->d_; ++j) {
+        log << topsample[j] << " ";
+      }
+      log << "\n\n";
+      log.flush();
 
       log << "gradtop ";
       for(unsigned i = 0; i < this->d_; ++i) {
