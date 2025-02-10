@@ -304,7 +304,7 @@ void TTCross::updateVb() {
   }
 
   if(this->basis_[0].kernel()) {
-    for(unsigned i = 1; i <= this->d_; ++i) {
+    for(int i = 1; i <= this->d_; ++i) {
       auto s = siteIndex(psi, i);
       ITensor ginv(s, prime(s));
       for(int j = 1; j <= dim(s); ++j) {
