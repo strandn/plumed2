@@ -424,16 +424,27 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      double vpeak = 0.0;
-      for(auto& s : (this->do_aca_ ? this->aca_.aca_samples() : this->samples_)) {
-        double bias = getBias(s);
-        if(bias > vpeak) {
-          vpeak = bias;
+      if(this->do_aca_) {
+        double vpeak = 0.0;
+        for(auto& s : this->aca_.aca_samples()) {
+          double bias = getBias(s);
+          if(bias > vpeak) {
+            vpeak = bias;
+          }
         }
+        this->adj_vshift_ = max(vpeak - this->adj_vmax_, 0.0);
+      } else {
+        double vpeak = 0.0;
+        for(auto& s : this->samples_) {
+          double bias = getBias(s);
+          if(bias > vpeak) {
+            vpeak = bias;
+          }
+        }
+        this->vshift_ = max(vpeak - this->vmax_, 0.0);
+        log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+        this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
       }
-      this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
-      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
     }
 
     if(this->walkers_mpi_) {
@@ -609,6 +620,9 @@ void TTSketch::update() {
             }
           }
         }
+      }
+
+      if(this->output_2d_ > 0) {
         for(unsigned k = 0; k < this->d_; ++k) {
           for(unsigned l = k + 1; l < this->d_; ++l) {
             vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
@@ -680,6 +694,47 @@ void TTSketch::update() {
       if(this->do_aca_) {
         this->aca_.updateG(this->ttList_.back());
       }
+      
+      double vpeak = 0.0;
+      vector<double> gradtop(this->d_, 0.0);
+      vector<double> topsample;
+      vector<vector<double>> topsamples(this->d_);
+      if(this->do_aca_) {
+        this->aca_.updateVshift(0.0);
+        auto vtopresult = this->aca_.vtop();
+        vpeak = vtopresult.first;
+        topsample = vtopresult.second;
+      } else {
+        for(auto& s : this->samples_) {
+          vector<double> der(this->d_, 0.0);
+          double bias = getBiasAndDerivatives(s, der);
+          if(bias > vpeak) {
+            vpeak = bias;
+            topsample = s;
+          }
+          for(unsigned i = 0; i < this->d_; ++i) {
+            if(abs(der[i]) > gradtop[i]) {
+              gradtop[i] = abs(der[i]);
+              topsamples[i] = s;
+            }
+          }
+        }
+      }
+      this->vshift_ = max(vpeak - this->vmax_, 0.0);
+      if(this->do_aca_) {
+        this->aca_.updateVshift(this->vshift_);
+      }
+      log << "\n";
+      if(this->bf_ > 1.0) {
+        log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
+      }
+      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
+      for(unsigned j = 0; j < this->d_; ++j) {
+        log << topsample[j] << " ";
+      }
+      log << "\n\n";
+      log.flush();
 
       string ttfilename = "ttsketch.h5";
       if(this->walkers_mpi_) {
@@ -710,41 +765,19 @@ void TTSketch::update() {
         
         this->aca_.updateVb();
         this->aca_.writeVb(this->count_);
-      }
 
-      double vpeak = 0.0;
-      vector<double> gradtop(this->d_, 0.0);
-      vector<double> topsample;
-      vector<vector<double>> topsamples(this->d_);
-      for(auto& s : (this->do_aca_ ? this->aca_.aca_samples() : this->samples_)) {
-        vector<double> der(this->d_, 0.0);
-        double bias = getBiasAndDerivatives(s, der);
-        if(bias > vpeak) {
-          vpeak = bias;
-          topsample = s;
-        }
-        for(unsigned i = 0; i < this->d_; ++i) {
-          if(abs(der[i]) > gradtop[i]) {
-            gradtop[i] = abs(der[i]);
-            topsamples[i] = s;
+        for(auto& s : this->samples_) {
+          vector<double> der(this->d_, 0.0);
+          getBiasAndDerivatives(s, der);
+          for(unsigned i = 0; i < this->d_; ++i) {
+            if(abs(der[i]) > gradtop[i]) {
+              gradtop[i] = abs(der[i]);
+              topsamples[i] = s;
+            }
           }
         }
+        log << "\n";
       }
-      this->vshift_ = max(vpeak - this->vmax_, 0.0);
-      // if(this->do_aca_) {
-      //   this->aca_.updateVshift(this->vshift_);
-      // }
-      log << "\n";
-      if(this->bf_ > 1.0) {
-        log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
-      }
-      log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
-      this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
-      for(unsigned j = 0; j < this->d_; ++j) {
-        log << topsample[j] << " ";
-      }
-      log << "\n\n";
-      log.flush();
 
       log << "gradtop ";
       for(unsigned i = 0; i < this->d_; ++i) {
@@ -1340,12 +1373,12 @@ double TTSketch::getBias(const vector<double>& cv) {
     if(length(this->aca_.vb()) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()) - this->vshift_, 0.0);
+    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
   } else if (this->do_sump_) {
     if(length(this->ttSum_) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_) - this->vshift_, 0.0);
+    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_), 0.0);
   } else {
     double bias = 0.0;
     for(auto& tt : this->ttList_) {
