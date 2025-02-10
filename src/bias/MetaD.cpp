@@ -33,7 +33,7 @@
 #include "tools/Communicator.h"
 #include <ctime>
 #include <numeric>
-// #include <fstream>
+#include <fstream>
 
 namespace PLMD {
 namespace bias {
