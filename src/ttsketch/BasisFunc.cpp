@@ -87,6 +87,12 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     pseudoInvert(this->gram_, this->ginv_);
     Matrix<double> id;
     mult(this->ginv_, this->gram_, id);
+    for(int i = 0; i < this->nbasis_; ++i) {
+      for(int j = 0; j < this->nbasis_; ++j) {
+        cout << id(i, j) << " ";
+      }
+      cout << endl;
+    }
     matrixOut(cout, id);
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
