@@ -85,6 +85,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
       }
     }
     pseudoInvert(this->gram_, this->ginv_);
+    matrixOut(cout, this->ginv_ * this->gram_);
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
