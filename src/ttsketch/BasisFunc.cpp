@@ -93,7 +93,6 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
       }
       cout << endl;
     }
-    matrixOut(cout, id);
   } else if(nbins > 0) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
