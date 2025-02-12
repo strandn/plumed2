@@ -56,6 +56,8 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     for(int i = 0; i < nbasis - 1; ++i) {
       this->centers_[i] = dom.first + i * this->dx_;
     }
+    //TODO: do we want this?
+    this->dx_ *= 1.5;
     this->gram_ = Matrix<double>(nbasis, nbasis);
     this->gram_(0, 0) = this->dom_.second - this->dom_.first;
     for(int i = 1; i < nbasis; ++i) {
@@ -85,6 +87,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
       }
     }
     pseudoInvert(this->gram_, this->ginv_);
+    //TODO: comment below out
     Matrix<double> id;
     mult(this->ginv_, this->gram_, id);
     for(int i = 0; i < this->nbasis_; ++i) {
