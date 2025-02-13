@@ -1461,7 +1461,7 @@ double TTSketch::getBias(const vector<double>& cv) {
     if(length(this->ttSum_) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_), 0.0);
+    return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_) - this->vshift_, 0.0);
   } else {
     double bias = 0.0;
     for(auto& tt : this->ttList_) {
