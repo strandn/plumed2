@@ -57,7 +57,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
       this->centers_[i] = dom.first + i * this->dx_;
     }
     //TODO: do we want this?
-    this->dx_ *= 1.5;
+    // this->dx_ *= 1.5;
     this->gram_ = Matrix<double>(nbasis, nbasis);
     this->gram_(0, 0) = this->dom_.second - this->dom_.first;
     for(int i = 1; i < nbasis; ++i) {
