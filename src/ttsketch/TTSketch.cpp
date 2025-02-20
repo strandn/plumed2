@@ -727,7 +727,7 @@ void TTSketch::update() {
       log << "\n";
       if(this->bf_ > 1.0) {
         if(this->do_sump_) {
-          log << "Vmean = " << vmean << " Height = " << this->kbt_ * this->sump_height_ * hf << "\n";
+          log << "Vmean = " << vmean << " Height = " << this->sump_height_ * hf << "\n";
         } else {
           log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
         }
