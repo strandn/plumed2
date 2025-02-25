@@ -122,7 +122,7 @@ void TTCross::continuousACA() {
         break;
       }
       if(this->auto_rank_) {
-        if(err_new > err && err < 0.1) {
+        if(err_new > err) {
           break;
         }
       } else if(res_new / this->resfirst_[i] < this->cutoff_) {
