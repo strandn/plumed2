@@ -423,8 +423,10 @@ void TTMetaD::paraSketch() {
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
   PrintData(Bemp);
-  PrintData(envi_L);
-  PrintData(envi_R);
+  PrintData(envi_L[0]);
+  PrintData(envi_L[1]);
+  PrintData(envi_R[0]);
+  PrintData(envi_R[1]);
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
