@@ -27,7 +27,7 @@ private:
       : multivariate(m), height(h), center(c), sigma(s), invsigma(s) {
       for(unsigned i = 0; i < invsigma.size(); ++i) {
         if(abs(invsigma[i]) > 1.e-20) {
-          invsigma[i] = 1.0 / invsigma[i]
+          invsigma[i] = 1.0 / invsigma[i];
         } else {
           invsigma[i] = 0.0;
         }
@@ -182,7 +182,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(this->sketch_rc_ <= 0) {
     error("SKETCH_INITRANK must be positive");
   }
-  parse("SKETCH_PACE", this->sketch_pace_);
+  parse("SKETCH_PACE", this->sketch_stride_);
   if(this->sketch_pace_ <= 0) {
     error("SKETCH_PACE must be positive");
   }
@@ -209,7 +209,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0, 0.0, 0, 0.0, 0.0, 0, 0, true));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0, 0.0, 0, 0.0, 0.0, 0, 0, true));
   }
   // if(this->walkers_mpi_) {
   //   this->mpi_size_ = multi_sim_comm.Get_size();
@@ -272,11 +272,6 @@ void TTMetaD::update() {
     this->isFirstStep_ = false;
   }
 
-  vector<double> cv(this->d_);
-  for(unsigned i = 0; i < this->d_; ++i) {
-    cv[i] = getArgument(i);
-  }
-
   if(nowAddATT) {
     unsigned N = this->hills_.size();
     vector<double> A0(N);
@@ -314,8 +309,8 @@ void TTMetaD::update() {
       diff[i] = getBias(x[i]);
     }
     transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
-    *this->log_ << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n";
-    this->log_->flush();
+    log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n";
+    log.flush();
     
     if(this->d_ == 2) {
       ofstream file, filex, filey;
@@ -364,7 +359,7 @@ double TTMetaD::getHeight(const vector<double>& cv) {
 }
 
 double TTMetaD::getBias(const vector<double>& cv) {
-  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->basis_, cv, false);
+  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, false);
   for(unsigned i = 0; i < hills_.size(); ++i) {
     bias += evaluateGaussian(cv, this->hills_[i]);
   }
@@ -372,9 +367,9 @@ double TTMetaD::getBias(const vector<double>& cv) {
 }
 
 double TTMetaD::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
-  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->basis_, cv, false);
+  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, false);
   if(length(this->vb_) != 0) {
-    der = ttGrad(this->vb_, this->basis_, cv, false);
+    der = ttGrad(this->vb_, this->sketch_basis_, cv, false);
   }
   std::vector<double> dp(this->d_);
   for(unsigned i = 0; i < hills_.size(); ++i) {
