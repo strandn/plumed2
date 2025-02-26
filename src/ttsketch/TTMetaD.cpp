@@ -183,7 +183,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     error("SKETCH_INITRANK must be positive");
   }
   parse("SKETCH_PACE", this->sketch_stride_);
-  if(this->sketch_pace_ <= 0) {
+  if(this->sketch_stride_ <= 0) {
     error("SKETCH_PACE must be positive");
   }
   vector<double> interval_min;
