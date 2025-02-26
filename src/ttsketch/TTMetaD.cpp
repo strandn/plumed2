@@ -417,7 +417,8 @@ void TTMetaD::paraSketch() {
   unsigned N = this->hills_.size();
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
-  PrintData(M);
+  PrintData(M[0]);
+  PrintData(M[1]);
   auto G = MPS(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
