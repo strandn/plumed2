@@ -111,8 +111,8 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "SKETCH_NBASIS", "20", "Number of basis functions per dimension");
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
-  keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
-  keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
+  keys.add("compulsory", "VB_CUTOFF", "Convergence threshold for TT Vbias");
+  keys.add("compulsory", "VB_RANK", "Largest possible rank for TT Vbias");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
@@ -131,9 +131,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   // rct_ustride_(1),
   sketch_r_(0),
   sketch_cutoff_(0.0),
-  sketch_count_(1),
-  vb_cutoff_(0.0),
-  vb_rank_(0)
+  sketch_count_(1)
 {
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
@@ -215,13 +213,15 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   //   this->mpi_size_ = multi_sim_comm.Get_size();
   //   this->mpi_rank_ = multi_sim_comm.Get_rank();
   // }
+  this->vb_cutoff_ = 0.0;
   parse("VB_CUTOFF", this->vb_cutoff_);
   if(this->vb_cutoff_ < 0.0 || this->vb_cutoff_ >= 1.0) {
     error("VB_CUTOFF must be nonnegative and less than 1");
   }
+  this->vb_cutoff_ = 0;
   parse("VB_RANK", this->vb_rank_);
-  if(this->vb_rank_ < 0) {
-    error("VB_RANK must be nonnegative");
+  if(this->vb_rank_ <= 0) {
+    error("VB_RANK must positive");
   }
 
   if(getRestart()) {
