@@ -47,6 +47,8 @@ public:
   bool kernel() const { return this->kernel_; }
   const Matrix<double>& ginv() const { return this->ginv_; }
   void test() const;
+  double centers(int pos) const { return this->kernel_ ? this->centers_[pos - 1] : 0.0; }
+  double dx() const { return this->dx_; }
 };
 
 }
