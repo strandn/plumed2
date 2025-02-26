@@ -417,16 +417,16 @@ void TTMetaD::paraSketch() {
   unsigned N = this->hills_.size();
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
-  PrintData(M[0]);
-  PrintData(M[1]);
   auto G = MPS(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
-  PrintData(Bemp);
+  PrintData(M[0]);
   PrintData(envi_L[0]);
-  PrintData(envi_L[1]);
   PrintData(envi_R[0]);
+  PrintData(M[1]);
+  PrintData(envi_L[1]);
   PrintData(envi_R[1]);
+  PrintData(Bemp);
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
@@ -459,9 +459,12 @@ void TTMetaD::paraSketch() {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
     }
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
-    PrintData(U);
-    PrintData(S);
-    PrintData(V);
+    PrintData(U[0]);
+    PrintData(S[0]);
+    PrintData(V[0]);
+    PrintData(U[1]);
+    PrintData(S[1]);
+    PrintData(V[1]);
   }
 
   G.ref(1) = Bemp(1) * V[1];
