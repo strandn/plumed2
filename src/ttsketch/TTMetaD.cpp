@@ -498,18 +498,22 @@ void TTMetaD::paraSketch() {
   log << "\n";
   log.flush();
 
+  cout << "before" << endl;
   for(unsigned i = 1; i <= this->d_; ++i) {
     auto s = siteIndex(G, i);
     ITensor ginv(s, prime(s));
     for(int j = 1; j <= dim(s); ++j) {
       for(int l = 1; l <= dim(s); ++l) {
+        cout << j << " " << l << endl;
         ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
       }
     }
+    PrintData(G);
     G.ref(i) *= ginv;
     G.ref(i).noPrime();
   }
 
+  cout << "after" << endl;
   if(length(this->vb_) == 0) {
     this->vb_ = G;
   } else {
@@ -522,6 +526,7 @@ void TTMetaD::paraSketch() {
       this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_});
     }
   }
+  cout << "after after" << endl;
   log << "\nFinal ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
     log << dim(linkIndex(this->vb_, i)) << " ";
