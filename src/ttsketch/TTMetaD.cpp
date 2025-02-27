@@ -452,12 +452,13 @@ void TTMetaD::paraSketch() {
     PrintData(A);
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
-    if(this->sketch_r_ > 0) {
-      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
-          {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
-    } else {
-      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
-    }
+    // if(this->sketch_r_ > 0) {
+    //   svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
+    //       {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
+    // } else {
+    //   svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
+    // }
+    svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"RightTags=", original_link_tags});
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
     PrintData(U[0]);
     PrintData(S[0]);
@@ -582,7 +583,6 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
   //   }
   // }
   // return make_pair(M, IndexSet(is_new));
-
   unsigned N = this->hills_.size();
   int nb = this->sketch_basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
