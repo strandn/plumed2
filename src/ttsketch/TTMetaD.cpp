@@ -593,7 +593,7 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
       for(int k = 1; k <= nb; ++k) {
-        M.back().set(sites_new(i) = j, is(i) = k, pow(this->hills_[j - 1].height, 1.0 / this->d_) * this->basis_[i - 1](this->hills_[j - 1].center[i - 1], k, false));
+        M.back().set(sites_new(i) = j, is(i) = k, pow(this->hills_[j - 1].height, 1.0 / this->d_) * this->sketch_basis_[i - 1](this->hills_[j - 1].center[i - 1], k, false));
       }
     }
   }
