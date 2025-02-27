@@ -513,7 +513,9 @@ void TTMetaD::paraSketch() {
   for(unsigned i = 1; i <= this->d_; ++i) {
     this->vb_.ref(i) *= delta(siteIndex(this->vb_, i), siteIndex(G, i));
   }
-  if(this->vb_rank_ > 0) {
+  if(length(this->vb_) == 0) {
+    this->vb_ = G;
+  } else if(this->vb_rank_ > 0) {
     this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_, "MaxDim=", this->vb_rank_});
   } else {
     this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_});
