@@ -520,6 +520,12 @@ void TTMetaD::paraSketch() {
   } else {
     this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_});
   }
+  log << "\nFinal ranks ";
+  for(unsigned i = 1; i < this->d_; ++i) {
+    log << dim(linkIndex(this->vb_, i)) << " ";
+  }
+  log << "\n";
+  log.flush();
   ++this->sketch_count_;
 }
 
