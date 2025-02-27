@@ -554,50 +554,50 @@ MPS TTMetaD::createTTCoeff() const {
 }
 
 pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) const {
-  // unsigned N = this->hills_.size();
-  // int nb = this->sketch_basis_[0].nbasis();
-  // auto sites_new = SiteSet(this->d_, N);
-  // vector<ITensor> M;
-  // vector<Index> is_new;
-  // for(unsigned i = 1; i <= this->d_; ++i) {
-  //   double dx = this->sketch_basis_[i - 1].dx();
-  //   double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
-  //   M.push_back(ITensor(sites_new(i), is(i)));
-  //   is_new.push_back(sites_new(i));
-  //   for(unsigned j = 1; j <= N; ++j) {
-  //     double x = this->hills_[j - 1].center[i - 1];
-  //     double w = this->hills_[j - 1].sigma[i - 1];
-  //     double h = pow(this->hills_[j - 1].height, 1.0 / this->d_);
-  //     for(int pos = 1; pos <= nb; ++pos) {
-  //       double result = 0.0;
-  //       if(pos == 1) {
-  //         result = h * sqrt(2 * M_PI) * w;
-  //       } else {
-  //         double c = this->sketch_basis_[i - 1].centers(pos);
-  //         for(int k = -1; k <= 1; ++k) {
-  //           result += exp(-pow(x - c + 2 * k * L, 2) / (2 * (pow(dx, 2) + pow(w, 2)))) * h * sqrt(2 * M_PI) / sqrt(1 / pow(dx, 2) + 1 / pow(w, 2));
-  //         }
-  //       }
-  //       M.back().set(sites_new(i) = j, is(i) = pos, result);
-  //     }
-  //   }
-  // }
-  // return make_pair(M, IndexSet(is_new));
   unsigned N = this->hills_.size();
   int nb = this->sketch_basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
   vector<Index> is_new;
   for(unsigned i = 1; i <= this->d_; ++i) {
+    double dx = this->sketch_basis_[i - 1].dx();
+    double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
-      for(int k = 1; k <= nb; ++k) {
-        M.back().set(sites_new(i) = j, is(i) = k, pow(this->hills_[j - 1].height, 1.0 / this->d_) * this->sketch_basis_[i - 1](this->hills_[j - 1].center[i - 1], k, false));
+      double x = this->hills_[j - 1].center[i - 1];
+      double w = this->hills_[j - 1].sigma[i - 1];
+      double h = pow(this->hills_[j - 1].height, 1.0 / this->d_);
+      for(int pos = 1; pos <= nb; ++pos) {
+        double result = 0.0;
+        if(pos == 1) {
+          result = h * sqrt(2 * M_PI) * w;
+        } else {
+          double c = this->sketch_basis_[i - 1].centers(pos);
+          for(int k = -1; k <= 1; ++k) {
+            result += exp(-pow(x - c + 2 * k * L, 2) / (2 * (pow(dx, 2) + pow(w, 2)))) * h * sqrt(2 * M_PI) / sqrt(1 / pow(dx, 2) + 1 / pow(w, 2));
+          }
+        }
+        M.back().set(sites_new(i) = j, is(i) = pos, result);
       }
     }
   }
   return make_pair(M, IndexSet(is_new));
+  // unsigned N = this->hills_.size();
+  // int nb = this->sketch_basis_[0].nbasis();
+  // auto sites_new = SiteSet(this->d_, N);
+  // vector<ITensor> M;
+  // vector<Index> is_new;
+  // for(unsigned i = 1; i <= this->d_; ++i) {
+  //   M.push_back(ITensor(sites_new(i), is(i)));
+  //   is_new.push_back(sites_new(i));
+  //   for(unsigned j = 1; j <= N; ++j) {
+  //     for(int k = 1; k <= nb; ++k) {
+  //       M.back().set(sites_new(i) = j, is(i) = k, pow(this->hills_[j - 1].height, 1.0 / this->d_) * this->sketch_basis_[i - 1](this->hills_[j - 1].center[i - 1], k, false));
+  //     }
+  //   }
+  // }
+  // return make_pair(M, IndexSet(is_new));
 }
 
 tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is) {
