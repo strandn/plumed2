@@ -1599,8 +1599,8 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
   vector<Index> is_new;
   double h = pow(1.0 / N, 1.0 / this->d_);
   for(unsigned i = 1; i <= this->d_; ++i) {
-    double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
-    double a = (this->sketch_basis_[i - 1].dom().second + this->sketch_basis_[i - 1].dom().first) / 2;
+    double L = (this->basis_[i - 1].dom().second - this->basis_[i - 1].dom().first) / 2;
+    double a = (this->basis_[i - 1].dom().second + this->basis_[i - 1].dom().first) / 2;
     double w = this->basis_[i - 1].w();
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
