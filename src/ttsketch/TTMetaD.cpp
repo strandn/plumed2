@@ -423,13 +423,6 @@ void TTMetaD::paraSketch() {
   auto G = MPS(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
-  PrintData(M[0]);
-  PrintData(envi_L[0]);
-  PrintData(envi_R[0]);
-  PrintData(M[1]);
-  PrintData(envi_L[1]);
-  PrintData(envi_R[1]);
-  PrintData(Bemp);
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
@@ -452,23 +445,16 @@ void TTMetaD::paraSketch() {
         A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
       }
     }
-    PrintData(A);
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
-    // if(this->sketch_r_ > 0) {
-    //   svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
-    //       {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
-    // } else {
-    //   svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
-    // }
-    svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"RightTags=", original_link_tags, "MaxDim=", 5});
+    if(this->sketch_r_ > 0) {
+      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
+          {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
+    } else {
+      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
+    }
+    // svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"RightTags=", original_link_tags, "MaxDim=", 5});
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
-    PrintData(U[0]);
-    PrintData(S[0]);
-    PrintData(V[0]);
-    PrintData(U[1]);
-    PrintData(S[1]);
-    PrintData(V[1]);
   }
 
   G.ref(1) = Bemp(1) * V[1];
@@ -514,7 +500,6 @@ void TTMetaD::paraSketch() {
       this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_});
     }
   }
-  cout << "after after" << endl;
   log << "\nFinal ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
     log << dim(linkIndex(this->vb_, i)) << " ";
@@ -569,21 +554,6 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
     }
   }
   return make_pair(M, IndexSet(is_new));
-  // unsigned N = this->hills_.size();
-  // int nb = this->sketch_basis_[0].nbasis();
-  // auto sites_new = SiteSet(this->d_, N);
-  // vector<ITensor> M;
-  // vector<Index> is_new;
-  // for(unsigned i = 1; i <= this->d_; ++i) {
-  //   M.push_back(ITensor(sites_new(i), is(i)));
-  //   is_new.push_back(sites_new(i));
-  //   for(unsigned j = 1; j <= N; ++j) {
-  //     for(int k = 1; k <= nb; ++k) {
-  //       M.back().set(sites_new(i) = j, is(i) = k, pow(this->hills_[j - 1].height, 1.0 / this->d_) * this->sketch_basis_[i - 1](this->hills_[j - 1].center[i - 1], k, false));
-  //     }
-  //   }
-  // }
-  // return make_pair(M, IndexSet(is_new));
 }
 
 tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is) {
