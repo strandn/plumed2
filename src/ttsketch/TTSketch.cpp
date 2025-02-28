@@ -153,9 +153,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_sump_ && kernel) {
     error("SUMP not compatible with kernel basis");
   }
-  if(this->do_sump_ && !noconv) {
-    error("SUMP not compatible with kernel smoothing");
-  }
+  // if(this->do_sump_ && !noconv) {
+  //   error("SUMP not compatible with kernel smoothing");
+  // }
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
