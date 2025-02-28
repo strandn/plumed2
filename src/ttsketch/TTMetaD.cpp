@@ -201,6 +201,9 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("SKETCH_NBASIS must be greater than 1");
   }
+  if(nbasis % 2 == 0) {
+    ++nbasis;
+  }
   parse("SKETCH_ALPHA", this->sketch_alpha_);
   if(this->sketch_alpha_ <= 0.0 || this->sketch_alpha_ > 1.0) {
     error("SKETCH_ALPHA must be positive and no greater than 1");
@@ -209,7 +212,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0, 0.0, 0, 0.0, 0.0, 0, 0, true));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0, 0.0, 0, 0.0, 0.0, 0, 0, false));
   }
   // if(this->walkers_mpi_) {
   //   this->mpi_size_ = multi_sim_comm.Get_size();
@@ -499,22 +502,6 @@ void TTMetaD::paraSketch() {
   log << "\n";
   log.flush();
 
-  cout << "before" << endl;
-  for(unsigned i = 1; i <= this->d_; ++i) {
-    auto s = siteIndex(G, i);
-    ITensor ginv(s, prime(s));
-    for(int j = 1; j <= dim(s); ++j) {
-      for(int l = 1; l <= dim(s); ++l) {
-        cout << j << " " << l << endl;
-        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-      }
-    }
-    PrintData(G);
-    G.ref(i) *= ginv;
-    G.ref(i).noPrime();
-  }
-
-  cout << "after" << endl;
   if(length(this->vb_) == 0) {
     this->vb_ = G;
   } else {
@@ -560,8 +547,8 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
   vector<ITensor> M;
   vector<Index> is_new;
   for(unsigned i = 1; i <= this->d_; ++i) {
-    double dx = this->sketch_basis_[i - 1].dx();
     double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
+    double a = (this->sketch_basis_[i - 1].dom().second + this->sketch_basis_[i - 1].dom().first) / 2;
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
@@ -571,12 +558,11 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
       for(int pos = 1; pos <= nb; ++pos) {
         double result = 0.0;
         if(pos == 1) {
-          result = h * sqrt(2 * M_PI) * w;
+          result = h * sqrt(M_PI / L) * w;
+        } else if(pos % 2 == 0) {
+          result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * cos(M_PI * (x - a) * (pos / 2) / L);
         } else {
-          double c = this->sketch_basis_[i - 1].centers(pos);
-          for(int k = -1; k <= 1; ++k) {
-            result += exp(-pow(x - c + 2 * k * L, 2) / (2 * (pow(dx, 2) + pow(w, 2)))) * h * sqrt(2 * M_PI) / sqrt(1 / pow(dx, 2) + 1 / pow(w, 2));
-          }
+          result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * sin(M_PI * (x - a) * (pos / 2) / L);
         }
         M.back().set(sites_new(i) = j, is(i) = pos, result);
       }
