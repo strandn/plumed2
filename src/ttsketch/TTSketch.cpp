@@ -565,42 +565,40 @@ void TTSketch::update() {
       log.flush();
       paraSketch();
 
-        log << "\nEmpirical means:\n";
-        Matrix<double> sigmahat(this->d_, this->d_);
-        vector<double> muhat(this->d_, 0.0);
-        for(unsigned k = 0; k < this->d_; ++k) {
-          for(unsigned j = 0; j < N; ++j) {
-            muhat[k] += this->lastsamples_[j][k] / N;
-          }
-          log << muhat[k] << " ";
+      log << "\nEmpirical means:\n";
+      Matrix<double> sigmahat(this->d_, this->d_);
+      vector<double> muhat(this->d_, 0.0);
+      for(unsigned k = 0; k < this->d_; ++k) {
+        for(unsigned j = 0; j < N; ++j) {
+          muhat[k] += this->lastsamples_[j][k] / N;
         }
-        log << "\nEmpirical covariance matrix:\n";
-        for(unsigned k = 0; k < this->d_; ++k) {
-          for(unsigned l = k; l < this->d_; ++l) {
-            sigmahat(k, l) = sigmahat(l, k) = 0.0;
-            for(unsigned j = 0; j < N; ++j) {
-              sigmahat(k, l) += (this->lastsamples_[j][k] - muhat[k]) * (this->lastsamples_[j][l] - muhat[l]) / (N - 1);
-            }
-            sigmahat(l, k) = sigmahat(k, l);
-          }
-        }
-        matrixOut(log, sigmahat);
-      if(!this->do_sump_) {
-        auto [sigma, mu] = covMat(this->ttList_.back(), this->basis_);
-        log << "Estimated means:\n";
-        for(unsigned k = 0; k < this->d_; ++k) {
-          log << mu[k] << " ";
-        }
-        log << "\nEstimated covariance matrix:\n";
-        matrixOut(log, sigma);
-        auto diff = sigma.getVector();
-        auto sigmahatv = sigmahat.getVector();
-        transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
-        log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
-        log.flush();
+        log << muhat[k] << " ";
       }
+      log << "\nEmpirical covariance matrix:\n";
+      for(unsigned k = 0; k < this->d_; ++k) {
+        for(unsigned l = k; l < this->d_; ++l) {
+          sigmahat(k, l) = sigmahat(l, k) = 0.0;
+          for(unsigned j = 0; j < N; ++j) {
+            sigmahat(k, l) += (this->lastsamples_[j][k] - muhat[k]) * (this->lastsamples_[j][l] - muhat[l]) / (N - 1);
+          }
+          sigmahat(l, k) = sigmahat(k, l);
+        }
+      }
+      matrixOut(log, sigmahat);
+      auto [sigma, mu] = covMat(this->ttList_.back(), this->basis_);
+      log << "Estimated means:\n";
+      for(unsigned k = 0; k < this->d_; ++k) {
+        log << mu[k] << " ";
+      }
+      log << "\nEstimated covariance matrix:\n";
+      matrixOut(log, sigma);
+      auto diff = sigma.getVector();
+      auto sigmahatv = sigmahat.getVector();
+      transform(diff.begin(), diff.end(), sigmahatv.begin(), diff.begin(), minus<double>());
+      log << "Relative l2 error = " << sqrt(norm(diff) / norm(sigmahatv)) << "\n";
+      log.flush();
 
-      if(this->output_2d_ > 0 && !this->do_sump_) {
+      if(this->output_2d_ > 0) {
         for(unsigned k = 0; k < this->d_; ++k) {
           for(unsigned l = k + 1; l < this->d_; ++l) {
             vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
@@ -633,7 +631,7 @@ void TTSketch::update() {
         }
       }
 
-      if(this->output_2d_ > 0 && !this->do_sump_) {
+      if(this->output_2d_ > 0) {
         for(unsigned k = 0; k < this->d_; ++k) {
           for(unsigned l = k + 1; l < this->d_; ++l) {
             vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
