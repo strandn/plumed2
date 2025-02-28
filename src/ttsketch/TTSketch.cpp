@@ -565,7 +565,6 @@ void TTSketch::update() {
       log.flush();
       paraSketch();
 
-      if(!this->do_sump_) {
         log << "\nEmpirical means:\n";
         Matrix<double> sigmahat(this->d_, this->d_);
         vector<double> muhat(this->d_, 0.0);
@@ -586,6 +585,7 @@ void TTSketch::update() {
           }
         }
         matrixOut(log, sigmahat);
+      if(!this->do_sump_) {
         auto [sigma, mu] = covMat(this->ttList_.back(), this->basis_);
         log << "Estimated means:\n";
         for(unsigned k = 0; k < this->d_; ++k) {
