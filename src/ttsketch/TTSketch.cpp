@@ -153,9 +153,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_sump_ && kernel) {
     error("SUMP not compatible with kernel basis");
   }
-  if(this->do_sump_ && !noconv) {
-    error("SUMP not compatible with kernel smoothing");
-  }
+  // TODO: uncomment this
+  // if(this->do_sump_ && !noconv) {
+  //   error("SUMP not compatible with kernel smoothing");
+  // }
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -1605,19 +1606,21 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
     for(unsigned j = 1; j <= N; ++j) {
       double x = this->lastsamples_[j - 1][i - 1];
       for(int pos = 1; pos <= nb; ++pos) {
-        if(this->do_sump_) {
-          double result = 0.0;
-          if(pos == 1) {
-            result = h * sqrt(M_PI / L) * w;
-          } else if(pos % 2 == 0) {
-            result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * cos(M_PI * (x - a) * (pos / 2) / L);
-          } else {
-            result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * sin(M_PI * (x - a) * (pos / 2) / L);
-          }
-          M.back().set(sites_new(i) = j, is(i) = pos, result);
-        } else {
-          M.back().set(sites_new(i) = j, is(i) = pos, h * this->basis_[i - 1](x, pos, false));
-        }
+        // TODO: uncomment this
+        // if(this->do_sump_) {
+        //   double result = 0.0;
+        //   if(pos == 1) {
+        //     result = h * sqrt(M_PI / L) * w;
+        //   } else if(pos % 2 == 0) {
+        //     result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * cos(M_PI * (x - a) * (pos / 2) / L);
+        //   } else {
+        //     result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * sin(M_PI * (x - a) * (pos / 2) / L);
+        //   }
+        //   M.back().set(sites_new(i) = j, is(i) = pos, result);
+        // } else {
+        //   M.back().set(sites_new(i) = j, is(i) = pos, h * this->basis_[i - 1](x, pos, false));
+        // }
+        M.back().set(sites_new(i) = j, is(i) = pos, h * this->basis_[i - 1](x, pos, false));
       }
     }
   }
