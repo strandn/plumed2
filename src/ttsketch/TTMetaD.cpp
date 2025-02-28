@@ -453,7 +453,6 @@ void TTMetaD::paraSketch() {
     } else {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
     }
-    // svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"RightTags=", original_link_tags, "MaxDim=", 5});
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
   }
 

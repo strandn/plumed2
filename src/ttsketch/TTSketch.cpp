@@ -150,6 +150,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && this->do_sump_) {
     error("Cannot enable both ACA and SUMP, choose one");
   }
+  if(this->do_sump_ && kernel) {
+    error("SUMP not compatible with kernel basis");
+  }
+  if(this->do_sump_ && !noconv) {
+    error("SUMP not compatible with kernel smoothing");
+  }
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -249,6 +255,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   for(unsigned i = 0; i < this->d_; ++i) {
     if(!noconv && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
+    }
+    if(this->do_sump_ && w[i] <= 0.0) {
+      error("SUMP requires positive WIDTH");
     }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
@@ -1588,12 +1597,29 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
   vector<Index> is_new;
+  double h = pow(1.0 / N, 1.0 / this->d_);
   for(unsigned i = 1; i <= this->d_; ++i) {
+    double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
+    double a = (this->sketch_basis_[i - 1].dom().second + this->sketch_basis_[i - 1].dom().first) / 2;
+    double w = this->basis_[i - 1].w();
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
-      for(int k = 1; k <= nb; ++k) {
-        M.back().set(sites_new(i) = j, is(i) = k, pow(1.0 / N, 1.0 / this->d_) * this->basis_[i - 1](this->lastsamples_[j - 1][i - 1], k, false));
+      double x = this->lastsamples_[j - 1][i - 1];
+      for(int pos = 1; pos <= nb; ++pos) {
+        if(this->do_sump_) {
+          double result = 0.0;
+          if(pos == 1) {
+            result = h * sqrt(M_PI / L) * w;
+          } else if(pos % 2 == 0) {
+            result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * cos(M_PI * (x - a) * (pos / 2) / L);
+          } else {
+            result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * sin(M_PI * (x - a) * (pos / 2) / L);
+          }
+          M.back().set(sites_new(i) = j, is(i) = pos, result);
+        } else {
+          M.back().set(sites_new(i) = j, is(i) = pos, h * this->basis_[i - 1](x, pos, false));
+        }
       }
     }
   }
