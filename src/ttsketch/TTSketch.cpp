@@ -53,6 +53,7 @@ private:
   double sump_rank_;
   MPS ttSum_;
   double sump_height_;
+  double sigma_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -113,6 +114,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "SUMP_CUTOFF", "Convergence threshold for TT sum");
   keys.add("optional", "SUMP_RANK", "Largest possible rank for TT sum");
   keys.add("optional", "SUMP_HEIGHT", "Largest increment value for term in TT sum, in units of kT");
+  keys.add("optional", "SIGMA", "Bandwidth of Gaussians - compulsory if DO_SUMP is true");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -137,7 +139,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   do_sump_(false),
   sump_cutoff_(0.0),
   sump_rank_(0),
-  sump_height_(5.0)
+  sump_height_(5.0),
+  sigma_(0.0)
 {
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
@@ -335,6 +338,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("SUMP_HEIGHT must be greater than 0");
   }
   this->sump_height_ *= this->kbt_;
+  parse("SIGMA", this->sigma_);
+  if(this->do_sump_ && this->sigma_ <= 0.0) {
+    error("SIGMA must be greater than 0");
+  }
 
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -1599,7 +1606,7 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
   for(unsigned i = 1; i <= this->d_; ++i) {
     double L = (this->basis_[i - 1].dom().second - this->basis_[i - 1].dom().first) / 2;
     double a = (this->basis_[i - 1].dom().second + this->basis_[i - 1].dom().first) / 2;
-    double w = this->basis_[i - 1].w();
+    double w = this->sigma_;
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
