@@ -256,7 +256,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("LAMBDA must be greater than 1");
   }
   parseVector("SIGMA", this->sigma_);
-  if(this->do_sump_ && this->sigma_ != this->d_) {
+  if(this->do_sump_ && this->sigma_.size() != this->d_) {
     error("Number of arguments does not match number of SIGMA parameters");
   }
   for(unsigned i = 0; i < this->d_; ++i) {
