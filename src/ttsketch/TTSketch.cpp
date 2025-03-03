@@ -258,20 +258,25 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_sump_ && this->sigma_.size() != this->d_) {
     error("Number of arguments does not match number of SIGMA parameters");
   }
+  log << 1 << "\n";
   for(unsigned i = 0; i < this->d_; ++i) {
     if(!noconv && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
     }
+    log << 2 << "\n";
     if(this->do_sump_ && this->sigma_[i] <= 0.0) {
       error("SUMP requires positive SIGMA");
     }
+    log << 3 << "\n";
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
+    log << 4 << "\n";
     this->basis_.push_back(BasisFunc(make_pair(interval_min[i],
                                      interval_max[i]), nbasis, !noconv, nbins,
                                      w[i], conv_n, conv_epsabs, conv_epsrel,
                                      conv_limit, conv_key, kernel));
+    log << 5 << "\n";
   }
   this->conv_ = !noconv;
 
@@ -341,6 +346,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("SUMP_HEIGHT must be greater than 0");
   }
   this->sump_height_ *= this->kbt_;
+  log << 6 << "\n";
 
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -471,6 +477,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       log << "  " << this->samples_.size() << " samples retrieved\n";
     }
   }
+  log << 7 << "\n";
 }
 
 void TTSketch::calculate() {
