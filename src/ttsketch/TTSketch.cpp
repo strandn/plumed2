@@ -53,7 +53,7 @@ private:
   double sump_rank_;
   MPS ttSum_;
   double sump_height_;
-  double sigma_;
+  vector<double> sigma_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -185,7 +185,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   vector<double> w;
   parseVector("WIDTH", w);
-  if(w.size() != this->d_) {
+  if(!noconv && w.size() != this->d_) {
     error("Number of arguments does not match number of WIDTH parameters");
   }
   int conv_n = 10000000;
@@ -255,12 +255,16 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->bf_ < 1.0) {
     error("LAMBDA must be greater than 1");
   }
+  parseVector("SIGMA", this->sigma_);
+  if(this->do_sump_ && this->sigma_ != this->d_) {
+    error("Number of arguments does not match number of SIGMA parameters");
+  }
   for(unsigned i = 0; i < this->d_; ++i) {
     if(!noconv && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
     }
-    if(this->do_sump_ && w[i] <= 0.0) {
-      error("SUMP requires positive WIDTH");
+    if(this->do_sump_ && this->sigma_[i] <= 0.0) {
+      error("SUMP requires positive SIGMA");
     }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
@@ -338,10 +342,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("SUMP_HEIGHT must be greater than 0");
   }
   this->sump_height_ *= this->kbt_;
-  parse("SIGMA", this->sigma_);
-  if(this->do_sump_ && this->sigma_ <= 0.0) {
-    error("SIGMA must be greater than 0");
-  }
 
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
@@ -1606,7 +1606,7 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
   for(unsigned i = 1; i <= this->d_; ++i) {
     double L = (this->basis_[i - 1].dom().second - this->basis_[i - 1].dom().first) / 2;
     double a = (this->basis_[i - 1].dom().second + this->basis_[i - 1].dom().first) / 2;
-    double w = this->sigma_;
+    double w = this->sigma_[i];
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
