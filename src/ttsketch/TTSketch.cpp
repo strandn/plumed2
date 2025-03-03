@@ -139,8 +139,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   do_sump_(false),
   sump_cutoff_(0.0),
   sump_rank_(0),
-  sump_height_(5.0),
-  sigma_(0.0)
+  sump_height_(5.0)
 {
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
