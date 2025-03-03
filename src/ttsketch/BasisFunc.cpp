@@ -95,7 +95,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv,
     //   }
     //   cout << endl;
     // }
-  } else if(nbins > 0) {
+  } else if(conv) {
     gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(conv_n);
     double result, error;
     for(int j = 0; j < nbasis; ++j) {
