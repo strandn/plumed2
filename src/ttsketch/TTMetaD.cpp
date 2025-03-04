@@ -262,11 +262,11 @@ void TTMetaD::update() {
         }
         double fact = (this->biasf_ > 1.0 ? (this->biasf_ - 1.0) / this->biasf_ : 1.0);
         Gaussian newhill = Gaussian(false, all_height[i] * fact, cv_now, sigma_now);
-        addGaussian(newhill);
+        this->hills_.push_back(newhill);
       }
     } else {
       Gaussian newhill = Gaussian(false, height, cv, this->sigma0_);
-      addGaussian(newhill);
+      this->hills_.push_back(newhill);
     }
   }
 
