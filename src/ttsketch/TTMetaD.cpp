@@ -403,7 +403,7 @@ void TTMetaD::update() {
       }
     }
 
-    if(getStep() >= this->freeze_) {
+    if(getStep() > this->freeze_) {
       this->frozen_ = true;
     }
   }

@@ -149,9 +149,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_sump_ && kernel) {
     error("SUMP not compatible with kernel basis");
   }
-  // if(this->do_sump_ && !noconv) {
-  //   error("SUMP not compatible with kernel smoothing");
-  // }
+  if(this->do_sump_ && !noconv) {
+    error("SUMP not compatible with kernel smoothing");
+  }
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -634,7 +634,6 @@ void TTSketch::update() {
 
       double rhomax = 0.0;
       for(auto& s : this->lastsamples_) {
-        //TODO: fix this
         double rho = ttEval(this->ttList_.back(), this->basis_, s, this->conv_);
         if(rho > rhomax) {
           rhomax = rho;
@@ -1415,7 +1414,6 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
   if(this->do_aca_) {
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else if(this->do_sump_) {
-    //TODO: fix this
     der = ttGrad(this->ttSum_, this->basis_, cv, this->conv_);
   } else {
     for(auto& tt : this->ttList_) {
@@ -1440,7 +1438,6 @@ double TTSketch::getBias(const vector<double>& cv) {
     if(length(this->ttSum_) == 0) {
       return 0.0;
     }
-    //TODO: fix this
     return max(ttEval(this->ttSum_, this->basis_, cv, this->conv_) - this->vshift_, 0.0);
   } else {
     double bias = 0.0;
