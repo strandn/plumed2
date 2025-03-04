@@ -407,7 +407,7 @@ void TTMetaD::update() {
       this->frozen_ = true;
     }
   }
-  if(getStep() % this->sketch_stride_ == 1) {
+  if(getStep() % this->sketch_stride_ == 1 && !this->frozen_) {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
   }
