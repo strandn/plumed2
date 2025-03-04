@@ -153,9 +153,9 @@ double BasisFunc::fourierd(double x, int pos) const {
   if(pos == 1) {
     return 0.0;
   } else if(pos % 2 == 0) {
-    return -pow(1 / this->L_, 3 / 2) * M_PI * (pos / 2) * sin(M_PI * (x - this->shift_) * (pos / 2) / this->L_);
+    return -pow(1 / this->L_, 1.5) * M_PI * (pos / 2) * sin(M_PI * (x - this->shift_) * (pos / 2) / this->L_);
   } else {
-    return pow(1 / this->L_, 3 / 2) * M_PI * (pos / 2) * cos(M_PI * (x - this->shift_) * (pos / 2) / this->L_);
+    return pow(1 / this->L_, 1.5) * M_PI * (pos / 2) * cos(M_PI * (x - this->shift_) * (pos / 2) / this->L_);
   }
 }
 
@@ -234,7 +234,7 @@ double BasisFunc::grad(double x, int pos, bool conv) const {
       if(pos == 1) {
         result = 0.0;
       } else {
-        result = -exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourierd(x, pos);
+        result = exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourierd(x, pos);
       }
       cout << "grad " << interpolate(x, pos, true) << " " << result << endl;
       return result;
