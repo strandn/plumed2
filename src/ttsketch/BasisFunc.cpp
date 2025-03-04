@@ -7,7 +7,7 @@ namespace PLMD {
 namespace ttsketch {
 
 BasisFunc::BasisFunc()
-  : dom_(make_pair(0.0, 0.0)), nbasis_(0), nbins_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0) {}
+  : dom_(make_pair(0.0, 0.0)), nbasis_(0), L_(0.0), shift_(0.0), w_(0.0), kernel_(false), dx_(0.0) {}
 
 BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, bool conv, double w, bool kernel)
   : dom_(dom), nbasis_(nbasis), L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2), kernel_(kernel)
