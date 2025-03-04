@@ -230,7 +230,7 @@ double BasisFunc::grad(double x, int pos, bool conv) const {
     }
   } else {
     if(conv) {
-      double result = 0.0
+      double result = 0.0;
       if(pos == 1) {
         result = 0.0;
       } else {
