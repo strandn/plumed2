@@ -674,7 +674,7 @@ void TTSketch::update() {
       double rhomax = 0.0;
       for(auto& s : this->lastsamples_) {
         //TODO: fix this
-        double rho = ttEval(this->ttList_.back(), this->basis_, s, false);
+        double rho = ttEval(this->ttList_.back(), this->basis_, s, true);
         if(rho > rhomax) {
           rhomax = rho;
         }
@@ -1455,7 +1455,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
     der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
   } else if(this->do_sump_) {
     //TODO: fix this
-    der = ttGrad(this->ttSum_, this->basis_, cv, false);
+    der = ttGrad(this->ttSum_, this->basis_, cv, true);
   } else {
     for(auto& tt : this->ttList_) {
       double rho = ttEval(tt, this->basis_, cv, this->conv_);
@@ -1480,7 +1480,7 @@ double TTSketch::getBias(const vector<double>& cv) {
       return 0.0;
     }
     //TODO: fix this
-    return max(ttEval(this->ttSum_, this->basis_, cv, false) - this->vshift_, 0.0);
+    return max(ttEval(this->ttSum_, this->basis_, cv, true) - this->vshift_, 0.0);
   } else {
     double bias = 0.0;
     for(auto& tt : this->ttList_) {
