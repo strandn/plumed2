@@ -283,7 +283,7 @@ void TTMetaD::update() {
       unsigned N = this->hills_.size();
       log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
-        auto [large, small] = this->basis_[i].dom();
+        auto [large, small] = this->sketch_basis_[i].dom();
         for(unsigned j = 0; j < N; ++j) {
           if(this->hills_[j].center[i] > large) {
             large = this->hills_[j].center[i];
@@ -392,7 +392,7 @@ void TTMetaD::update() {
       multi_sim_comm.Bcast(this->sketch_count_, 0);
       if(this->mpi_rank_ != 0) {
         this->hills_.clear();
-        this->vb_ = ttSumRead("../ttsketch.h5", this->count_);
+        this->vb_ = ttSumRead("../ttsketch.h5", this->sketch_count_);
       }
     }
   }
