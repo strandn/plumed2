@@ -107,7 +107,7 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
   keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
-  keys.add("optional", "FREEZE", "After this many steps, the bias potential stops updating")
+  keys.add("optional", "FREEZE", "After this many steps, the bias potential stops updating");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
