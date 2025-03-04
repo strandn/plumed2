@@ -46,12 +46,9 @@ private:
   // OFile hillsOfile_;
   // vector<unique_ptr<IFile>> ifiles_;
   // vector<string> ifilesnames_;
-  // bool walkers_mpi_;
-  // int mpi_size_;
-  // int mpi_rank_;
-  // bool calc_rct_;
-  // double reweight_factor_;
-  // unsigned rct_ustride_;
+  bool walkers_mpi_;
+  int mpi_size_;
+  int mpi_rank_;
   unsigned d_;
   int sketch_rc_;
   int sketch_r_;
@@ -72,7 +69,6 @@ private:
   double evaluateGaussian(const vector<double>& cv, const Gaussian& hill);
   double evaluateGaussianAndDerivatives(const vector<double>& cv, const Gaussian& hill, vector<double>& der, vector<double>& dp);
   // bool scanOneHill(IFile* ifile, vector<Value>& tmpvalues, vector<double>& center, vector<double>& sigma, double& height, bool& multivariate);
-  // void computeReweightingFactor();
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -97,11 +93,7 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("optional", "FMT", "specify format for HILLS files (useful for decrease the number of digits in regtests)");
   keys.add("optional", "BIASFACTOR", "use well tempered metadynamics and use this bias factor. Please note you must also specify temp");
   keys.add("optional", "TEMP", "the system temperature - this is only needed if you are doing well-tempered metadynamics");
-  // keys.addFlag("CALC_RCT", false, "calculate the c(t) reweighting factor and use that to obtain the normalized bias [rbias=bias-rct]."
-  //              "This method is not compatible with metadynamics not on a grid.");
-  // keys.add("optional", "RCT_USTRIDE", "the update stride for calculating the c(t) reweighting factor."
-  //          "The default 1, so c(t) is updated every time the bias is updated.");
-  // keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
+  keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.use("RESTART");
   keys.add("optional", "SKETCH_RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "SKETCH_CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
@@ -123,12 +115,9 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   biasf_(-1.0),
   isFirstStep_(true),
   height0_(numeric_limits<double>::max()),
-  // walkers_mpi_(false),
-  // mpi_size_(0),
-  // mpi_rank_(0),
-  // calc_rct_(false),
-  // reweight_factor_(0.0),
-  // rct_ustride_(1),
+  walkers_mpi_(false),
+  mpi_size_(0),
+  mpi_rank_(0),
   sketch_r_(0),
   sketch_cutoff_(0.0),
   sketch_count_(1),
@@ -162,17 +151,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     }
     this->welltemp_ = true;
   }
-  // parseFlag("CALC_RCT", this->calc_rct_);
-  // parse("RCT_USTRIDE", this->rct_ustride_);
-  // if(this->calc_rct_) {
-  //   addComponent("rbias");
-  //   componentIsNotPeriodic("rbias");
-  //   addComponent("rct");
-  //   componentIsNotPeriodic("rct");
-  //   getPntrToComponent("rct")->set(this->reweight_factor_);
-  // }
 
-  // parseFlag("WALKERS_MPI", this->walkers_mpi_);
+  parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parse("SKETCH_RANK", this->sketch_r_);
   parse("SKETCH_CUTOFF", this->sketch_cutoff_);
   if(this->sketch_r_ <= 0 && (this->sketch_cutoff_ <= 0.0 || this->sketch_cutoff_ > 1.0)) {
@@ -214,10 +194,10 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     }
     this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0, 0.0, 0, 0.0, 0.0, 0, 0, false));
   }
-  // if(this->walkers_mpi_) {
-  //   this->mpi_size_ = multi_sim_comm.Get_size();
-  //   this->mpi_rank_ = multi_sim_comm.Get_rank();
-  // }
+  if(this->walkers_mpi_) {
+    this->mpi_size_ = multi_sim_comm.Get_size();
+    this->mpi_rank_ = multi_sim_comm.Get_rank();
+  }
   parse("VB_CUTOFF", this->vb_cutoff_);
   if(this->vb_cutoff_ < 0.0 || this->vb_cutoff_ >= 1.0) {
     error("VB_CUTOFF must be nonnegative and less than 1");
@@ -263,8 +243,31 @@ void TTMetaD::update() {
   if(nowAddAHill) {
     double height = getHeight(cv);
 
-    Gaussian newhill = Gaussian(false, height, cv, this->sigma0_);
-    this->hills_.push_back(newhill);
+    if(walkers_mpi_) {
+      vector<double> all_cv(this->mpi_size_ * this->d_, 0.0);
+      vector<double> all_sigma(this->mpi_size_ * this->sigma0_.size(), 0.0);
+      vector<double> all_height(this->mpi_size_, 0.0);
+      multi_sim_comm.Allgather(cv, all_cv);
+      multi_sim_comm.Allgather(this->sigma0_, all_sigma);
+      multi_sim_comm.Allgather(height * (this->biasf_ > 1.0 ? this->biasf_ / (this->biasf_ - 1.0) : 1.0), all_height);
+
+      for(unsigned i = 0; i < this->mpi_size_; i++) {
+        vector<double> cv_now(this->d_);
+        vector<double> sigma_now(this->sigma0_.size());
+        for(unsigned j = 0; j < this->d_; j++) {
+          cv_now[j] = all_cv[i * this->d_ + j];
+        }
+        for(unsigned j = 0; j < this->sigma0_.size(); j++) {
+          sigma_now[j] = all_sigma[i * this->sigma0_.size() + j];
+        }
+        double fact = (this->biasf_ > 1.0 ? (this->biasf_ - 1.0) / this->biasf_ : 1.0);
+        Gaussian newhill = Gaussian(false, all_height[i] * fact, cv_now, sigma_now);
+        addGaussian(newhill);
+      }
+    } else {
+      Gaussian newhill = Gaussian(false, height, cv, this->sigma0_);
+      addGaussian(newhill);
+    }
   }
 
   bool nowAddATT;
@@ -276,70 +279,121 @@ void TTMetaD::update() {
   }
 
   if(nowAddATT) {
-    unsigned N = this->hills_.size();
-    vector<double> A0(N);
-    vector<vector<double>> x(N);
-    for(unsigned i = 0; i < N; ++i) {
-      x[i] = this->hills_[i].center;
-      A0[i] = getBias(x[i]);
-    }
-
-    if(this->d_ == 2) {
-      ofstream file;
-      if(this->sketch_count_ == 1) {
-        file.open("F0.txt");
-      } else {
-        file.open("F0.txt", ios_base::app);
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      unsigned N = this->hills_.size();
+      log << "Sample limits\n";
+      for(unsigned i = 0; i < this->d_; ++i) {
+        auto [large, small] = this->basis_[i].dom();
+        for(unsigned j = 0; j < N; ++j) {
+          if(this->hills_[j].center[i] > large) {
+            large = this->hills_[j].center[i];
+          }
+          if(this->hills_[j].center[i] < small) {
+            small = this->hills_[j].center[i];
+          }
+        }
+        log << small << " " << large << "\n";
       }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y }) << endl;
+
+      log << "\nEmpirical means:\n";
+      Matrix<double> sigmahat(this->d_, this->d_);
+      vector<double> muhat(this->d_, 0.0);
+      for(unsigned k = 0; k < this->d_; ++k) {
+        for(unsigned j = 0; j < N; ++j) {
+          muhat[k] += this->hills_[j].center[k] / N;
+        }
+        log << muhat[k] << " ";
+      }
+      log << "\nEmpirical covariance matrix:\n";
+      for(unsigned k = 0; k < this->d_; ++k) {
+        for(unsigned l = k; l < this->d_; ++l) {
+          sigmahat(k, l) = sigmahat(l, k) = 0.0;
+          for(unsigned j = 0; j < N; ++j) {
+            sigmahat(k, l) += (this->hills_[j].center[k] - muhat[k]) * (this->hills_[j].center[l] - muhat[l]) / (N - 1);
+          }
+          sigmahat(l, k) = sigmahat(k, l);
         }
       }
-      file.close();
-    }
+      matrixOut(log, sigmahat);
 
-    log << "\nStarting TT-sketch...\n";
-    log.flush();
-    paraSketch();
-
-    this->hills_.clear();
-
-    vector<double> diff(N);
-    for(unsigned i = 0; i < N; ++i) {
-      diff[i] = getBias(x[i]);
-    }
-    transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
-    log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n";
-    log.flush();
-    
-    if(this->d_ == 2) {
-      ofstream file, filex, filey;
-      if(this->sketch_count_ == 2) {
-        file.open("F.txt");
-        filex.open("dFdx.txt");
-        filey.open("dFdy.txt");
-      } else {
-        file.open("F.txt", ios_base::app);
-        filex.open("dFdx.txt", ios_base::app);
-        filey.open("dFdy.txt", ios_base::app);
+      vector<double> A0(N);
+      vector<vector<double>> x(N);
+      for(unsigned i = 0; i < N; ++i) {
+        x[i] = this->hills_[i].center;
+        A0[i] = getBias(x[i]);
       }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          vector<double> der(this->d_, 0.0);
-          double ene = getBiasAndDerivatives({ x, y }, der);
-          file << x << " " << y << " " << ene << endl;
-          filex << x << " " << y << " " << der[0] << endl;
-          filey << x << " " << y << " " << der[1] << endl;
+
+      if(this->d_ == 2) {
+        ofstream file;
+        if(this->sketch_count_ == 1) {
+          file.open("F0.txt");
+        } else {
+          file.open("F0.txt", ios_base::app);
         }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y }) << endl;
+          }
+        }
+        file.close();
       }
-      file.close();
-      filex.close();
-      filey.close();
+
+      log << "\nStarting TT-sketch...\n";
+      log.flush();
+      paraSketch();
+
+      this->hills_.clear();
+
+      vector<double> diff(N);
+      for(unsigned i = 0; i < N; ++i) {
+        diff[i] = getBias(x[i]);
+      }
+      transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
+      log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n\n";
+      log.flush();
+
+      string ttfilename = "ttsketch.h5";
+      if(this->walkers_mpi_) {
+        ttfilename = "../" + ttfilename;
+      }
+      ttSumWrite(ttfilename, this->vb_, this->sketch_count_);
+      
+      if(this->d_ == 2) {
+        ofstream file, filex, filey;
+        if(this->sketch_count_ == 2) {
+          file.open("F.txt");
+          filex.open("dFdx.txt");
+          filey.open("dFdy.txt");
+        } else {
+          file.open("F.txt", ios_base::app);
+          filex.open("dFdx.txt", ios_base::app);
+          filey.open("dFdy.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            vector<double> der(this->d_, 0.0);
+            double ene = getBiasAndDerivatives({ x, y }, der);
+            file << x << " " << y << " " << ene << endl;
+            filex << x << " " << y << " " << der[0] << endl;
+            filey << x << " " << y << " " << der[1] << endl;
+          }
+        }
+        file.close();
+        filex.close();
+        filey.close();
+      }
+    }
+
+    if(this->walkers_mpi_) {
+      multi_sim_comm.Bcast(this->sketch_count_, 0);
+      if(this->mpi_rank_ != 0) {
+        this->hills_.clear();
+        this->vb_ = ttSumRead("../ttsketch.h5", this->count_);
+      }
     }
   }
   if(getStep() % this->sketch_stride_ == 1) {
@@ -353,9 +407,9 @@ double TTMetaD::getHeight(const vector<double>& cv) {
   if(this->welltemp_) {
     double vbias = getBias(cv);
     if(this->biasf_ > 1.0) {
-      height = this->height0_ * std::exp(-vbias / (this->kbt_ * (this->biasf_ - 1.0)));
+      height = this->height0_ * exp(-vbias / (this->kbt_ * (this->biasf_ - 1.0)));
     } else {
-      height = this->height0_ * std::exp(-vbias / this->kbt_);
+      height = this->height0_ * exp(-vbias / this->kbt_);
     }
   }
   return height;
@@ -374,7 +428,7 @@ double TTMetaD::getBiasAndDerivatives(const vector<double>& cv, vector<double>& 
   if(length(this->vb_) != 0) {
     der = ttGrad(this->vb_, this->sketch_basis_, cv, false);
   }
-  std::vector<double> dp(this->d_);
+  vector<double> dp(this->d_);
   for(unsigned i = 0; i < hills_.size(); ++i) {
     bias += evaluateGaussianAndDerivatives(cv, this->hills_[i], der, dp);
   }
@@ -392,7 +446,7 @@ double TTMetaD::evaluateGaussian(const vector<double>& cv, const Gaussian& hill)
 
   double bias = 0.0;
   if(dp2 < dp2cutoff) {
-    bias = hill.height * std::exp(-dp2);
+    bias = hill.height * exp(-dp2);
   }
 
   return bias;
@@ -407,7 +461,7 @@ double TTMetaD::evaluateGaussianAndDerivatives(const vector<double>& cv, const G
   }
   dp2 *= 0.5;
   if(dp2 < dp2cutoff) {
-    bias = hill.height * std::exp(-dp2);
+    bias = hill.height * exp(-dp2);
     for(unsigned i = 0; i < this->d_; i++) {
       der[i] -= bias * dp[i] * hill.invsigma[i];
     }
