@@ -86,13 +86,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
   keys.add("optional", "VMAX", "Upper limit of Vbias across all CV space, in units of kT");
-  keys.add("optional", "NBINS", "Number of bins per dimension for storing convolution integrals");
   keys.add("optional", "WIDTH", "Width of Gaussian kernels");
-  keys.add("optional", "CONV_N", "Size of integration workspace");
-  keys.add("optional", "CONV_EPSABS", "Absolute error limit for integration");
-  keys.add("optional", "CONV_EPSREL", "Relative error limit for integration");
-  keys.add("optional", "CONV_LIMIT", "Maximum number of subintervals for integration");
-  keys.add("optional", "CONV_KEY", "Integration rule");
   keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
   keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
   keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
@@ -177,40 +171,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   } else if(this->vmax_ != numeric_limits<double>::max()) {
     this->vmax_ *= this->kbt_;
   }
-  int nbins = 1000;
-  parse("NBINS", nbins);
-  if(!kernel && !noconv && nbins <= 0) {
-    error("Gaussian smoothing requires positive NBINS");
-  }
   vector<double> w;
   parseVector("WIDTH", w);
   if(!noconv && w.size() != this->d_) {
     error("Number of arguments does not match number of WIDTH parameters");
-  }
-  int conv_n = 10000000;
-  parse("CONV_N", conv_n);
-  if(!noconv && conv_n <= 0) {
-    error("Gaussian smoothing requires positive CONV_N");
-  }
-  double conv_epsabs = 1.0e-12;
-  parse("CONV_EPSABS", conv_epsabs);
-  if(!noconv && conv_epsabs < 0.0) {
-    error("Gaussian smoothing requires nonnegative CONV_EPSABS");
-  }
-  double conv_epsrel = 1.0e-8;
-  parse("CONV_EPSREL", conv_epsrel);
-  if(!noconv && conv_epsrel <= 0.0) {
-    error("Gaussian smoothing requires positive CONV_EPSREL");
-  }
-  int conv_limit = 10000000;
-  parse("CONV_LIMIT", conv_limit);
-  if(!noconv && (conv_limit <= 0 || conv_limit > conv_n)) {
-    error("Gaussian smoothing requires positive CONV_LIMIT no greater than CONV_N");
-  }
-  int conv_key = 6;
-  parse("CONV_KEY", conv_key);
-  if(!noconv && (conv_key < 1 || conv_key > 6)) {
-    error("Gaussian smoothing requires CONV_KEY between 1 and 6");
   }
   parse("INITRANK", this->rc_);
   if(this->rc_ <= 0) {
@@ -269,10 +233,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
     double width = noconv ? 0.0 : w[i];
-    this->basis_.push_back(BasisFunc(make_pair(interval_min[i],
-                                     interval_max[i]), nbasis, !noconv, nbins,
-                                     width, conv_n, conv_epsabs, conv_epsrel,
-                                     conv_limit, conv_key, kernel));
+    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, !noconv, width, kernel));
   }
   this->conv_ = !noconv;
 
