@@ -358,7 +358,7 @@ void TTMetaD::update() {
       if(this->walkers_mpi_) {
         ttfilename = "../" + ttfilename;
       }
-      ttSumWrite(ttfilename, this->vb_, this->sketch_count_);
+      ttWrite(ttfilename, this->vb_, this->sketch_count_);
       
       if(this->d_ == 2) {
         ofstream file, filex, filey;
@@ -392,7 +392,7 @@ void TTMetaD::update() {
       multi_sim_comm.Bcast(this->sketch_count_, 0);
       if(this->mpi_rank_ != 0) {
         this->hills_.clear();
-        this->vb_ = ttSumRead("../ttsketch.h5", this->sketch_count_);
+        this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
       }
     }
   }
