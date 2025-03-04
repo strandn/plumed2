@@ -193,11 +193,14 @@ double BasisFunc::operator()(double x, int pos, bool conv) const {
     }
   } else {
     if(conv) {
+      double result = 0.0;
       if(pos == 1) {
-        return 1 / sqrt(2 * this->L_);
+        result = 1 / sqrt(2 * this->L_);
       } else {
-        return exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourier(x, pos);
+        result = exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourier(x, pos);
       }
+      cout << "operator() " << interpolate(x, pos, false) << " " << result << endl;
+      return result;
     } else {
       return fourier(x, pos);
     }
@@ -227,11 +230,14 @@ double BasisFunc::grad(double x, int pos, bool conv) const {
     }
   } else {
     if(conv) {
+      double result = 0.0
       if(pos == 1) {
-        return 0.0;
+        result = 0.0;
       } else {
-        return exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourierd(x, pos);
+        result = exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourierd(x, pos);
       }
+      cout << "grad " << interpolate(x, pos, true) << " " << result << endl;
+      return result;
     } else {
       return fourierd(x, pos);
     }
