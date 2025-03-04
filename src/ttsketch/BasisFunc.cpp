@@ -192,8 +192,12 @@ double BasisFunc::operator()(double x, int pos, bool conv) const {
       return gaussian(x, pos);
     }
   } else {
-    if(conv && this->nbins_ > 0) {
-      return interpolate(x, pos, false);
+    if(conv) {
+      if(pos == 1) {
+        return 1 / sqrt(2 * this->L_);
+      } else {
+        return exp(-pow(M_PI * this->w_ * (i / 2), 2) / (2 * pow(this->L_, 2))) * fourier(x, pos);
+      }
     } else {
       return fourier(x, pos);
     }
@@ -222,8 +226,12 @@ double BasisFunc::grad(double x, int pos, bool conv) const {
       return gaussiand(x, pos);
     }
   } else {
-    if(conv && this->nbins_ > 0) {
-      return interpolate(x, pos, true);
+    if(conv) {
+      if(pos == 1) {
+        return 0.0;
+      } else {
+        return exp(-pow(M_PI * this->w_ * (i / 2), 2) / (2 * pow(this->L_, 2))) * fourierd(x, pos);
+      }
     } else {
       return fourierd(x, pos);
     }
