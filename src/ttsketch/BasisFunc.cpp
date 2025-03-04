@@ -234,7 +234,7 @@ double BasisFunc::grad(double x, int pos, bool conv) const {
       if(pos == 1) {
         result = 0.0;
       } else {
-        result = exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * fourierd(x, pos);
+        result = -exp(-pow(M_PI * this->w_ * (pos / 2), 2) / (2 * pow(this->L_, 2))) * pow(M_PI / L, 3 / 2) * fourierd(x, pos);
       }
       cout << "grad " << interpolate(x, pos, true) << " " << result << endl;
       return result;
