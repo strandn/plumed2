@@ -1934,8 +1934,7 @@ void MetaD::update()
   if(getStep()%current_stride_==0 && !isFirstStep_) nowAddAHill=true;
   else {
     nowAddAHill=false;
-    //TODO: uncomment this
-    // isFirstStep_=false;
+    isFirstStep_=false;
   }
 
   unsigned ncv=getNumberOfArguments();
@@ -2144,98 +2143,97 @@ void MetaD::update()
   //   file.close();
   // }
 
-  //TODO: comment this
-  bool nowAddATT;
-  if(getStep() % 250000 == 0 && !this->isFirstStep_) {
-    nowAddATT = true;
-  } else {
-    nowAddATT = false;
-    this->isFirstStep_ = false;
-  }
+  // bool nowAddATT;
+  // if(getStep() % 250000 == 0 && !this->isFirstStep_) {
+  //   nowAddATT = true;
+  // } else {
+  //   nowAddATT = false;
+  //   this->isFirstStep_ = false;
+  // }
 
-  if(nowAddATT) {
-    if(!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0) {
-      std::ofstream file;
-      if(getStep() == 250000) {
-        file.open("phi2phi3_0.txt");
-      } else {
-        file.open("phi2phi3_0.txt", std::ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y, -1.2 }) << std::endl;
-        }
-      }
-      file.close();
-      if(getStep() == 250000) {
-        file.open("phi2phi3_1.txt");
-      } else {
-        file.open("phi2phi3_1.txt", std::ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y, 1.0 }) << std::endl;
-        }
-      }
-      file.close();
-      if(getStep() == 250000) {
-        file.open("phi2phi4_0.txt");
-      } else {
-        file.open("phi2phi4_0.txt", std::ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, -1.2, y }) << std::endl;
-        }
-      }
-      file.close();
-      if(getStep() == 250000) {
-        file.open("phi2phi4_1.txt");
-      } else {
-        file.open("phi2phi4_1.txt", std::ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, 1.0, y }) << std::endl;
-        }
-      }
-      file.close();
-      if(getStep() == 250000) {
-        file.open("phi3phi4_0.txt");
-      } else {
-        file.open("phi3phi4_0.txt", std::ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, x, y }) << std::endl;
-        }
-      }
-      file.close();
-      if(getStep() == 250000) {
-        file.open("phi3phi4_1.txt");
-      } else {
-        file.open("phi3phi4_1.txt", std::ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, x, y }) << std::endl;
-        }
-      }
-      file.close();
-    }
-  }
+  // if(nowAddATT) {
+  //   if(!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0) {
+  //     std::ofstream file;
+  //     if(getStep() == 250000) {
+  //       file.open("phi2phi3_0.txt");
+  //     } else {
+  //       file.open("phi2phi3_0.txt", std::ios_base::app);
+  //     }
+  //     for(int i = 0; i < 100; ++i) {
+  //       double x = -M_PI + 2 * i * M_PI / 100;
+  //       for(int j = 0; j < 100; ++j) {
+  //         double y = -M_PI + 2 * j * M_PI / 100;
+  //         file << x << " " << y << " " << getBias({ x, y, -1.2 }) << std::endl;
+  //       }
+  //     }
+  //     file.close();
+  //     if(getStep() == 250000) {
+  //       file.open("phi2phi3_1.txt");
+  //     } else {
+  //       file.open("phi2phi3_1.txt", std::ios_base::app);
+  //     }
+  //     for(int i = 0; i < 100; ++i) {
+  //       double x = -M_PI + 2 * i * M_PI / 100;
+  //       for(int j = 0; j < 100; ++j) {
+  //         double y = -M_PI + 2 * j * M_PI / 100;
+  //         file << x << " " << y << " " << getBias({ x, y, 1.0 }) << std::endl;
+  //       }
+  //     }
+  //     file.close();
+  //     if(getStep() == 250000) {
+  //       file.open("phi2phi4_0.txt");
+  //     } else {
+  //       file.open("phi2phi4_0.txt", std::ios_base::app);
+  //     }
+  //     for(int i = 0; i < 100; ++i) {
+  //       double x = -M_PI + 2 * i * M_PI / 100;
+  //       for(int j = 0; j < 100; ++j) {
+  //         double y = -M_PI + 2 * j * M_PI / 100;
+  //         file << x << " " << y << " " << getBias({ x, -1.2, y }) << std::endl;
+  //       }
+  //     }
+  //     file.close();
+  //     if(getStep() == 250000) {
+  //       file.open("phi2phi4_1.txt");
+  //     } else {
+  //       file.open("phi2phi4_1.txt", std::ios_base::app);
+  //     }
+  //     for(int i = 0; i < 100; ++i) {
+  //       double x = -M_PI + 2 * i * M_PI / 100;
+  //       for(int j = 0; j < 100; ++j) {
+  //         double y = -M_PI + 2 * j * M_PI / 100;
+  //         file << x << " " << y << " " << getBias({ x, 1.0, y }) << std::endl;
+  //       }
+  //     }
+  //     file.close();
+  //     if(getStep() == 250000) {
+  //       file.open("phi3phi4_0.txt");
+  //     } else {
+  //       file.open("phi3phi4_0.txt", std::ios_base::app);
+  //     }
+  //     for(int i = 0; i < 100; ++i) {
+  //       double x = -M_PI + 2 * i * M_PI / 100;
+  //       for(int j = 0; j < 100; ++j) {
+  //         double y = -M_PI + 2 * j * M_PI / 100;
+  //         file << x << " " << y << " " << getBias({ -1.2, x, y }) << std::endl;
+  //       }
+  //     }
+  //     file.close();
+  //     if(getStep() == 250000) {
+  //       file.open("phi3phi4_1.txt");
+  //     } else {
+  //       file.open("phi3phi4_1.txt", std::ios_base::app);
+  //     }
+  //     for(int i = 0; i < 100; ++i) {
+  //       double x = -M_PI + 2 * i * M_PI / 100;
+  //       for(int j = 0; j < 100; ++j) {
+  //         double y = -M_PI + 2 * j * M_PI / 100;
+  //         file << x << " " << y << " " << getBias({ 1.0, x, y }) << std::endl;
+  //       }
+  //     }
+  //     file.close();
+  //   }
+  // }
 }
 
 /// takes a pointer to the file and a template std::string with values v and gives back the next center, sigma and height
