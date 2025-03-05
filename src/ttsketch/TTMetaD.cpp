@@ -323,76 +323,76 @@ void TTMetaD::update() {
       }
       matrixOut(log, sigmahat);
 
-      vector<double> A0(N);
-      vector<vector<double>> x(N);
-      for(unsigned i = 0; i < N; ++i) {
-        x[i] = this->hills_[i].center;
-        A0[i] = getBias(x[i]);
-      }
+      // vector<double> A0(N);
+      // vector<vector<double>> x(N);
+      // for(unsigned i = 0; i < N; ++i) {
+      //   x[i] = this->hills_[i].center;
+      //   A0[i] = getBias(x[i]);
+      // }
 
-      if(this->d_ == 2) {
-        ofstream file;
-        if(this->sketch_count_ == 1) {
-          file.open("F0.txt");
-        } else {
-          file.open("F0.txt", ios_base::app);
-        }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            file << x << " " << y << " " << getBias({ x, y }) << endl;
-          }
-        }
-        file.close();
-      }
+      // if(this->d_ == 2) {
+      //   ofstream file;
+      //   if(this->sketch_count_ == 1) {
+      //     file.open("F0.txt");
+      //   } else {
+      //     file.open("F0.txt", ios_base::app);
+      //   }
+      //   for(int i = 0; i < 100; ++i) {
+      //     double x = -M_PI + 2 * i * M_PI / 100;
+      //     for(int j = 0; j < 100; ++j) {
+      //       double y = -M_PI + 2 * j * M_PI / 100;
+      //       file << x << " " << y << " " << getBias({ x, y }) << endl;
+      //     }
+      //   }
+      //   file.close();
+      // }
 
-      log << "\nStarting TT-sketch...\n";
-      log.flush();
-      paraSketch();
+      // log << "\nStarting TT-sketch...\n";
+      // log.flush();
+      // paraSketch();
 
-      this->hills_.clear();
+      // this->hills_.clear();
 
-      vector<double> diff(N);
-      for(unsigned i = 0; i < N; ++i) {
-        diff[i] = getBias(x[i]);
-      }
-      transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
-      log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n\n";
-      log.flush();
+      // vector<double> diff(N);
+      // for(unsigned i = 0; i < N; ++i) {
+      //   diff[i] = getBias(x[i]);
+      // }
+      // transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
+      // log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n\n";
+      // log.flush();
 
-      string ttfilename = "ttsketch.h5";
-      if(this->walkers_mpi_) {
-        ttfilename = "../" + ttfilename;
-      }
-      ttWrite(ttfilename, this->vb_, this->sketch_count_);
+      // string ttfilename = "ttsketch.h5";
+      // if(this->walkers_mpi_) {
+      //   ttfilename = "../" + ttfilename;
+      // }
+      // ttWrite(ttfilename, this->vb_, this->sketch_count_);
       
-      if(this->d_ == 2) {
-        ofstream file, filex, filey;
-        if(this->sketch_count_ == 2) {
-          file.open("F.txt");
-          filex.open("dFdx.txt");
-          filey.open("dFdy.txt");
-        } else {
-          file.open("F.txt", ios_base::app);
-          filex.open("dFdx.txt", ios_base::app);
-          filey.open("dFdy.txt", ios_base::app);
-        }
-        for(int i = 0; i < 100; ++i) {
-          double x = -M_PI + 2 * i * M_PI / 100;
-          for(int j = 0; j < 100; ++j) {
-            double y = -M_PI + 2 * j * M_PI / 100;
-            vector<double> der(this->d_, 0.0);
-            double ene = getBiasAndDerivatives({ x, y }, der);
-            file << x << " " << y << " " << ene << endl;
-            filex << x << " " << y << " " << der[0] << endl;
-            filey << x << " " << y << " " << der[1] << endl;
-          }
-        }
-        file.close();
-        filex.close();
-        filey.close();
-      }
+      // if(this->d_ == 2) {
+      //   ofstream file, filex, filey;
+      //   if(this->sketch_count_ == 2) {
+      //     file.open("F.txt");
+      //     filex.open("dFdx.txt");
+      //     filey.open("dFdy.txt");
+      //   } else {
+      //     file.open("F.txt", ios_base::app);
+      //     filex.open("dFdx.txt", ios_base::app);
+      //     filey.open("dFdy.txt", ios_base::app);
+      //   }
+      //   for(int i = 0; i < 100; ++i) {
+      //     double x = -M_PI + 2 * i * M_PI / 100;
+      //     for(int j = 0; j < 100; ++j) {
+      //       double y = -M_PI + 2 * j * M_PI / 100;
+      //       vector<double> der(this->d_, 0.0);
+      //       double ene = getBiasAndDerivatives({ x, y }, der);
+      //       file << x << " " << y << " " << ene << endl;
+      //       filex << x << " " << y << " " << der[0] << endl;
+      //       filey << x << " " << y << " " << der[1] << endl;
+      //     }
+      //   }
+      //   file.close();
+      //   filex.close();
+      //   filey.close();
+      // }
       if(this->d_ == 3) {
         ofstream file;
         if(this->sketch_count_ == 2) {
@@ -478,20 +478,18 @@ void TTMetaD::update() {
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->sketch_count_, 0);
-      if(this->mpi_rank_ != 0) {
-        this->hills_.clear();
-        this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
-      }
-    }
-  }
-  if(getStep() % this->stride_ == 1 && !this->frozen_) {
-    if(getStep() > this->freeze_) {
-      this->frozen_ = true;
+      // if(this->mpi_rank_ != 0) {
+      //   this->hills_.clear();
+      //   this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
+      // }
     }
   }
   if(getStep() % this->sketch_stride_ == 1 && !this->frozen_) {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
+    if(getStep() > this->freeze_) {
+      this->frozen_ = true;
+    }
   }
 }
 
