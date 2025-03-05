@@ -350,6 +350,7 @@ void TTMetaD::update() {
       // log << "\nStarting TT-sketch...\n";
       // log.flush();
       // paraSketch();
+      ++this->sketch_count_;
 
       // this->hills_.clear();
 
@@ -650,7 +651,6 @@ void TTMetaD::paraSketch() {
   }
   log << "\n";
   log.flush();
-  ++this->sketch_count_;
 }
 
 MPS TTMetaD::createTTCoeff() const {
