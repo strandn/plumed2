@@ -286,6 +286,8 @@ void TTMetaD::update() {
   }
 
   if(nowAddATT) {
+    //TODO: remove this:
+    log << this->hills_.size() << "\n";
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       unsigned N = this->hills_.size();
       log << "Sample limits\n";
