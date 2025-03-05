@@ -2146,7 +2146,7 @@ void MetaD::update()
 
   //TODO: comment this
   bool nowAddATT;
-  if(getStep() % 250000 == 0 && !this->isFirstStep_) {
+  if(getStep() % 5000000 == 0 && !this->isFirstStep_) {
     nowAddATT = true;
   } else {
     nowAddATT = false;
@@ -2155,7 +2155,7 @@ void MetaD::update()
   if(nowAddATT) {
     if(!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0) {
       std::ofstream file;
-      if(getStep() == 250000) {
+      if(getStep() == 5000000) {
         file.open("phi2phi3_0.txt");
       } else {
         file.open("phi2phi3_0.txt", std::ios_base::app);
@@ -2168,7 +2168,7 @@ void MetaD::update()
         }
       }
       file.close();
-      if(getStep() == 250000) {
+      if(getStep() == 5000000) {
         file.open("phi2phi3_1.txt");
       } else {
         file.open("phi2phi3_1.txt", std::ios_base::app);
@@ -2181,7 +2181,7 @@ void MetaD::update()
         }
       }
       file.close();
-      if(getStep() == 250000) {
+      if(getStep() == 5000000) {
         file.open("phi2phi4_0.txt");
       } else {
         file.open("phi2phi4_0.txt", std::ios_base::app);
@@ -2194,7 +2194,7 @@ void MetaD::update()
         }
       }
       file.close();
-      if(getStep() == 250000) {
+      if(getStep() == 5000000) {
         file.open("phi2phi4_1.txt");
       } else {
         file.open("phi2phi4_1.txt", std::ios_base::app);
@@ -2207,7 +2207,7 @@ void MetaD::update()
         }
       }
       file.close();
-      if(getStep() == 250000) {
+      if(getStep() == 5000000) {
         file.open("phi3phi4_0.txt");
       } else {
         file.open("phi3phi4_0.txt", std::ios_base::app);
@@ -2220,7 +2220,7 @@ void MetaD::update()
         }
       }
       file.close();
-      if(getStep() == 250000) {
+      if(getStep() == 5000000) {
         file.open("phi3phi4_1.txt");
       } else {
         file.open("phi3phi4_1.txt", std::ios_base::app);
