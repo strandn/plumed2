@@ -60,8 +60,6 @@ private:
   MPS vb_;
   double vb_cutoff_;
   double vb_rank_;
-  int freeze_;
-  bool frozen_;
 
   // void readGaussians(IFile *ifile);
   // void writeGaussian(const Gaussian& hill, OFile& file);
@@ -107,7 +105,6 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
   keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
-  keys.add("optional", "FREEZE", "After this many steps, the bias potential stops updating");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
@@ -125,9 +122,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_cutoff_(0.0),
   sketch_count_(1),
   vb_cutoff_(0.0),
-  vb_rank_(0),
-  freeze_(numeric_limits<int>::max()),
-  frozen_(false)
+  vb_rank_(0)
 {
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
@@ -212,8 +207,6 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     error("VB_RANK must be nonnegative");
   }
 
-  parse("FREEZE", this->freeze_);
-
   if(getRestart()) {
 
   }
@@ -236,7 +229,7 @@ void TTMetaD::calculate() {
 
 void TTMetaD::update() {
   bool nowAddAHill;
-  if(getStep() % this->stride_ == 0 && !isFirstStep_ && !this->frozen_) {
+  if(getStep() % this->stride_ == 0 && !isFirstStep_) {
     nowAddAHill = true;
   } else {
     nowAddAHill = false;
@@ -278,7 +271,7 @@ void TTMetaD::update() {
   }
 
   bool nowAddATT;
-  if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_) {
+  if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_) {
     nowAddATT = true;
   } else {
     nowAddATT = false;
@@ -287,55 +280,16 @@ void TTMetaD::update() {
 
   if(nowAddATT) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      //TODO: uncomment this
-      // unsigned N = this->hills_.size();
-      // log << "Sample limits\n";
-      // for(unsigned i = 0; i < this->d_; ++i) {
-      //   auto [large, small] = this->sketch_basis_[i].dom();
-      //   for(unsigned j = 0; j < N; ++j) {
-      //     if(this->hills_[j].center[i] > large) {
-      //       large = this->hills_[j].center[i];
-      //     }
-      //     if(this->hills_[j].center[i] < small) {
-      //       small = this->hills_[j].center[i];
-      //     }
-      //   }
-      //   log << small << " " << large << "\n";
-      // }
-
-      // log << "\nEmpirical means:\n";
-      // Matrix<double> sigmahat(this->d_, this->d_);
-      // vector<double> muhat(this->d_, 0.0);
-      // for(unsigned k = 0; k < this->d_; ++k) {
-      //   for(unsigned j = 0; j < N; ++j) {
-      //     muhat[k] += this->hills_[j].center[k] / N;
-      //   }
-      //   log << muhat[k] << " ";
-      // }
-      // log << "\nEmpirical covariance matrix:\n";
-      // for(unsigned k = 0; k < this->d_; ++k) {
-      //   for(unsigned l = k; l < this->d_; ++l) {
-      //     sigmahat(k, l) = sigmahat(l, k) = 0.0;
-      //     for(unsigned j = 0; j < N; ++j) {
-      //       sigmahat(k, l) += (this->hills_[j].center[k] - muhat[k]) * (this->hills_[j].center[l] - muhat[l]) / (N - 1);
-      //     }
-      //     sigmahat(l, k) = sigmahat(k, l);
-      //   }
-      // }
-      // matrixOut(log, sigmahat);
-
-      //TODO: comment this
-      unsigned N = this->sketch_stride_ * this->mpi_size_ / this->stride_;
+      unsigned N = this->hills_.size();
       log << "Sample limits\n";
       for(unsigned i = 0; i < this->d_; ++i) {
         auto [large, small] = this->sketch_basis_[i].dom();
         for(unsigned j = 0; j < N; ++j) {
-          int jadj = this->hills_.size() - N + j;
-          if(this->hills_[jadj].center[i] > large) {
-            large = this->hills_[jadj].center[i];
+          if(this->hills_[j].center[i] > large) {
+            large = this->hills_[j].center[i];
           }
-          if(this->hills_[jadj].center[i] < small) {
-            small = this->hills_[jadj].center[i];
+          if(this->hills_[j].center[i] < small) {
+            small = this->hills_[j].center[i];
           }
         }
         log << small << " " << large << "\n";
@@ -346,8 +300,7 @@ void TTMetaD::update() {
       vector<double> muhat(this->d_, 0.0);
       for(unsigned k = 0; k < this->d_; ++k) {
         for(unsigned j = 0; j < N; ++j) {
-          int jadj = this->hills_.size() - N + j;
-          muhat[k] += this->hills_[jadj].center[k] / N;
+          muhat[k] += this->hills_[j].center[k] / N;
         }
         log << muhat[k] << " ";
       }
@@ -356,85 +309,123 @@ void TTMetaD::update() {
         for(unsigned l = k; l < this->d_; ++l) {
           sigmahat(k, l) = sigmahat(l, k) = 0.0;
           for(unsigned j = 0; j < N; ++j) {
-            int jadj = this->hills_.size() - N + j;
-            sigmahat(k, l) += (this->hills_[jadj].center[k] - muhat[k]) * (this->hills_[jadj].center[l] - muhat[l]) / (N - 1);
+            sigmahat(k, l) += (this->hills_[j].center[k] - muhat[k]) * (this->hills_[j].center[l] - muhat[l]) / (N - 1);
           }
           sigmahat(l, k) = sigmahat(k, l);
         }
       }
       matrixOut(log, sigmahat);
 
-      // vector<double> A0(N);
-      // vector<vector<double>> x(N);
-      // for(unsigned i = 0; i < N; ++i) {
-      //   x[i] = this->hills_[i].center;
-      //   A0[i] = getBias(x[i]);
-      // }
-
-      // if(this->d_ == 2) {
-      //   ofstream file;
-      //   if(this->sketch_count_ == 1) {
-      //     file.open("F0.txt");
-      //   } else {
-      //     file.open("F0.txt", ios_base::app);
-      //   }
-      //   for(int i = 0; i < 100; ++i) {
-      //     double x = -M_PI + 2 * i * M_PI / 100;
-      //     for(int j = 0; j < 100; ++j) {
-      //       double y = -M_PI + 2 * j * M_PI / 100;
-      //       file << x << " " << y << " " << getBias({ x, y }) << endl;
+      // unsigned N = this->sketch_stride_ * this->mpi_size_ / this->stride_;
+      // log << "Sample limits\n";
+      // for(unsigned i = 0; i < this->d_; ++i) {
+      //   auto [large, small] = this->sketch_basis_[i].dom();
+      //   for(unsigned j = 0; j < N; ++j) {
+      //     int jadj = this->hills_.size() - N + j;
+      //     if(this->hills_[jadj].center[i] > large) {
+      //       large = this->hills_[jadj].center[i];
+      //     }
+      //     if(this->hills_[jadj].center[i] < small) {
+      //       small = this->hills_[jadj].center[i];
       //     }
       //   }
-      //   file.close();
+      //   log << small << " " << large << "\n";
       // }
 
-      // log << "\nStarting TT-sketch...\n";
-      // log.flush();
-      // paraSketch();
+      // log << "\nEmpirical means:\n";
+      // Matrix<double> sigmahat(this->d_, this->d_);
+      // vector<double> muhat(this->d_, 0.0);
+      // for(unsigned k = 0; k < this->d_; ++k) {
+      //   for(unsigned j = 0; j < N; ++j) {
+      //     int jadj = this->hills_.size() - N + j;
+      //     muhat[k] += this->hills_[jadj].center[k] / N;
+      //   }
+      //   log << muhat[k] << " ";
+      // }
+      // log << "\nEmpirical covariance matrix:\n";
+      // for(unsigned k = 0; k < this->d_; ++k) {
+      //   for(unsigned l = k; l < this->d_; ++l) {
+      //     sigmahat(k, l) = sigmahat(l, k) = 0.0;
+      //     for(unsigned j = 0; j < N; ++j) {
+      //       int jadj = this->hills_.size() - N + j;
+      //       sigmahat(k, l) += (this->hills_[jadj].center[k] - muhat[k]) * (this->hills_[jadj].center[l] - muhat[l]) / (N - 1);
+      //     }
+      //     sigmahat(l, k) = sigmahat(k, l);
+      //   }
+      // }
+      // matrixOut(log, sigmahat);
+
+      vector<double> A0(N);
+      vector<vector<double>> x(N);
+      for(unsigned i = 0; i < N; ++i) {
+        x[i] = this->hills_[i].center;
+        A0[i] = getBias(x[i]);
+      }
+
+      if(this->d_ == 2) {
+        ofstream file;
+        if(this->sketch_count_ == 1) {
+          file.open("F0.txt");
+        } else {
+          file.open("F0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y }) << endl;
+          }
+        }
+        file.close();
+      }
+
+      log << "\nStarting TT-sketch...\n";
+      log.flush();
+      paraSketch();
       ++this->sketch_count_;
 
-      // this->hills_.clear();
+      this->hills_.clear();
 
-      // vector<double> diff(N);
-      // for(unsigned i = 0; i < N; ++i) {
-      //   diff[i] = getBias(x[i]);
-      // }
-      // transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
-      // log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n\n";
-      // log.flush();
+      vector<double> diff(N);
+      for(unsigned i = 0; i < N; ++i) {
+        diff[i] = getBias(x[i]);
+      }
+      transform(diff.begin(), diff.end(), A0.begin(), diff.begin(), minus<double>());
+      log << "Relative l2 error = " << sqrt(norm(diff) / norm(A0)) << "\n\n";
+      log.flush();
 
-      // string ttfilename = "ttsketch.h5";
-      // if(this->walkers_mpi_) {
-      //   ttfilename = "../" + ttfilename;
-      // }
-      // ttWrite(ttfilename, this->vb_, this->sketch_count_);
+      string ttfilename = "ttsketch.h5";
+      if(this->walkers_mpi_) {
+        ttfilename = "../" + ttfilename;
+      }
+      ttWrite(ttfilename, this->vb_, this->sketch_count_);
       
-      // if(this->d_ == 2) {
-      //   ofstream file, filex, filey;
-      //   if(this->sketch_count_ == 2) {
-      //     file.open("F.txt");
-      //     filex.open("dFdx.txt");
-      //     filey.open("dFdy.txt");
-      //   } else {
-      //     file.open("F.txt", ios_base::app);
-      //     filex.open("dFdx.txt", ios_base::app);
-      //     filey.open("dFdy.txt", ios_base::app);
-      //   }
-      //   for(int i = 0; i < 100; ++i) {
-      //     double x = -M_PI + 2 * i * M_PI / 100;
-      //     for(int j = 0; j < 100; ++j) {
-      //       double y = -M_PI + 2 * j * M_PI / 100;
-      //       vector<double> der(this->d_, 0.0);
-      //       double ene = getBiasAndDerivatives({ x, y }, der);
-      //       file << x << " " << y << " " << ene << endl;
-      //       filex << x << " " << y << " " << der[0] << endl;
-      //       filey << x << " " << y << " " << der[1] << endl;
-      //     }
-      //   }
-      //   file.close();
-      //   filex.close();
-      //   filey.close();
-      // }
+      if(this->d_ == 2) {
+        ofstream file, filex, filey;
+        if(this->sketch_count_ == 2) {
+          file.open("F.txt");
+          filex.open("dFdx.txt");
+          filey.open("dFdy.txt");
+        } else {
+          file.open("F.txt", ios_base::app);
+          filex.open("dFdx.txt", ios_base::app);
+          filey.open("dFdy.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            vector<double> der(this->d_, 0.0);
+            double ene = getBiasAndDerivatives({ x, y }, der);
+            file << x << " " << y << " " << ene << endl;
+            filex << x << " " << y << " " << der[0] << endl;
+            filey << x << " " << y << " " << der[1] << endl;
+          }
+        }
+        file.close();
+        filex.close();
+        filey.close();
+      }
       if(this->d_ == 3) {
         ofstream file;
         if(this->sketch_count_ == 2) {
@@ -520,18 +511,15 @@ void TTMetaD::update() {
 
     if(this->walkers_mpi_) {
       multi_sim_comm.Bcast(this->sketch_count_, 0);
-      // if(this->mpi_rank_ != 0) {
-      //   this->hills_.clear();
-      //   this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
-      // }
+      if(this->mpi_rank_ != 0) {
+        this->hills_.clear();
+        this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
+      }
     }
   }
-  if(getStep() % this->sketch_stride_ == 1 && !this->frozen_) {
+  if(getStep() % this->sketch_stride_ == 1) {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
-    if(getStep() > this->freeze_) {
-      this->frozen_ = true;
-    }
   }
 }
 
