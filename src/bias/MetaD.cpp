@@ -2085,6 +2085,7 @@ void MetaD::update()
   }
 
   if(getStep() == 1) {
+    std::cout << "rct " << reweight_factor_ << std::endl;
     std::ofstream file;
     file.open("phi2phi3_0.txt");
     for(int i = 0; i < 100; ++i) {
