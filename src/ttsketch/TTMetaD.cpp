@@ -6,6 +6,7 @@
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
 #include "tools/File.h"
+#include "tools/OpenMP.h"
 
 using namespace std;
 using namespace itensor;
@@ -538,8 +539,13 @@ double TTMetaD::getHeight(const vector<double>& cv) {
 
 double TTMetaD::getBias(const vector<double>& cv) {
   double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, false);
-  for(unsigned i = 0; i < hills_.size(); ++i) {
-    bias += evaluateGaussian(cv, this->hills_[i]);
+  unsigned nt = OpenMP::getNumThreads();
+  #pragma omp parallel num_threads(nt)
+  {
+    #pragma omp for reduction(+:bias) nowait
+    for(unsigned i = 0; i < hills_.size(); ++i) {
+      bias += evaluateGaussian(cv, this->hills_[i]);
+    }
   }
   return bias;
 }
@@ -549,11 +555,27 @@ double TTMetaD::getBiasAndDerivatives(const vector<double>& cv, vector<double>& 
   if(length(this->vb_) != 0) {
     der = ttGrad(this->vb_, this->sketch_basis_, cv, false);
   }
-  vector<double> dp(this->d_);
-  for(unsigned i = 0; i < hills_.size(); ++i) {
-    bias += evaluateGaussianAndDerivatives(cv, this->hills_[i], der, dp);
+  unsigned nt = OpenMP::getNumThreads();
+  if(this->hills_.size() < 2 * nt || nt == 1) {
+    vector<double> dp(this->d_);
+    for(unsigned i = 0; i < this->hills_.size(); ++i) {
+      bias += evaluateGaussianAndDerivatives(cv, this->hills_[i], der, dp);
+    }
+  } else {
+    #pragma omp parallel num_threads(nt)
+    {
+      vector<double> omp_deriv(this->d_, 0.0);
+      vector<double> dp(this->d_);
+      #pragma omp for reduction(+:bias) nowait
+      for(unsigned i = 0; i < this->hills_.size(); ++i) {
+        bias += evaluateGaussianAndDerivatives(cv, this->hills_[i], omp_deriv, dp);
+      }
+      #pragma omp critical
+      for(unsigned i = 0; i < this->d_; ++i) {
+        der[i] += omp_deriv[i];
+      }
+    }
   }
-
   return bias;
 }
 
