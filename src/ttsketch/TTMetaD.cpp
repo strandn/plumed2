@@ -212,7 +212,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     error("VB_RANK must be nonnegative");
   }
 
-  parse("SKETCH_UNTIL", this->sketch_until_;
+  parse("SKETCH_UNTIL", this->sketch_until_);
 
   if(getRestart()) {
 
