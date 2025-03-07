@@ -374,8 +374,8 @@ void TTCross::addSample(vector<double>& sample) {
   for(int i = 0; i < this->d_; ++i) {
     this->samples_.back()[i] = *lower_bound(this->grid_[i].begin(), this->grid_[i].end(), sample[i]);
   }
-  cout << "sample0 " << sample[0] << " " << sample[1] << " " << sample[2] << endl;
-  cout << "sample1 " << this->samples_.back()[0] << " " << this->samples_.back()[1] << " " << this->samples_.back()[2] << endl;
+  // cout << "sample0 " << sample[0] << " " << sample[1] << " " << sample[2] << endl;
+  // cout << "sample1 " << this->samples_.back()[0] << " " << this->samples_.back()[1] << " " << this->samples_.back()[2] << endl;
 }
 
 }

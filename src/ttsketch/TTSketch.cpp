@@ -469,6 +469,9 @@ void TTSketch::update() {
               this->samples_.push_back(step);
             }
             this->lastsamples_.push_back(step);
+            cout << "step " << step[0] << " " << step[1] << " " << step[2] << endl;
+            cout << "do_aca" << endl;
+            cout << j << " " << memorystride_ << " " << stride_ << endl;
             if(this->do_aca_ && j % (this->memorystride_ / this->stride_) == 0) {
               this->aca_.addSample(step);
             }
