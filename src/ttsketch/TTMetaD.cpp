@@ -523,13 +523,13 @@ void TTMetaD::update() {
         this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
       }
     }
+    if(getTime() >= this->sketch_until_) {
+      this->frozen_ = true;
+    }
   }
   if(getStep() % this->sketch_stride_ == 1 && !this->frozen_) {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
-    if(getTime() > this->sketch_until_) {
-      this->frozen_ = true;
-    }
   }
 }
 
