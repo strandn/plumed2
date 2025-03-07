@@ -469,9 +469,9 @@ void TTSketch::update() {
               this->samples_.push_back(step);
             }
             this->lastsamples_.push_back(step);
-            cout << "step " << step[0] << " " << step[1] << " " << step[2] << endl;
-            cout << "do_aca" << endl;
-            cout << j << " " << memorystride_ << " " << stride_ << endl;
+            // cout << "step " << step[0] << " " << step[1] << " " << step[2] << endl;
+            // cout << "do_aca" << endl;
+            // cout << j << " " << memorystride_ << " " << stride_ << endl;
             if(this->do_aca_ && j % (this->memorystride_ / this->stride_) == 0) {
               this->aca_.addSample(step);
             }
@@ -481,10 +481,14 @@ void TTSketch::update() {
     } else {
       int count = 0;
       for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
+        vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
         if(count % (this->memorystride_ / this->stride_) == 0) {
-          this->samples_.push_back(vector<double>(this->traj_.begin() + i, this->traj_.begin() + i + this->d_));
+          this->samples_.push_back(step);
         }
-        this->lastsamples_.push_back(vector<double>(this->traj_.begin() + i, this->traj_.begin() + i + this->d_));
+        this->lastsamples_.push_back(step);
+        if(this->do_aca_ && count % (this->memorystride_ / this->stride_) == 0) {
+          this->aca_.addSample(step);
+        }
         ++count;
       }
     }
@@ -710,16 +714,16 @@ void TTSketch::update() {
           log << "Vmean = " << vmean << " Height = " << this->kbt_ * std::log(pow(this->lambda_, hf)) << "\n";
         }
       }
-      cout << 1 << endl;
-      cout << vpeak << endl;
-      cout << 2 << endl;
-      cout << this->vshift_ << endl;
-      cout << 3 << endl;
-      cout << topsample[0] << endl;
-      cout << 4 << endl;
-      cout << topsample[1] << endl;
-      cout << 5 << endl;
-      cout << topsample[2] << endl;
+      // cout << 1 << endl;
+      // cout << vpeak << endl;
+      // cout << 2 << endl;
+      // cout << this->vshift_ << endl;
+      // cout << 3 << endl;
+      // cout << topsample[0] << endl;
+      // cout << 4 << endl;
+      // cout << topsample[1] << endl;
+      // cout << 5 << endl;
+      // cout << topsample[2] << endl;
       log << "Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
       this->adj_vshift_ = max(vpeak - this->vshift_ - this->adj_vmax_, 0.0);
       for(unsigned j = 0; j < this->d_; ++j) {
