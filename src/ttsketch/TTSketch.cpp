@@ -1567,7 +1567,7 @@ pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) con
   for(unsigned i = 1; i <= this->d_; ++i) {
     double L = (this->basis_[i - 1].dom().second - this->basis_[i - 1].dom().first) / 2;
     double a = (this->basis_[i - 1].dom().second + this->basis_[i - 1].dom().first) / 2;
-    double w = this->sigma_[i - 1];
+    double w = this->do_sump_ ? this->sigma_[i - 1] : this->basis_[i - 1].w();
     M.push_back(ITensor(sites_new(i), is(i)));
     is_new.push_back(sites_new(i));
     for(unsigned j = 1; j <= N; ++j) {
