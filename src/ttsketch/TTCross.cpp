@@ -45,7 +45,6 @@ double TTCross::f(const vector<double>& x) const {
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
                  this->convg_), 1.0)) - this->vshift_, 0.0);
   }
-  cout << result << endl;
   return result;
 }
 
@@ -331,6 +330,7 @@ void TTCross::updateVb() {
 pair<double, vector<double>> TTCross::vtop() const {
   double max = 0.0;
   vector<double> topsample;
+  cout << "samples " << samples_.size() << endl;
   for(auto& s : this->samples_) {
     if(f(s) > max) {
       max = f(s);
