@@ -45,6 +45,7 @@ double TTCross::f(const vector<double>& x) const {
                  this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
                  this->convg_), 1.0)) - this->vshift_, 0.0);
   }
+  cout << result << endl;
   return result;
 }
 
