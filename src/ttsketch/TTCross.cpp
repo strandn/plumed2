@@ -1,6 +1,7 @@
 #include "TTCross.h"
 #include "TTHelper.h"
 #include "tools/Matrix.h"
+#include "tools/OpenMP.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -64,6 +65,8 @@ pair<double, int> TTCross::diagACA(const vector<double>& Rk, vector<vector<doubl
     }
   }
   vector<double> Ri(this->samples_.size()), Rj(this->samples_.size());
+  unsigned nt = OpenMP::getNumThreads();
+  #pragma omp parallel num_threads(nt)
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     vector<double> arg(this->samples_[i].begin(), this->samples_[i].begin() + this->pos_);
     arg.insert(arg.end(), this->samples_[ik].begin() + this->pos_, this->samples_[ik].end());
@@ -89,6 +92,8 @@ pair<double, int> TTCross::diagACA(const vector<double>& Rk, vector<vector<doubl
 void TTCross::continuousACA() {
   int order = this->d_;
   vector<double> A(this->samples_.size());
+  unsigned nt = OpenMP::getNumThreads();
+  #pragma omp parallel num_threads(nt)
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     A[i] = f(this->samples_[i]);
   }
@@ -161,6 +166,8 @@ void TTCross::approximate(vector<double>& approx) {
       }
     }
   }
+  unsigned nt = OpenMP::getNumThreads();
+  #pragma omp parallel num_threads(nt)
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     for(int ii = 1; ii <= this->d_; ++ii) {
       if(ii == 1) {
@@ -204,6 +211,8 @@ void TTCross::approximate(vector<double>& approx) {
 void TTCross::updateVb() {
   reset();
   vector<double> A0(this->samples_.size());
+  unsigned nt = OpenMP::getNumThreads();
+  #pragma omp parallel num_threads(nt)
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     A0[i] = f(this->samples_[i]);
   }
@@ -230,6 +239,8 @@ void TTCross::updateVb() {
 
     if(ii == 1) {
       psi.ref(1) = ITensor(s, prime(l[0]));
+      unsigned nt = OpenMP::getNumThreads();
+      #pragma omp parallel num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int lr = 1; lr <= dim(l[0]); ++lr) {
           double result = 0.0;
@@ -245,6 +256,8 @@ void TTCross::updateVb() {
       }
     } else if(ii == this->d_) {
       psi.ref(this->d_) = ITensor(s, l[this->d_ - 2]);
+      unsigned nt = OpenMP::getNumThreads();
+      #pragma omp parallel num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[this->d_ - 2]); ++ll) {
           double result = 0.0;
@@ -260,6 +273,8 @@ void TTCross::updateVb() {
       }
     } else {
       psi.ref(ii) = ITensor(s, l[ii - 2], prime(l[ii - 1]));
+      unsigned nt = OpenMP::getNumThreads();
+      #pragma omp parallel num_threads(nt)
       for(int ss = 1; ss <= dim(s); ++ss) {
         for(int ll = 1; ll <= dim(l[ii - 2]); ++ll) {
           for(int lr = 1; lr <= dim(l[ii - 1]); ++lr) {
@@ -319,6 +334,8 @@ void TTCross::updateVb() {
 
   this->vb_ = psi;
   vector<double> diff(this->samples_.size());
+  unsigned nt = OpenMP::getNumThreads();
+  #pragma omp parallel num_threads(nt)
   for(unsigned i = 0; i < this->samples_.size(); ++i) {
     diff[i] = ttEval(this->vb_, this->basis_, this->samples_[i], this->conv_);
   }

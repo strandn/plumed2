@@ -351,8 +351,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
       ifile.close();
 
       if(this->do_aca_) {
-        for(unsigned i = 0; i < this->samples_.size(); ++i) {
-          this->aca_.addSample(this->samples_[i]);
+        for(auto& s : this->samples_) {
+          this->aca_.addSample(s);
         }
       }
     }
