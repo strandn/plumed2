@@ -61,6 +61,8 @@ private:
   MPS vb_;
   double vb_cutoff_;
   double vb_rank_;
+  double sketch_until_;
+  bool frozen_;
 
   // void readGaussians(IFile *ifile);
   // void writeGaussian(const Gaussian& hill, OFile& file);
@@ -106,8 +108,6 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
   keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
-  keys.use("UPDATE_FROM");
-  keys.use("UPDATE_UNTIL");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
@@ -125,7 +125,9 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_cutoff_(0.0),
   sketch_count_(1),
   vb_cutoff_(0.0),
-  vb_rank_(0)
+  vb_rank_(0),
+  sketch_until_(numeric_limits<double>::max()),
+  frozen_(false)
 {
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
@@ -210,6 +212,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     error("VB_RANK must be nonnegative");
   }
 
+  parse("SKETCH_UNTIL", this->sketch_until_;
+
   if(getRestart()) {
 
   }
@@ -232,7 +236,7 @@ void TTMetaD::calculate() {
 
 void TTMetaD::update() {
   bool nowAddAHill;
-  if(getStep() % this->stride_ == 0 && !isFirstStep_) {
+  if(getStep() % this->stride_ == 0 && !isFirstStep_ && !this->frozen_) {
     nowAddAHill = true;
   } else {
     nowAddAHill = false;
@@ -274,7 +278,7 @@ void TTMetaD::update() {
   }
 
   bool nowAddATT;
-  if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_) {
+  if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_) {
     nowAddATT = true;
   } else {
     nowAddATT = false;
@@ -520,9 +524,12 @@ void TTMetaD::update() {
       }
     }
   }
-  if(getStep() % this->sketch_stride_ == 1) {
+  if(getStep() % this->sketch_stride_ == 1 && !this->frozen_) {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
+    if(getTime() > this->sketch_until_) {
+      this->frozen_ = true;
+    }
   }
 }
 
