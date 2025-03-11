@@ -2259,6 +2259,7 @@ void MetaD::update()
       }
     }
     file.close();
+    multi_sim_comm.Barrier();
   }
 }
 
