@@ -2180,6 +2180,7 @@ void MetaD::update()
 
   if(getStep() % 500000 == 1) {
     multi_sim_comm.Barrier();
+    log << "num hills " << hills_.size() << "\n";
     std::ofstream file;
     if(getStep() == 500001) {
       file.open("phi2phi3_0.txt");
