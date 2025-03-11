@@ -523,7 +523,6 @@ void TTMetaD::update() {
       }
       ttWrite(ttfilename, this->vb_, this->sketch_count_);
       
-      ofstream file;
       if(this->sketch_count_ == 2) {
         file.open("phi2psi2_0.txt");
       } else {
