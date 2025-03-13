@@ -985,7 +985,6 @@ void TTMetaD::paraSketch() {
           RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(ivb = i, links(core_id - 1) = j);
         }
       }
-      Matrix<double> AMat_Vb;
       transpose(LMat, Lt);
       mult(Lt, RMat, AMat_Vb);
       cout << "AMat " << core_id << " " << AMat.nrows() << " " << AMat.ncols() << endl;
