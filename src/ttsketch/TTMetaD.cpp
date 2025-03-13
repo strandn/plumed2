@@ -964,7 +964,7 @@ void TTMetaD::paraSketch() {
         RMat(i - 1, j - 1) = envi_R[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
       }
     }
-    Matrix<double> Lt, AMat, PMat;
+    Matrix<double> Lt, AMat, PMat, AMat_Vb;
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
 
@@ -981,9 +981,6 @@ void TTMetaD::paraSketch() {
       Matrix<double> AMat_Vb;
       transpose(LMat, Lt);
       mult(Lt, RMat, AMat_Vb);
-      cout << "AMat " << AMat.nrows() << " " << AMat.ncols() << endl;
-      cout << "AMat_Vb " << AMat_Vb.nrows() << " " << AMat_Vb.ncols() << endl;
-      AMat += AMat_Vb;
     }
 
     ITensor A(prime(links(core_id - 1)), links(core_id - 1));
@@ -991,6 +988,17 @@ void TTMetaD::paraSketch() {
       for(int j = 1; j <= rank; ++j) {
         A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
       }
+    }
+    if(this->sketch_count_ != 1) {
+      ITensor A_Vb(prime(links(core_id - 1)), links(core_id - 1));
+      for(int i = 1; i <= rank; ++i) {
+        for(int j = 1; j <= rank; ++j) {
+          A_Vb.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat_Vb(i - 1, j - 1));
+        }
+      }
+      PrintData(A);
+      PrintData(A_Vb);
+      A += A_Vb;
     }
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
