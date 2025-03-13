@@ -691,6 +691,7 @@ void TTMetaD::update() {
       }
 
       if(this->d_ == 6) {
+        ofstream file;
         if(this->sketch_count_ == 2) {
           file.open("phi2psi2_0.txt");
         } else {
@@ -980,10 +981,8 @@ void TTMetaD::paraSketch() {
       Matrix<double> AMat_Vb;
       transpose(LMat, Lt);
       mult(Lt, RMat, AMat);
-      cout << "AMat " << AMat.nrows << " " << AMat.ncols << endl;
-      matrixOut(cout, AMat);
-      cout << "AMat_Vb " << AMat_Vb.nrows << " " << AMat_Vb.ncols << endl;
-      matrixOut(cout, AMat_Vb);
+      cout << "AMat " << AMat.nrows() << " " << AMat.ncols() << endl;
+      cout << "AMat_Vb " << AMat_Vb.nrows() << " " << AMat_Vb.ncols() << endl;
       AMat += AMat_Vb;
     }
 
@@ -1171,7 +1170,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMomentVb(const M
   MPS B(this->d_);
   B.ref(1) = this->vb_(1) * envi_R[0];
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
-    B.ref(core_id) = envi_L[core_id - 1] * this->vb_(i) * envi_R[core_id - 1];
+    B.ref(core_id) = envi_L[core_id - 1] * this->vb_(core_id) * envi_R[core_id - 1];
   }
   B.ref(this->d_) = envi_L[this->d_ - 1] * this->vb_(this->d_);
 
