@@ -59,8 +59,8 @@ private:
   vector<BasisFunc> sketch_basis_;
   unsigned sketch_count_;
   MPS vb_;
-  double vb_cutoff_;
-  double vb_rank_;
+  // double vb_cutoff_;
+  // double vb_rank_;
   double sketch_until_;
   bool frozen_;
 
@@ -76,6 +76,7 @@ private:
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
+  tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMomentVb(const MPS& coeff);
 
 public:
   explicit TTMetaD(const ActionOptions&);
@@ -106,8 +107,8 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "SKETCH_NBASIS", "20", "Number of basis functions per dimension");
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
-  keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
-  keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
+  // keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
+  // keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
   keys.add("optional", "SKETCH_UNTIL", "After this time, the bias potential freezes");
 }
 
@@ -125,8 +126,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_r_(0),
   sketch_cutoff_(0.0),
   sketch_count_(1),
-  vb_cutoff_(0.0),
-  vb_rank_(0),
+  // vb_cutoff_(0.0),
+  // vb_rank_(0),
   sketch_until_(numeric_limits<double>::max()),
   frozen_(false)
 {
@@ -204,14 +205,14 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     this->mpi_size_ = multi_sim_comm.Get_size();
     this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
-  parse("VB_CUTOFF", this->vb_cutoff_);
-  if(this->vb_cutoff_ < 0.0 || this->vb_cutoff_ >= 1.0) {
-    error("VB_CUTOFF must be nonnegative and less than 1");
-  }
-  parse("VB_RANK", this->vb_rank_);
-  if(this->vb_rank_ < 0) {
-    error("VB_RANK must be nonnegative");
-  }
+  // parse("VB_CUTOFF", this->vb_cutoff_);
+  // if(this->vb_cutoff_ < 0.0 || this->vb_cutoff_ >= 1.0) {
+  //   error("VB_CUTOFF must be nonnegative and less than 1");
+  // }
+  // parse("VB_RANK", this->vb_rank_);
+  // if(this->vb_rank_ < 0) {
+  //   error("VB_RANK must be nonnegative");
+  // }
 
   parse("SKETCH_UNTIL", this->sketch_until_);
 
@@ -369,138 +370,222 @@ void TTMetaD::update() {
         x[i] = this->hills_[i].center;
         A0[i] = getBias(x[i]);
       }
+      
+      if(this->d_ == 3) {
+        ofstream file;
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi3_0_0.txt");
+        } else {
+          file.open("phi2phi3_0_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, -1.2 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi3_1_0.txt");
+        } else {
+          file.open("phi2phi3_1_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, 1.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi4_0_0.txt");
+        } else {
+          file.open("phi2phi4_0_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, -1.2, y }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi4_1_0.txt");
+        } else {
+          file.open("phi2phi4_1_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, 1.0, y }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3phi4_0_0.txt");
+        } else {
+          file.open("phi3phi4_0_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, x, y }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3phi4_1_0.txt");
+        } else {
+          file.open("phi3phi4_1_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, x, y }) << endl;
+          }
+        }
+        file.close();
+      }
 
-      ofstream file;
-      if(this->sketch_count_ == 2) {
-        file.open("phi2psi2_0_0.txt");
-      } else {
-        file.open("phi2psi2_0_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << endl;
+      if(this->d_ == 6) {
+        ofstream file;
+        if(this->sketch_count_ == 2) {
+          file.open("phi2psi2_0_0.txt");
+        } else {
+          file.open("phi2psi2_0_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi2psi2_1_0.txt");
-      } else {
-        file.open("phi2psi2_1_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, -1.2, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi2phi3_0_0.txt");
-      } else {
-        file.open("psi2phi3_0_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2psi2_1_0.txt");
+        } else {
+          file.open("phi2psi2_1_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi2phi3_1_0.txt");
-      } else {
-        file.open("psi2phi3_1_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, -1.2, 0.0 }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi3psi3_0_0.txt");
-      } else {
-        file.open("phi3psi3_0_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi2phi3_0_0.txt");
+        } else {
+          file.open("psi2phi3_0_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi3psi3_1_0.txt");
-      } else {
-        file.open("phi3psi3_1_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi3phi4_0_0.txt");
-      } else {
-        file.open("psi3phi4_0_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi2phi3_1_0.txt");
+        } else {
+          file.open("psi2phi3_1_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi3phi4_1_0.txt");
-      } else {
-        file.open("psi3phi4_1_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi4psi4_0_0.txt");
-      } else {
-        file.open("phi4psi4_0_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3psi3_0_0.txt");
+        } else {
+          file.open("phi3psi3_0_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi4psi4_1_0.txt");
-      } else {
-        file.open("phi4psi4_1_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << endl;
+          }
         }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3psi3_1_0.txt");
+        } else {
+          file.open("phi3psi3_1_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi3phi4_0_0.txt");
+        } else {
+          file.open("psi3phi4_0_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi3phi4_1_0.txt");
+        } else {
+          file.open("psi3phi4_1_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi4psi4_0_0.txt");
+        } else {
+          file.open("phi4psi4_0_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi4psi4_1_0.txt");
+        } else {
+          file.open("phi4psi4_1_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << endl;
+          }
+        }
+        file.close();
       }
-      file.close();
 
       log << "\nStarting TT-sketch...\n";
       log.flush();
@@ -523,136 +608,220 @@ void TTMetaD::update() {
       }
       ttWrite(ttfilename, this->vb_, this->sketch_count_);
       
-      if(this->sketch_count_ == 2) {
-        file.open("phi2psi2_0.txt");
-      } else {
-        file.open("phi2psi2_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << endl;
+      if(this->d_ == 3) {
+        ofstream file;
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi3_0.txt");
+        } else {
+          file.open("phi2phi3_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi2psi2_1.txt");
-      } else {
-        file.open("phi2psi2_1.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, -1.2, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, -1.2 }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi2phi3_0.txt");
-      } else {
-        file.open("psi2phi3_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi3_1.txt");
+        } else {
+          file.open("phi2phi3_1.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi2phi3_1.txt");
-      } else {
-        file.open("psi2phi3_1.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, 1.0 }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi3psi3_0.txt");
-      } else {
-        file.open("phi3psi3_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi4_0.txt");
+        } else {
+          file.open("phi2phi4_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi3psi3_1.txt");
-      } else {
-        file.open("phi3psi3_1.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, -1.2, y }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi3phi4_0.txt");
-      } else {
-        file.open("psi3phi4_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2phi4_1.txt");
+        } else {
+          file.open("phi2phi4_1.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("psi3phi4_1.txt");
-      } else {
-        file.open("psi3phi4_1.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, 1.0, y }) << endl;
+          }
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi4psi4_0.txt");
-      } else {
-        file.open("phi4psi4_0.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << endl;
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3phi4_0.txt");
+        } else {
+          file.open("phi3phi4_0.txt", ios_base::app);
         }
-      }
-      file.close();
-      if(this->sketch_count_ == 2) {
-        file.open("phi4psi4_1.txt");
-      } else {
-        file.open("phi4psi4_1.txt", ios_base::app);
-      }
-      for(int i = 0; i < 100; ++i) {
-        double x = -M_PI + 2 * i * M_PI / 100;
-        for(int j = 0; j < 100; ++j) {
-          double y = -M_PI + 2 * j * M_PI / 100;
-          file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << endl;
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, x, y }) << endl;
+          }
         }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3phi4_1.txt");
+        } else {
+          file.open("phi3phi4_1.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, x, y }) << endl;
+          }
+        }
+        file.close();
       }
-      file.close();
+
+      if(this->d_ == 6) {
+        if(this->sketch_count_ == 2) {
+          file.open("phi2psi2_0.txt");
+        } else {
+          file.open("phi2psi2_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi2psi2_1.txt");
+        } else {
+          file.open("phi2psi2_1.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, -1.2, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi2phi3_0.txt");
+        } else {
+          file.open("psi2phi3_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi2phi3_1.txt");
+        } else {
+          file.open("psi2phi3_1.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3psi3_0.txt");
+        } else {
+          file.open("phi3psi3_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi3psi3_1.txt");
+        } else {
+          file.open("phi3psi3_1.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi3phi4_0.txt");
+        } else {
+          file.open("psi3phi4_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("psi3phi4_1.txt");
+        } else {
+          file.open("psi3phi4_1.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi4psi4_0.txt");
+        } else {
+          file.open("phi4psi4_0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << endl;
+          }
+        }
+        file.close();
+        if(this->sketch_count_ == 2) {
+          file.open("phi4psi4_1.txt");
+        } else {
+          file.open("phi4psi4_1.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << endl;
+          }
+        }
+        file.close();
+      }
     }
 
     if(this->walkers_mpi_) {
@@ -765,9 +934,23 @@ void TTMetaD::paraSketch() {
   unsigned N = this->hills_.size();
   auto coeff = createTTCoeff();
   auto [M, is] = intBasisSample(siteInds(coeff));
-  auto G = MPS(this->d_);
+  MPS G(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
+  MPS Bemp_Vb;
+  vector<ITensor> envi_L_Vb;
+  vector<ITensor> envi_R_Vb;
+  if(this->sketch_count_ != 1) {
+    auto vbresult = formTensorMomentVb(coeff);
+    Bemp_Vb = get<0>(vbresult);
+    envi_L_Vb = get<1>(vbresult);
+    envi_R_Vb = get<2>(vbresult);
+    PrintData(Bemp);
+    PrintData(Bemp_Vb);
+    for(unsigned i = 1; i <= this->d_; ++i) {
+      Bemp.ref(i) += Bemp_Vb(i);
+    }
+  }
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
@@ -783,6 +966,26 @@ void TTMetaD::paraSketch() {
     Matrix<double> Lt, AMat, PMat;
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
+
+    if(this->sketch_count_ != 1) {
+      int rank_vb = dim(linkIndex(this->vb_, core_id - 1));
+      LMat = Matrix<double>(rank_vb, rank);
+      RMat = Matrix<double>(rank_vb, rank);
+      for(unsigned i = 1; i <= rank_vb; ++i) {
+        for(int j = 1; j <= rank; ++j) {
+          LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(is(core_id) = i, links(core_id - 1) = j);
+          RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
+        }
+      }
+      Matrix<double> AMat_Vb;
+      transpose(LMat, Lt);
+      mult(Lt, RMat, AMat);
+      cout << "AMat " << AMat.nrows << " " << AMat.ncols << endl;
+      matrixOut(cout, AMat);
+      cout << "AMat_Vb " << AMat_Vb.nrows << " " << AMat_Vb.ncols << endl;
+      matrixOut(cout, AMat_Vb);
+      AMat += AMat_Vb;
+    }
 
     ITensor A(prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rank; ++i) {
@@ -832,24 +1035,7 @@ void TTMetaD::paraSketch() {
   log << "\n";
   log.flush();
 
-  if(length(this->vb_) == 0) {
-    this->vb_ = G;
-  } else {
-    for(unsigned i = 1; i <= this->d_; ++i) {
-      this->vb_.ref(i) *= delta(siteIndex(this->vb_, i), siteIndex(G, i));
-    }
-    if(this->vb_rank_ > 0) {
-      this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_, "MaxDim=", this->vb_rank_});
-    } else {
-      this->vb_.plusEq(G, {"Cutoff=", this->vb_cutoff_});
-    }
-  }
-  log << "\nFinal ranks ";
-  for(unsigned i = 1; i < this->d_; ++i) {
-    log << dim(linkIndex(this->vb_, i)) << " ";
-  }
-  log << "\n";
-  log.flush();
+  this->vb_ = G;
 }
 
 MPS TTMetaD::createTTCoeff() const {
@@ -962,6 +1148,32 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMoment(const vec
     B.ref(core_id) *= M[core_id - 1];
   }
   B.ref(this->d_) = envi_L[this->d_ - 1] * M[this->d_ - 1];
+
+  return make_tuple(B, envi_L, envi_R);
+}
+
+tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMomentVb(const MPS& coeff) {
+  for(unsigned i = 1; i <= this->d_; ++i) {
+    this->vb_.ref(i) *= delta(siteIndex(this->vb_, i), siteIndex(coeff, i));
+  }
+  vector<ITensor> envi_L(this->d_);
+  envi_L[1] = coeff(1) * this->vb_(1);
+  for(unsigned i = 2; i < this->d_; ++i) {
+    envi_L[i] = envi_L[i - 1] * coeff(i) * this->vb_(i);
+  }
+
+  vector<ITensor> envi_R(this->d_);
+  envi_R[this->d_ - 2] = coeff(this->d_) * this->vb_(this->d_);
+  for(int i = this->d_ - 3; i >= 0; --i) {
+    envi_L[i] = envi_L[i + 1] * coeff(i + 2) * this->vb_(i + 2);
+  }
+
+  MPS B(this->d_);
+  B.ref(1) = this->vb_(1) * envi_R[0];
+  for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
+    B.ref(core_id) = envi_L[core_id - 1] * this->vb_(i) * envi_R[core_id - 1];
+  }
+  B.ref(this->d_) = envi_L[this->d_ - 1] * this->vb_(this->d_);
 
   return make_tuple(B, envi_L, envi_R);
 }

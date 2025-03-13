@@ -2102,7 +2102,7 @@ void MetaD::update()
     if(getStep() == 5000000) {
       file.open("phi2psi2_1.txt");
     } else {
-      file.open("phi2psi2_1_1.txt", std::ios_base::app);
+      file.open("phi2psi2_1.txt", std::ios_base::app);
     }
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
