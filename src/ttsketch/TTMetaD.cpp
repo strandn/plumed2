@@ -969,13 +969,14 @@ void TTMetaD::paraSketch() {
     mult(Lt, RMat, AMat);
 
     if(this->sketch_count_ != 1) {
-      int rank_vb = dim(linkIndex(this->vb_, core_id - 1));
+      auto ivb = linkIndex(this->vb_, core_id - 1);
+      int rank_vb = dim(ivb);
       LMat = Matrix<double>(rank_vb, rank);
       RMat = Matrix<double>(rank_vb, rank);
       for(unsigned i = 1; i <= rank_vb; ++i) {
         for(int j = 1; j <= rank; ++j) {
-          LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(is(core_id) = i, links(core_id - 1) = j);
-          RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(is(core_id - 1) = i, links(core_id - 1) = j);
+          LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(is(core_id - 1) = i, ivb = j);
+          RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(is(core_id - 1) = i, ivb = j);
         }
       }
       Matrix<double> AMat_Vb;
