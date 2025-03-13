@@ -2084,13 +2084,143 @@ void MetaD::update()
     updateFrequencyAdaptiveStride();
   }
 
-  if(getStep() != 0.0 && getStep() % 5000000 == 0) {
+  // if(getStep() != 0 && getStep() % 5000000 == 0) {
+  //   std::ofstream file;
+  //   if(getStep() == 5000000) {
+  //     file.open("phi2psi2_0.txt");
+  //   } else {
+  //     file.open("phi2psi2_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("phi2psi2_1.txt");
+  //   } else {
+  //     file.open("phi2psi2_1_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, 1.0, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("psi2phi3_0.txt");
+  //   } else {
+  //     file.open("psi2phi3_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("psi2phi3_1.txt");
+  //   } else {
+  //     file.open("psi2phi3_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("phi3psi3_0.txt");
+  //   } else {
+  //     file.open("phi3psi3_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("phi3psi3_1.txt");
+  //   } else {
+  //     file.open("phi3psi3_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("psi3phi4_0.txt");
+  //   } else {
+  //     file.open("psi3phi4_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("psi3phi4_1.txt");
+  //   } else {
+  //     file.open("psi3phi4_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("phi4psi4_0.txt");
+  //   } else {
+  //     file.open("phi4psi4_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == 5000000) {
+  //     file.open("phi4psi4_1.txt");
+  //   } else {
+  //     file.open("phi4psi4_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  // }
+
+  if(getStep() == 1) {
     std::ofstream file;
-    if(getStep() == 5000000) {
-      file.open("phi2psi2_0.txt");
-    } else {
-      file.open("phi2psi2_0.txt", std::ios_base::app);
-    }
+    file.open("phi2psi2_0.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2099,11 +2229,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("phi2psi2_1.txt");
-    } else {
-      file.open("phi2psi2_1_1.txt", std::ios_base::app);
-    }
+    file.open("phi2psi2_1.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2112,11 +2238,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("psi2phi3_0.txt");
-    } else {
-      file.open("psi2phi3_0.txt", std::ios_base::app);
-    }
+    file.open("psi2phi3_0.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2125,11 +2247,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("psi2phi3_1.txt");
-    } else {
-      file.open("psi2phi3_1.txt", std::ios_base::app);
-    }
+    file.open("psi2phi3_1.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2138,11 +2256,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("phi3psi3_0.txt");
-    } else {
-      file.open("phi3psi3_0.txt", std::ios_base::app);
-    }
+    file.open("phi3psi3_0.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2151,11 +2265,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("phi3psi3_1.txt");
-    } else {
-      file.open("phi3psi3_1.txt", std::ios_base::app);
-    }
+    file.open("phi3psi3_1.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2164,11 +2274,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("psi3phi4_0.txt");
-    } else {
-      file.open("psi3phi4_0.txt", std::ios_base::app);
-    }
+    file.open("psi3phi4_0.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2177,11 +2283,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("psi3phi4_1.txt");
-    } else {
-      file.open("psi3phi4_1.txt", std::ios_base::app);
-    }
+    file.open("psi3phi4_1.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2190,11 +2292,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("phi4psi4_0.txt");
-    } else {
-      file.open("phi4psi4_0.txt", std::ios_base::app);
-    }
+    file.open("phi4psi4_0.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
@@ -2203,11 +2301,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
-      file.open("phi4psi4_1.txt");
-    } else {
-      file.open("phi4psi4_1.txt", std::ios_base::app);
-    }
+    file.open("phi4psi4_1.txt");
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
