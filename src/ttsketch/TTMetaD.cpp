@@ -981,8 +981,8 @@ void TTMetaD::paraSketch() {
       PrintData(envi_R_Vb[core_id - 2]);
       for(unsigned i = 1; i <= rank_vb; ++i) {
         for(int j = 1; j <= rank; ++j) {
-          LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(is(core_id - 1) = i, ivb = j);
-          RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(is(core_id - 1) = i, ivb = j);
+          LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(ivb = i, links(core_id - 1) = j);
+          RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(ivb = i, links(core_id - 1) = j);
         }
       }
       Matrix<double> AMat_Vb;
