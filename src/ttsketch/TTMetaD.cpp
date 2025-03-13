@@ -980,7 +980,7 @@ void TTMetaD::paraSketch() {
       }
       Matrix<double> AMat_Vb;
       transpose(LMat, Lt);
-      mult(Lt, RMat, AMat);
+      mult(Lt, RMat, AMat_Vb);
       cout << "AMat " << AMat.nrows() << " " << AMat.ncols() << endl;
       cout << "AMat_Vb " << AMat_Vb.nrows() << " " << AMat_Vb.ncols() << endl;
       AMat += AMat_Vb;
