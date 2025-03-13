@@ -1172,7 +1172,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMomentVb(const M
   vector<ITensor> envi_R(this->d_);
   envi_R[this->d_ - 2] = coeff(this->d_) * this->vb_(this->d_);
   for(int i = this->d_ - 3; i >= 0; --i) {
-    envi_L[i] = envi_L[i + 1] * coeff(i + 2) * this->vb_(i + 2);
+    envi_R[i] = envi_R[i + 1] * coeff(i + 2) * this->vb_(i + 2);
   }
 
   MPS B(this->d_);
