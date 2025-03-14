@@ -373,7 +373,7 @@ void TTMetaD::update() {
       
       if(this->d_ == 3) {
         ofstream file;
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi2phi3_0_0.txt");
         } else {
           file.open("phi2phi3_0_0.txt", ios_base::app);
@@ -386,7 +386,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi2phi3_1_0.txt");
         } else {
           file.open("phi2phi3_1_0.txt", ios_base::app);
@@ -399,7 +399,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi2phi4_0_0.txt");
         } else {
           file.open("phi2phi4_0_0.txt", ios_base::app);
@@ -412,7 +412,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi2phi4_1_0.txt");
         } else {
           file.open("phi2phi4_1_0.txt", ios_base::app);
@@ -425,7 +425,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi3phi4_0_0.txt");
         } else {
           file.open("phi3phi4_0_0.txt", ios_base::app);
@@ -438,7 +438,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi3phi4_1_0.txt");
         } else {
           file.open("phi3phi4_1_0.txt", ios_base::app);
@@ -455,7 +455,7 @@ void TTMetaD::update() {
 
       if(this->d_ == 6) {
         ofstream file;
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi2psi2_0_0.txt");
         } else {
           file.open("phi2psi2_0_0.txt", ios_base::app);
@@ -468,7 +468,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi2psi2_1_0.txt");
         } else {
           file.open("phi2psi2_1_0.txt", ios_base::app);
@@ -481,7 +481,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("psi2phi3_0_0.txt");
         } else {
           file.open("psi2phi3_0_0.txt", ios_base::app);
@@ -494,7 +494,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("psi2phi3_1_0.txt");
         } else {
           file.open("psi2phi3_1_0.txt", ios_base::app);
@@ -507,7 +507,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi3psi3_0_0.txt");
         } else {
           file.open("phi3psi3_0_0.txt", ios_base::app);
@@ -520,7 +520,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi3psi3_1_0.txt");
         } else {
           file.open("phi3psi3_1_0.txt", ios_base::app);
@@ -533,7 +533,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("psi3phi4_0_0.txt");
         } else {
           file.open("psi3phi4_0_0.txt", ios_base::app);
@@ -546,7 +546,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("psi3phi4_1_0.txt");
         } else {
           file.open("psi3phi4_1_0.txt", ios_base::app);
@@ -559,7 +559,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi4psi4_0_0.txt");
         } else {
           file.open("phi4psi4_0_0.txt", ios_base::app);
@@ -572,7 +572,7 @@ void TTMetaD::update() {
           }
         }
         file.close();
-        if(this->sketch_count_ == 2) {
+        if(this->sketch_count_ == 1) {
           file.open("phi4psi4_1_0.txt");
         } else {
           file.open("phi4psi4_1_0.txt", ios_base::app);
