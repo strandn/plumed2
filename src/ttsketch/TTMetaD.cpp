@@ -59,8 +59,6 @@ private:
   vector<BasisFunc> sketch_basis_;
   unsigned sketch_count_;
   MPS vb_;
-  // double vb_cutoff_;
-  // double vb_rank_;
   double sketch_until_;
   bool frozen_;
 
@@ -107,8 +105,6 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "INTERVAL_MAX", "Upper limits, outside the limits the system will not feel the biasing force");
   keys.add("compulsory", "SKETCH_NBASIS", "20", "Number of basis functions per dimension");
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
-  // keys.add("optional", "VB_CUTOFF", "Convergence threshold for TT Vbias");
-  // keys.add("optional", "VB_RANK", "Largest possible rank for TT Vbias");
   keys.add("optional", "SKETCH_UNTIL", "After this time, the bias potential freezes");
 }
 
@@ -126,8 +122,6 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_r_(0),
   sketch_cutoff_(0.0),
   sketch_count_(1),
-  // vb_cutoff_(0.0),
-  // vb_rank_(0),
   sketch_until_(numeric_limits<double>::max()),
   frozen_(false)
 {
@@ -205,14 +199,6 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     this->mpi_size_ = multi_sim_comm.Get_size();
     this->mpi_rank_ = multi_sim_comm.Get_rank();
   }
-  // parse("VB_CUTOFF", this->vb_cutoff_);
-  // if(this->vb_cutoff_ < 0.0 || this->vb_cutoff_ >= 1.0) {
-  //   error("VB_CUTOFF must be nonnegative and less than 1");
-  // }
-  // parse("VB_RANK", this->vb_rank_);
-  // if(this->vb_rank_ < 0) {
-  //   error("VB_RANK must be nonnegative");
-  // }
 
   parse("SKETCH_UNTIL", this->sketch_until_);
 
@@ -324,45 +310,6 @@ void TTMetaD::update() {
         }
       }
       matrixOut(log, sigmahat);
-
-      // unsigned N = this->sketch_stride_ * this->mpi_size_ / this->stride_;
-      // log << "Sample limits\n";
-      // for(unsigned i = 0; i < this->d_; ++i) {
-      //   auto [large, small] = this->sketch_basis_[i].dom();
-      //   for(unsigned j = 0; j < N; ++j) {
-      //     int jadj = this->hills_.size() - N + j;
-      //     if(this->hills_[jadj].center[i] > large) {
-      //       large = this->hills_[jadj].center[i];
-      //     }
-      //     if(this->hills_[jadj].center[i] < small) {
-      //       small = this->hills_[jadj].center[i];
-      //     }
-      //   }
-      //   log << small << " " << large << "\n";
-      // }
-
-      // log << "\nEmpirical means:\n";
-      // Matrix<double> sigmahat(this->d_, this->d_);
-      // vector<double> muhat(this->d_, 0.0);
-      // for(unsigned k = 0; k < this->d_; ++k) {
-      //   for(unsigned j = 0; j < N; ++j) {
-      //     int jadj = this->hills_.size() - N + j;
-      //     muhat[k] += this->hills_[jadj].center[k] / N;
-      //   }
-      //   log << muhat[k] << " ";
-      // }
-      // log << "\nEmpirical covariance matrix:\n";
-      // for(unsigned k = 0; k < this->d_; ++k) {
-      //   for(unsigned l = k; l < this->d_; ++l) {
-      //     sigmahat(k, l) = sigmahat(l, k) = 0.0;
-      //     for(unsigned j = 0; j < N; ++j) {
-      //       int jadj = this->hills_.size() - N + j;
-      //       sigmahat(k, l) += (this->hills_[jadj].center[k] - muhat[k]) * (this->hills_[jadj].center[l] - muhat[l]) / (N - 1);
-      //     }
-      //     sigmahat(l, k) = sigmahat(k, l);
-      //   }
-      // }
-      // matrixOut(log, sigmahat);
 
       vector<double> A0(N);
       vector<vector<double>> x(N);
@@ -946,12 +893,8 @@ void TTMetaD::paraSketch() {
     Bemp_Vb = get<0>(vbresult);
     envi_L_Vb = get<1>(vbresult);
     envi_R_Vb = get<2>(vbresult);
-    // PrintData(Bemp);
-    // PrintData(Bemp_Vb);
     for(unsigned i = 1; i <= this->d_; ++i) {
       Bemp.ref(i) += Bemp_Vb(i);
-      // cout << "Bemp " << i << endl;
-      // PrintData(Bemp(i));
     }
   }
   auto links = linkInds(coeff);
@@ -975,10 +918,6 @@ void TTMetaD::paraSketch() {
       int rank_vb = dim(ivb);
       LMat = Matrix<double>(rank_vb, rank);
       RMat = Matrix<double>(rank_vb, rank);
-      // cout << "envi_L_Vb " << core_id - 1 << endl;
-      // PrintData(envi_L_Vb[core_id - 1]);
-      // cout << "envi_R_Vb " << core_id - 2 << endl;
-      // PrintData(envi_R_Vb[core_id - 2]);
       for(unsigned i = 1; i <= rank_vb; ++i) {
         for(int j = 1; j <= rank; ++j) {
           LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(ivb = i, links(core_id - 1) = j);
@@ -987,8 +926,6 @@ void TTMetaD::paraSketch() {
       }
       transpose(LMat, Lt);
       mult(Lt, RMat, AMat_Vb);
-      // cout << "AMat " << core_id << " " << AMat.nrows() << " " << AMat.ncols() << endl;
-      // cout << "AMat_Vb " << core_id << " " << AMat_Vb.nrows() << " " << AMat_Vb.ncols() << endl;
     }
 
     ITensor A(prime(links(core_id - 1)), links(core_id - 1));
@@ -1004,10 +941,6 @@ void TTMetaD::paraSketch() {
           A_Vb.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat_Vb(i - 1, j - 1));
         }
       }
-      // cout << "A " << core_id << endl;
-      // PrintData(A);
-      // cout << "A_Vb " << core_id << endl;
-      // PrintData(A_Vb);
       A += A_Vb;
     }
     auto original_link_tags = tags(links(core_id - 1));
