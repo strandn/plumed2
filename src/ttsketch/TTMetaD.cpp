@@ -203,7 +203,21 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   parse("SKETCH_UNTIL", this->sketch_until_);
 
   if(getRestart()) {
-
+    string ttfilename = "ttsketch.h5";
+    if(this->walkers_mpi_) {
+      ttfilename = "../" + ttfilename;
+    }
+    unsigned count = 2;
+    while(true) {
+      try {
+        this->vb_ = ttRead(ttfilename, count++);
+      } catch(...) {
+        break;
+      }
+    }
+    if(this->sketch_until_ == 0.0) {
+      this->frozen_ = false;
+    }
   }
 }
 
