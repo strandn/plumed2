@@ -2084,9 +2084,10 @@ void MetaD::update()
     updateFrequencyAdaptiveStride();
   }
 
-  if(getStep() != 0 && getStep() % 5000000 == 0 && (!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+  int pace = 500000;
+  if(getStep() != 0 && getStep() % pace == 0 && (!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
     std::ofstream file;
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("phi2psi2_0.txt");
     } else {
       file.open("phi2psi2_0.txt", std::ios_base::app);
@@ -2099,7 +2100,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("phi2psi2_1.txt");
     } else {
       file.open("phi2psi2_1.txt", std::ios_base::app);
@@ -2112,7 +2113,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("psi2phi3_0.txt");
     } else {
       file.open("psi2phi3_0.txt", std::ios_base::app);
@@ -2125,7 +2126,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("psi2phi3_1.txt");
     } else {
       file.open("psi2phi3_1.txt", std::ios_base::app);
@@ -2138,7 +2139,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("phi3psi3_0.txt");
     } else {
       file.open("phi3psi3_0.txt", std::ios_base::app);
@@ -2151,7 +2152,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("phi3psi3_1.txt");
     } else {
       file.open("phi3psi3_1.txt", std::ios_base::app);
@@ -2164,7 +2165,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("psi3phi4_0.txt");
     } else {
       file.open("psi3phi4_0.txt", std::ios_base::app);
@@ -2177,7 +2178,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("psi3phi4_1.txt");
     } else {
       file.open("psi3phi4_1.txt", std::ios_base::app);
@@ -2190,7 +2191,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("phi4psi4_0.txt");
     } else {
       file.open("phi4psi4_0.txt", std::ios_base::app);
@@ -2203,7 +2204,7 @@ void MetaD::update()
       }
     }
     file.close();
-    if(getStep() == 5000000) {
+    if(getStep() == pace) {
       file.open("phi4psi4_1.txt");
     } else {
       file.open("phi4psi4_1.txt", std::ios_base::app);
