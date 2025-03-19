@@ -2084,7 +2084,7 @@ void MetaD::update()
     updateFrequencyAdaptiveStride();
   }
 
-  if(getStep() != 0 && getStep() % 5000000 == 0 && (!this->walkers_mpi_ || this->mpi_nw_ == 0)) {
+  if(getStep() != 0 && getStep() % 5000000 == 0 && (!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
     std::ofstream file;
     if(getStep() == 5000000) {
       file.open("phi2psi2_0.txt");
