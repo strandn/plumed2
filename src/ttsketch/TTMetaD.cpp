@@ -1006,6 +1006,7 @@ void TTMetaD::paraSketch() {
 MPS TTMetaD::createTTCoeff() const {
   default_random_engine generator;
   normal_distribution<double> distribution(0.0, 1.0);
+  srand(time(NULL));
   int n = this->sketch_basis_[0].nbasis();
   auto sites = SiteSet(this->d_, n);
   auto coeff = MPS(sites, this->sketch_rc_);
