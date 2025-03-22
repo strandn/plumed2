@@ -261,7 +261,7 @@ void TTMetaD::update() {
       multi_sim_comm.Allgather(this->sigma0_, all_sigma);
       multi_sim_comm.Allgather(height * (this->biasf_ > 1.0 ? this->biasf_ / (this->biasf_ - 1.0) : 1.0), all_height);
 
-      for(unsigned i = 0; i < this->mpi_size_; i++) {
+      for(int i = 0; i < this->mpi_size_; i++) {
         vector<double> cv_now(this->d_);
         vector<double> sigma_now(this->sigma0_.size());
         for(unsigned j = 0; j < this->d_; j++) {
@@ -933,7 +933,7 @@ void TTMetaD::paraSketch() {
       int rank_vb = dim(ivb);
       LMat = Matrix<double>(rank_vb, rank);
       RMat = Matrix<double>(rank_vb, rank);
-      for(unsigned i = 1; i <= rank_vb; ++i) {
+      for(int i = 1; i <= rank_vb; ++i) {
         for(int j = 1; j <= rank; ++j) {
           LMat(i - 1, j - 1) = envi_L_Vb[core_id - 1].elt(ivb = i, links(core_id - 1) = j);
           RMat(i - 1, j - 1) = envi_R_Vb[core_id - 2].elt(ivb = i, links(core_id - 1) = j);
