@@ -7,6 +7,7 @@
 #include "tools/Communicator.h"
 #include "tools/File.h"
 #include "tools/OpenMP.h"
+#include <random>
 
 using namespace std;
 using namespace itensor;
@@ -1003,9 +1004,31 @@ void TTMetaD::paraSketch() {
 }
 
 MPS TTMetaD::createTTCoeff() const {
+  default_random_engine generator;
+  normal_distribution<double> distribution(0.0, 1.0);
   int n = this->sketch_basis_[0].nbasis();
   auto sites = SiteSet(this->d_, n);
-  auto coeff = randomMPS(sites, this->sketch_rc_);
+  auto coeff = MPS(sites, this->sketch_rc_);
+  for(unsigned j = 1; j <= n; ++j) {
+    for(unsigned k = 1; k <= this->sketch_rc_; ++k) {
+      coeff.ref(1).set(sites(1) = j, linkIndex(coeff, 1) = k, distribution(generator));
+    }
+  }
+  for(unsigned i = 2; i <= this->d_ - 1; ++i) {
+    for(unsigned j = 1; j <= n; ++j) {
+      for(unsigned k = 1; k <= this->sketch_rc_; ++k) {
+        for(unsigned l = 1; l <= this->sketch_rc_; ++l) {
+          coeff.ref(i).set(sites(i) = j, linkIndex(coeff, i - 1) = k, linkIndex(coeff, i) = l, distribution(generator));
+        }
+      }
+    }
+  }
+  for(unsigned j = 1; j <= n; ++j) {
+    for(unsigned k = 1; k <= this->sketch_rc_; ++k) {
+      coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, distribution(generator));
+    }
+  }
+  PrintData(coeff);
   for(unsigned i = 1; i <= this->d_; ++i) {
     auto s = sites(i);
     auto sp = prime(s);
