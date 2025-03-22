@@ -1611,7 +1611,7 @@ void TTSketch::paraSketch() {
 }
 
 MPS TTSketch::createTTCoeff() const {
-  default_random_engine generator;
+  default_random_engine generator(static_cast<unsigned int>(std::time(nullptr)));
   normal_distribution<double> distribution(0.0, 1.0);
   int n = this->basis_[0].nbasis();
   auto sites = SiteSet(this->d_, n);
