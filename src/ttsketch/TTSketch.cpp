@@ -1613,25 +1613,25 @@ void TTSketch::paraSketch() {
 MPS TTSketch::createTTCoeff() const {
   default_random_engine generator;
   normal_distribution<double> distribution(0.0, 1.0);
-  int n = this->sketch_basis_[0].nbasis();
+  int n = this->basis_[0].nbasis();
   auto sites = SiteSet(this->d_, n);
-  auto coeff = MPS(sites, this->sketch_rc_);
+  auto coeff = MPS(sites, this->rc_);
   for(unsigned j = 1; j <= n; ++j) {
-    for(unsigned k = 1; k <= this->sketch_rc_; ++k) {
+    for(unsigned k = 1; k <= this->rc_; ++k) {
       coeff.ref(1).set(sites(1) = j, linkIndex(coeff, 1) = k, distribution(generator));
     }
   }
   for(unsigned i = 2; i <= this->d_ - 1; ++i) {
     for(unsigned j = 1; j <= n; ++j) {
-      for(unsigned k = 1; k <= this->sketch_rc_; ++k) {
-        for(unsigned l = 1; l <= this->sketch_rc_; ++l) {
+      for(unsigned k = 1; k <= this->rc_; ++k) {
+        for(unsigned l = 1; l <= this->rc_; ++l) {
           coeff.ref(i).set(sites(i) = j, linkIndex(coeff, i - 1) = k, linkIndex(coeff, i) = l, distribution(generator));
         }
       }
     }
   }
   for(unsigned j = 1; j <= n; ++j) {
-    for(unsigned k = 1; k <= this->sketch_rc_; ++k) {
+    for(unsigned k = 1; k <= this->rc_; ++k) {
       coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, distribution(generator));
     }
   }
