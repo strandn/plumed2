@@ -1027,7 +1027,7 @@ MPS TTMetaD::createTTCoeff() const {
       coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, distribution(generator));
     }
   }
-  PrintData(coeff);
+  // PrintData(coeff);
   for(unsigned i = 1; i <= this->d_; ++i) {
     auto s = sites(i);
     auto sp = prime(s);
