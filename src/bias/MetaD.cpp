@@ -2084,140 +2084,140 @@ void MetaD::update()
     updateFrequencyAdaptiveStride();
   }
 
-  int pace = 500000;
-  if(getStep() != 0 && getStep() % pace == 0 && (!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
-    std::ofstream file;
-    if(getStep() == pace) {
-      file.open("phi2psi2_0.txt");
-    } else {
-      file.open("phi2psi2_0.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("phi2psi2_1.txt");
-    } else {
-      file.open("phi2psi2_1.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, 1.0, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("psi2phi3_0.txt");
-    } else {
-      file.open("psi2phi3_0.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("psi2phi3_1.txt");
-    } else {
-      file.open("psi2phi3_1.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("phi3psi3_0.txt");
-    } else {
-      file.open("phi3psi3_0.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("phi3psi3_1.txt");
-    } else {
-      file.open("phi3psi3_1.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("psi3phi4_0.txt");
-    } else {
-      file.open("psi3phi4_0.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("psi3phi4_1.txt");
-    } else {
-      file.open("psi3phi4_1.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("phi4psi4_0.txt");
-    } else {
-      file.open("phi4psi4_0.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << std::endl;
-      }
-    }
-    file.close();
-    if(getStep() == pace) {
-      file.open("phi4psi4_1.txt");
-    } else {
-      file.open("phi4psi4_1.txt", std::ios_base::app);
-    }
-    for(int i = 0; i < 100; ++i) {
-      double x = -M_PI + 2 * i * M_PI / 100;
-      for(int j = 0; j < 100; ++j) {
-        double y = -M_PI + 2 * j * M_PI / 100;
-        file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << std::endl;
-      }
-    }
-    file.close();
-  }
+  // int pace = 500000;
+  // if(getStep() != 0 && getStep() % pace == 0 && (!this->walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+  //   std::ofstream file;
+  //   if(getStep() == pace) {
+  //     file.open("phi2psi2_0.txt");
+  //   } else {
+  //     file.open("phi2psi2_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ x, y, -1.2, 0.0, -1.2, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("phi2psi2_1.txt");
+  //   } else {
+  //     file.open("phi2psi2_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ x, y, 1.0, 0.0, 1.0, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("psi2phi3_0.txt");
+  //   } else {
+  //     file.open("psi2phi3_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, x, y, 0.0, -1.2, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("psi2phi3_1.txt");
+  //   } else {
+  //     file.open("psi2phi3_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, x, y, 0.0, 1.0, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("phi3psi3_0.txt");
+  //   } else {
+  //     file.open("phi3psi3_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, 0.0, x, y, -1.2, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("phi3psi3_1.txt");
+  //   } else {
+  //     file.open("phi3psi3_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, 0.0, x, y, 1.0, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("psi3phi4_0.txt");
+  //   } else {
+  //     file.open("psi3phi4_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, x, y, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("psi3phi4_1.txt");
+  //   } else {
+  //     file.open("psi3phi4_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, x, y, 0.0 }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("phi4psi4_0.txt");
+  //   } else {
+  //     file.open("phi4psi4_0.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ -1.2, 0.0, -1.2, 0.0, x, y }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  //   if(getStep() == pace) {
+  //     file.open("phi4psi4_1.txt");
+  //   } else {
+  //     file.open("phi4psi4_1.txt", std::ios_base::app);
+  //   }
+  //   for(int i = 0; i < 100; ++i) {
+  //     double x = -M_PI + 2 * i * M_PI / 100;
+  //     for(int j = 0; j < 100; ++j) {
+  //       double y = -M_PI + 2 * j * M_PI / 100;
+  //       file << x << " " << y << " " << getBias({ 1.0, 0.0, 1.0, 0.0, x, y }) << std::endl;
+  //     }
+  //   }
+  //   file.close();
+  // }
 }
 
 /// takes a pointer to the file and a template std::string with values v and gives back the next center, sigma and height
