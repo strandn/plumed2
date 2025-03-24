@@ -7,6 +7,7 @@
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
 #include "tools/File.h"
+#include "tools/Stopwatch.h"
 #include <numeric>
 
 using namespace std;
@@ -46,6 +47,8 @@ private:
   int memorystride_;
   double vshift_;
   int output_2d_;
+  ForwardDecl<Stopwatch> stopwatch_fwd;
+  Stopwatch& stopwatch = *stopwatch_fwd;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -916,10 +919,13 @@ void TTSketch::update() {
         }
       }
     }
+    stopwatch.stop("Vbias " + to_string(this->count_ - 1));
+    log << stopwatch;
   }
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
+    stopwatch.start("Vbias " + to_string(this->count_));
   }
 }
 
