@@ -59,6 +59,7 @@ private:
   vector<BasisFunc> sketch_basis_;
   unsigned sketch_count_;
   MPS vb_;
+  MPS vb0_;
   double sketch_until_;
   bool frozen_;
 
@@ -216,6 +217,20 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
         this->vb_ = ttRead(ttfilename, count++);
       } catch(...) {
         break;
+      }
+    }
+    if(kernel) {
+      this->vb0_ = this->vb_;
+      for(unsigned i = 1; i <= this->d_; ++i) {
+        auto s = siteIndex(this->vb_, i);
+        ITensor ginv(s, prime(s));
+        for(int j = 1; j <= dim(s); ++j) {
+          for(int l = 1; l <= dim(s); ++l) {
+            ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+          }
+        }
+        this->vb_.ref(i) *= ginv;
+        this->vb_.ref(i).noPrime();
       }
     }
     if(this->sketch_until_ == 0.0) {
@@ -570,7 +585,11 @@ void TTMetaD::update() {
       if(this->walkers_mpi_) {
         ttfilename = "../" + ttfilename;
       }
-      ttWrite(ttfilename, this->vb_, this->sketch_count_);
+      if(this->sketch_basis_[0].kernel()) {
+        ttWrite(ttfilename, this->vb0_, this->sketch_count_);
+      } else {
+        ttWrite(ttfilename, this->vb_, this->sketch_count_);
+      }
       
       // if(this->d_ == 3) {
       //   ofstream file;
@@ -794,6 +813,20 @@ void TTMetaD::update() {
       if(this->mpi_rank_ != 0) {
         this->hills_.clear();
         this->vb_ = ttRead("../ttsketch.h5", this->sketch_count_);
+        if(this->sketch_basis_[0].kernel()) {
+          this->vb0_ = this->vb_;
+          for(unsigned i = 1; i <= this->d_; ++i) {
+            auto s = siteIndex(this->vb_, i);
+            ITensor ginv(s, prime(s));
+            for(int j = 1; j <= dim(s); ++j) {
+              for(int l = 1; l <= dim(s); ++l) {
+                ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+              }
+            }
+            this->vb_.ref(i) *= ginv;
+            this->vb_.ref(i).noPrime();
+          }
+        }
       }
     }
     if(getTime() >= this->sketch_until_) {
@@ -931,7 +964,7 @@ void TTMetaD::paraSketch() {
     mult(Lt, RMat, AMat);
 
     if(this->sketch_count_ != 1) {
-      auto ivb = linkIndex(this->vb_, core_id - 1);
+      auto ivb = linkIndex(this->vb0_, core_id - 1);
       int rank_vb = dim(ivb);
       LMat = Matrix<double>(rank_vb, rank);
       RMat = Matrix<double>(rank_vb, rank);
@@ -1002,21 +1035,22 @@ void TTMetaD::paraSketch() {
   log << "\n";
   log.flush();
 
+  this->vb_ = G;
+  
   if(this->sketch_basis_[0].kernel()) {
+    this->vb0_ = this->vb_;
     for(unsigned i = 1; i <= this->d_; ++i) {
-      auto s = siteIndex(G, i);
+      auto s = siteIndex(this->vb_, i);
       ITensor ginv(s, prime(s));
       for(int j = 1; j <= dim(s); ++j) {
         for(int l = 1; l <= dim(s); ++l) {
           ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
         }
       }
-      G.ref(i) *= ginv;
-      G.ref(i).noPrime();
+      this->vb_.ref(i) *= ginv;
+      this->vb_.ref(i).noPrime();
     }
   }
-
-  this->vb_ = G;
 }
 
 MPS TTMetaD::createTTCoeff() const {
@@ -1169,26 +1203,26 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMoment(const vec
 
 tuple<MPS, vector<ITensor>, vector<ITensor>> TTMetaD::formTensorMomentVb(const MPS& coeff) {
   for(unsigned i = 1; i <= this->d_; ++i) {
-    this->vb_.ref(i) *= delta(siteIndex(this->vb_, i), siteIndex(coeff, i));
+    this->vb0_.ref(i) *= delta(siteIndex(this->vb0_, i), siteIndex(coeff, i));
   }
   vector<ITensor> envi_L(this->d_);
-  envi_L[1] = coeff(1) * this->vb_(1);
+  envi_L[1] = coeff(1) * this->vb0_(1);
   for(unsigned i = 2; i < this->d_; ++i) {
-    envi_L[i] = envi_L[i - 1] * coeff(i) * this->vb_(i);
+    envi_L[i] = envi_L[i - 1] * coeff(i) * this->vb0_(i);
   }
 
   vector<ITensor> envi_R(this->d_);
-  envi_R[this->d_ - 2] = coeff(this->d_) * this->vb_(this->d_);
+  envi_R[this->d_ - 2] = coeff(this->d_) * this->vb0_(this->d_);
   for(int i = this->d_ - 3; i >= 0; --i) {
-    envi_R[i] = envi_R[i + 1] * coeff(i + 2) * this->vb_(i + 2);
+    envi_R[i] = envi_R[i + 1] * coeff(i + 2) * this->vb0_(i + 2);
   }
 
   MPS B(this->d_);
-  B.ref(1) = this->vb_(1) * envi_R[0];
+  B.ref(1) = this->vb0_(1) * envi_R[0];
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
-    B.ref(core_id) = envi_L[core_id - 1] * this->vb_(core_id) * envi_R[core_id - 1];
+    B.ref(core_id) = envi_L[core_id - 1] * this->vb0_(core_id) * envi_R[core_id - 1];
   }
-  B.ref(this->d_) = envi_L[this->d_ - 1] * this->vb_(this->d_);
+  B.ref(this->d_) = envi_L[this->d_ - 1] * this->vb0_(this->d_);
 
   return make_tuple(B, envi_L, envi_R);
 }
