@@ -88,6 +88,7 @@ PLUMED_REGISTER_ACTION(TTMetaD, "TTMETAD")
 void TTMetaD::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
+  keys.addFlag("KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis");
   keys.add("compulsory", "SIGMA", "the widths of the Gaussian hills");
   keys.add("compulsory", "PACE", "the frequency for hill addition");
   // keys.add("compulsory", "FILE", "HILLS", "a file in which the list of added hills is stored");
@@ -125,6 +126,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_until_(numeric_limits<double>::max()),
   frozen_(false)
 {
+  bool kernel;
+  parseFlag("KERNEL_BASIS", kernel);
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
     error("Number of arguments must be at least 2");
@@ -182,7 +185,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("SKETCH_NBASIS must be greater than 1");
   }
-  if(nbasis % 2 == 0) {
+  if(!kernel && nbasis % 2 == 0) {
     ++nbasis;
   }
   parse("SKETCH_ALPHA", this->sketch_alpha_);
@@ -193,7 +196,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0.0, false));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0.0, kernel));
   }
   if(this->walkers_mpi_) {
     this->mpi_size_ = multi_sim_comm.Get_size();
@@ -999,6 +1002,20 @@ void TTMetaD::paraSketch() {
   log << "\n";
   log.flush();
 
+  if(this->basis_[0].kernel()) {
+    for(unsigned i = 1; i <= this->d_; ++i) {
+      auto s = siteIndex(G, i);
+      ITensor ginv(s, prime(s));
+      for(int j = 1; j <= dim(s); ++j) {
+        for(int l = 1; l <= dim(s); ++l) {
+          ginv.set(s = j, prime(s) = l, this->basis_[i - 1].ginv()(j - 1, l - 1));
+        }
+      }
+      G.ref(i) *= ginv;
+      G.ref(i).noPrime();
+    }
+  }
+
   this->vb_ = G;
 }
 
@@ -1027,7 +1044,6 @@ MPS TTMetaD::createTTCoeff() const {
       coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, distribution(generator));
     }
   }
-  // PrintData(coeff);
   for(unsigned i = 1; i <= this->d_; ++i) {
     auto s = sites(i);
     auto sp = prime(s);
@@ -1057,12 +1073,26 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
       double h = pow(this->hills_[j - 1].height, 1.0 / this->d_);
       for(int pos = 1; pos <= nb; ++pos) {
         double result = 0.0;
-        if(pos == 1) {
-          result = h * sqrt(M_PI / L) * w;
-        } else if(pos % 2 == 0) {
-          result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * cos(M_PI * (x - a) * (pos / 2) / L);
+        if(this->basis_[0].kernel()) {
+          if(pos == 1) {
+            result = h * sqrt(2 * M_PI) * w;
+          } else {
+            double c = this->sketch_basis_[i - 1].center(pos - 1);
+            double dx = this->sketch_basis_[i - 1].dx();
+            for(int k = -1; k <= 1; ++k) {
+              result += exp(-pow(x - c + 2 * k * L, 2) / (2 * (pow(dx, 2) + pow(w, 2)))) * h * sqrt(2 * M_PI) * w /
+                        (sqrt(1 / pow(dx, 2) + 1 / pow(w, 2)) * w);
+            }
+            return result;
+          }
         } else {
-          result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * sin(M_PI * (x - a) * (pos / 2) / L);
+          if(pos == 1) {
+            result = h * sqrt(M_PI / L) * w;
+          } else if(pos % 2 == 0) {
+            result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * cos(M_PI * (x - a) * (pos / 2) / L);
+          } else {
+            result = exp(-pow(M_PI * w * (pos / 2), 2) / (2 * pow(L, 2))) * h * sqrt(2 * M_PI / L) * w * sin(M_PI * (x - a) * (pos / 2) / L);
+          }
         }
         M.back().set(sites_new(i) = j, is(i) = pos, result);
       }
