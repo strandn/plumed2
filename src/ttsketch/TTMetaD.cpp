@@ -1083,7 +1083,6 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
               result += exp(-pow(x - c + 2 * k * L, 2) / (2 * (pow(dx, 2) + pow(w, 2)))) * h * sqrt(2 * M_PI) * w /
                         (sqrt(1 / pow(dx, 2) + 1 / pow(w, 2)) * w);
             }
-            return result;
           }
         } else {
           if(pos == 1) {
