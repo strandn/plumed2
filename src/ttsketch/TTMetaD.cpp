@@ -1002,13 +1002,13 @@ void TTMetaD::paraSketch() {
   log << "\n";
   log.flush();
 
-  if(this->basis_[0].kernel()) {
+  if(this->sketch_basis_[0].kernel()) {
     for(unsigned i = 1; i <= this->d_; ++i) {
       auto s = siteIndex(G, i);
       ITensor ginv(s, prime(s));
       for(int j = 1; j <= dim(s); ++j) {
         for(int l = 1; l <= dim(s); ++l) {
-          ginv.set(s = j, prime(s) = l, this->basis_[i - 1].ginv()(j - 1, l - 1));
+          ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
         }
       }
       G.ref(i) *= ginv;
@@ -1073,7 +1073,7 @@ pair<vector<ITensor>, IndexSet> TTMetaD::intBasisSample(const IndexSet& is) cons
       double h = pow(this->hills_[j - 1].height, 1.0 / this->d_);
       for(int pos = 1; pos <= nb; ++pos) {
         double result = 0.0;
-        if(this->basis_[0].kernel()) {
+        if(this->sketch_basis_[0].kernel()) {
           if(pos == 1) {
             result = h * sqrt(2 * M_PI) * w;
           } else {
