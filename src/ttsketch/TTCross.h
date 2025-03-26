@@ -49,6 +49,7 @@ public:
   void writeVb(unsigned count) const;
   void readVb(unsigned count);
   void addSample(std::vector<double>& sample);
+  void trimSamples(int max) { this->samples_.erase(this->samples_.begin() + (this->samples_.size() - max), this->samples_.end()); }
   bool conv() const { return this->conv_; }
   const itensor::MPS& vb() const { return this->vb_; }
   const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }

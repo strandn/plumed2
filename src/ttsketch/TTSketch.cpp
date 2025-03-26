@@ -44,9 +44,9 @@ private:
   int mpi_size_;
   int mpi_rank_;
   bool do_aca_;
-  int memorystride_;
   double vshift_;
   int output_2d_;
+  int max_samples_;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch = *stopwatch_fwd;
 
@@ -92,10 +92,10 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
-  keys.add("optional", "MEMORYSTRIDE", "How often samples are kept in memory");
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
   keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
+  keys.add("optional", "MAX_SAMPLES", "Limits the number of samples kept in memory");
 }
 
 TTSketch::TTSketch(const ActionOptions& ao):
@@ -113,8 +113,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
   mpi_size_(0),
   mpi_rank_(0),
   do_aca_(false),
-  memorystride_(0),
-  vshift_(0.0)
+  vshift_(0.0),
+  max_samples_(numeric_limits<int>::max())
 {
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
@@ -201,14 +201,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   this->conv_ = !noconv;
 
-  parse("MEMORYSTRIDE", this->memorystride_);
-  if(this->memorystride_ == 0) {
-    this->memorystride_ = this->stride_;
-  }
-  if(this->stride_ < 0 || this->stride_ > this->pace_) {
-    error("MEMORYSTRIDE must be positive and no greater than PACE");
-  }
-
   double aca_cutoff = 0.0;
   parse("ACA_CUTOFF", aca_cutoff);
   if(this->do_aca_ && (aca_cutoff < 0.0 || aca_cutoff >= 1.0)) {
@@ -243,6 +235,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("OUTPUT_2D must be nonnegative");
   }
 
+  parse("MAX_SAMPLES", this->max_samples_);
+  if(this->max_samples_ <= 0) {
+    error("MAX_SAMPLES must be positive");
+  }
+
   if(getRestart()) {
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       IFile ifile;
@@ -253,7 +250,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       vector<string> field_list;
       ifile.scanFieldList(field_list);
-      int every = this->memorystride_ / printstride;
 
       vector<double> cv(this->d_);
       vector<Value> tmpvalues;
@@ -273,9 +269,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
             ifile.scanField(&tmpvalues[i]);
             cv[i] = tmpvalues[i].get();
           }
-          if(nsamples % every == 0) {
-            this->samples_.push_back(cv);
-          }
+          this->samples_.push_back(cv);
           while(field_num < field_list.size()) {
             ifile.scanField(field_list[field_num], dummy);
             ++field_num;
@@ -288,6 +282,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       this->count_ = nsamples * printstride / this->pace_ + 1;
       ifile.close();
+      if(this->samples_.size() > this->max_samples_) {
+        this->samples_.erase(this->samples_.begin() + (this->samples_.size() - this->max_samples_), this->samples_.end());
+      }
 
       if(this->do_aca_) {
         for(auto& s : this->samples_) {
@@ -387,11 +384,9 @@ void TTSketch::update() {
           for(unsigned j = 0; j < this->traj_.size() / this->d_; ++j) {
             vector<double> step(all_traj.begin() + i * this->traj_.size() + j * this->d_,
                                 all_traj.begin() + i * this->traj_.size() + (j + 1) * this->d_);
-            if(j % (this->memorystride_ / this->stride_) == 0) {
-              this->samples_.push_back(step);
-            }
+            this->samples_.push_back(step);
             this->lastsamples_.push_back(step);
-            if(this->do_aca_ && j % (this->memorystride_ / this->stride_) == 0) {
+            if(this->do_aca_) {
               this->aca_.addSample(step);
             }
           }
@@ -401,17 +396,21 @@ void TTSketch::update() {
       int count = 0;
       for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
         vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
-        if(count % (this->memorystride_ / this->stride_) == 0) {
-          this->samples_.push_back(step);
-        }
+        this->samples_.push_back(step);
         this->lastsamples_.push_back(step);
-        if(this->do_aca_ && count % (this->memorystride_ / this->stride_) == 0) {
+        if(this->do_aca_) {
           this->aca_.addSample(step);
         }
         ++count;
       }
     }
     this->traj_.clear();
+    if(this->samples_.size() > this->max_samples_) {
+      this->samples_.erase(this->samples_.begin() + (this->samples_.size() - this->max_samples_), this->samples_.end());
+      if(this->do_aca_) {
+        this->aca_.trimSamples(this->max_samples_);
+      }
+    }
   } else {
     nowAddATT = false;
     this->isFirstStep_ = false;
@@ -919,13 +918,14 @@ void TTSketch::update() {
         }
       }
     }
-    stopwatch.stop("Vbias " + to_string(this->count_ - 1));
-    log << stopwatch;
+    stopwatch.stop("Timing " + to_string(this->count_ - 1));
+    log << stopwatch << "\n";
+    log.flush();
   }
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
-    stopwatch.start("Vbias " + to_string(this->count_));
+    stopwatch.start("Timing " + to_string(this->count_));
   }
 }
 
