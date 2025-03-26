@@ -46,7 +46,7 @@ private:
   bool do_aca_;
   double vshift_;
   int output_2d_;
-  int max_samples_;
+  unsigned max_samples_;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch = *stopwatch_fwd;
 
@@ -114,7 +114,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   mpi_rank_(0),
   do_aca_(false),
   vshift_(0.0),
-  max_samples_(numeric_limits<int>::max())
+  max_samples_(numeric_limits<unsigned>::max())
 {
   bool kernel, noconv, aca_noconv, aca_auto_rank;
   parseFlag("NOCONV", noconv);
