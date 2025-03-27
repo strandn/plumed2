@@ -212,9 +212,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("TTCross requires positive ACA_RANK");
   }
   if(this->do_aca_) {
-    int nbins = kernel ? 10 * (nbasis - 1) : 5 * (nbasis - 1);
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
-                         !aca_noconv, !noconv, nbins,
+                         !aca_noconv, !noconv, 5 * (nbasis - 1),
                          this->walkers_mpi_, aca_auto_rank);
   }
 
