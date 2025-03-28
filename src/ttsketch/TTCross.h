@@ -34,7 +34,7 @@ private:
   int mpi_rank_;
   bool auto_rank_;
   OFile* pivot_file_;
-  vector<Value*> args_;
+  std::vector<Value*> args_;
 
 public:
   TTCross();

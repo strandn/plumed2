@@ -140,7 +140,7 @@ void TTCross::continuousACA() {
         this->pivots_.push_back(xy);
         if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
           for(unsigned j = 0; j < this->d_; ++j) {
-            pivot_file_->printField(args[j], xy[j]);
+            pivot_file_->printField(this->args_[j], xy[j]);
           }
           pivot_file_->printField();
         }
