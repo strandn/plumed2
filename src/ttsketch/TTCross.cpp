@@ -134,6 +134,9 @@ void TTCross::continuousACA() {
         break;
       }
       updateIJ(xy);
+      if(find(this->pivots_.begin(), this->pivots_.end(), xy) == this->pivots_.end()) {
+        this->pivots_.push_back(xy);
+      }
       err = err_new;
     }
   }
@@ -210,6 +213,7 @@ void TTCross::approximate(vector<double>& approx) {
 
 void TTCross::updateVb() {
   reset();
+  this->samples_.insert(this->samples_.begin(), this->pivots_.begin(), this->pivots_.end());
   vector<double> A0(this->samples_.size());
   unsigned nt = OpenMP::getNumThreads();
   #pragma omp parallel for num_threads(nt)
@@ -218,6 +222,7 @@ void TTCross::updateVb() {
   }
   *this->log_ << "Starting TT-cross ACA...\n";
   continuousACA();
+  *this->log_ << "Total number of pivots: " << this->pivots_.size() << "\n";
 
   auto sites = SiteSet(this->d_, this->n_);
   vector<Index> l(this->d_ - 1);

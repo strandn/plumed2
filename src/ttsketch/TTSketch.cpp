@@ -283,13 +283,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->count_ = nsamples * printstride / this->pace_ + 1;
       ifile.close();
       if(this->samples_.size() > this->max_samples_) {
-        this->samples_.erase(this->samples_.begin() + (this->samples_.size() - this->max_samples_), this->samples_.end());
+        this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
       }
 
       if(this->do_aca_) {
         for(auto& s : this->samples_) {
           this->aca_.addSample(s);
         }
+        // TODO: read pivots
       }
     }
 
@@ -406,7 +407,7 @@ void TTSketch::update() {
     }
     this->traj_.clear();
     if(this->samples_.size() > this->max_samples_) {
-      this->samples_.erase(this->samples_.begin() + (this->samples_.size() - this->max_samples_), this->samples_.end());
+      this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
       if(this->do_aca_) {
         this->aca_.trimSamples(this->max_samples_);
       }

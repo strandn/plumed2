@@ -29,6 +29,7 @@ private:
   int nbins_;
   std::vector<std::vector<double>> grid_;
   std::vector<std::vector<double>> samples_;
+  std::vector<std::vector<double>> pivots_;
   bool walkers_mpi_;
   bool auto_rank_;
 
@@ -49,7 +50,7 @@ public:
   void writeVb(unsigned count) const;
   void readVb(unsigned count);
   void addSample(std::vector<double>& sample);
-  void trimSamples(int max) { this->samples_.erase(this->samples_.begin() + (this->samples_.size() - max), this->samples_.end()); }
+  void trimSamples(int max) { this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - max)); }
   bool conv() const { return this->conv_; }
   const itensor::MPS& vb() const { return this->vb_; }
   const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }
