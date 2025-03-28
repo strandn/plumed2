@@ -19,13 +19,14 @@ TTCross::TTCross()
 
 TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
                  int maxrank, Log& log, bool conv, bool convg, int nbins,
-                 bool walkers_mpi, bool auto_rank)
+                 bool walkers_mpi, int mpi_rank, bool auto_rank, OFile& pivot_file)
   : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt),
     cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
     I_(vector<vector<vector<double>>>(basis.size())),
     J_(vector<vector<vector<double>>>(basis.size())), log_(&log), conv_(conv),
     convg_(convg), nbins_(nbins), grid_(basis.size(), vector<double>(nbins)),
-    walkers_mpi_(walkers_mpi), auto_rank_(auto_rank)
+    walkers_mpi_(walkers_mpi), mpi_rank_(mpi_rank), auto_rank_(auto_rank),
+    pivot_file_(&pivot_file)
 {
   this->I_[0].push_back(vector<double>());
   this->J_[0].push_back(vector<double>());
@@ -136,6 +137,12 @@ void TTCross::continuousACA() {
       updateIJ(xy);
       if(find(this->pivots_.begin(), this->pivots_.end(), xy) == this->pivots_.end()) {
         this->pivots_.push_back(xy);
+        if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+          for(unsigned j = 0; j < this->d_; ++j) {
+            pivot_file_->printField(getPntrToArgument(j), xy[j]);
+          }
+          pivot_file_->printField();
+        }
       }
       err = err_new;
     }

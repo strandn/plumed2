@@ -31,13 +31,15 @@ private:
   std::vector<std::vector<double>> samples_;
   std::vector<std::vector<double>> pivots_;
   bool walkers_mpi_;
+  int mpi_rank_;
   bool auto_rank_;
+  OFile* pivot_file_;
 
 public:
   TTCross();
   TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
           int maxrank, Log& log, bool conv, bool convg, int nbins,
-          bool walkers_mpi, bool auto_rank);
+          bool walkers_mpi, int mpi_rank, bool auto_rank, OFile& pivot_file);
   double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
   std::pair<double, int> diagACA(const std::vector<double>& Rk, std::vector<std::vector<double>>& u, std::vector<std::vector<double>>& v) const;
@@ -55,6 +57,7 @@ public:
   const itensor::MPS& vb() const { return this->vb_; }
   const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }
   void approximate(std::vector<double>& approx);
+  void addPivot(std::vector<double>& pivot) { this->pivots_.push_back(pivot); }
 };
 
 }

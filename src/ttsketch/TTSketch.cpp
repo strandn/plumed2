@@ -47,6 +47,7 @@ private:
   double vshift_;
   int output_2d_;
   unsigned max_samples_;
+  OFile pivot_file_;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch = *stopwatch_fwd;
 
@@ -211,10 +212,21 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && aca_rank <= 0) {
     error("TTCross requires positive ACA_RANK");
   }
+
   if(this->do_aca_) {
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      this->pivot_file_.link(*this);
+      this->pivot_file_.enforceSuffix("");
+      this->pivot_file_.open("pivots.dat");
+      this->pivot_file_.setHeavyFlush();
+      for(unsigned i = 0; i < this->d_; ++i) {
+        this->pivot_file_.setupPrintValue(getPntrToArgument(i));
+      }
+    }
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
                          !aca_noconv, !noconv, 5 * (nbasis - 1),
-                         this->walkers_mpi_, aca_auto_rank);
+                         this->walkers_mpi_, this->mpi_rank_, aca_auto_rank,
+                         pivot_file_);
   }
 
   string filename = "COLVAR";
@@ -286,11 +298,31 @@ TTSketch::TTSketch(const ActionOptions& ao):
         this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
       }
 
-      if(this->do_aca_) {
+      if(this->do_aca_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
         for(auto& s : this->samples_) {
           this->aca_.addSample(s);
         }
-        // TODO: read pivots
+        IFile pivot_ifile;
+        if(pivot_ifile.FileExist("pivots.dat")) {
+          pivot_ifile.open("pivots.dat");
+        } else {
+          error("The file pivots.dat cannot be found!");
+        }
+        bool done = false;
+        while(!done) {
+          vector<double> cv;
+          vector<Value> tmpvalues;
+          for(unsigned i = 0; i < this->d_; ++i) {
+            if(!ifile.scanField(&tmpvalues[i])) {
+              done = true;
+              break;
+            }
+            cv[i] = tmpvalues[i].get();
+          }
+          this->aca_.addPivot(cv);
+          ifile.scanField();
+          ++nsamples;
+        }
       }
     }
 
