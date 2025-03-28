@@ -41,7 +41,7 @@ public:
   TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
           int maxrank, Log& log, bool conv, bool convg, int nbins,
           bool walkers_mpi, int mpi_rank, bool auto_rank, OFile& pivot_file,
-          vector<Value*>& args);
+          std::vector<Value*>& args);
   double f(const std::vector<double>& x) const;
   void updateIJ(const std::vector<double>& ij);
   std::pair<double, int> diagACA(const std::vector<double>& Rk, std::vector<std::vector<double>>& u, std::vector<std::vector<double>>& v) const;
