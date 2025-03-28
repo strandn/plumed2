@@ -214,6 +214,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
 
   if(this->do_aca_) {
+    vector<Value*> args(this->d_);
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       this->pivot_file_.link(*this);
       this->pivot_file_.enforceSuffix("");
@@ -221,12 +222,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->pivot_file_.setHeavyFlush();
       for(unsigned i = 0; i < this->d_; ++i) {
         this->pivot_file_.setupPrintValue(getPntrToArgument(i));
+        args[i] = getPntrToArgument(i);
       }
     }
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
                          !aca_noconv, !noconv, 5 * (nbasis - 1),
                          this->walkers_mpi_, this->mpi_rank_, aca_auto_rank,
-                         pivot_file_);
+                         this->pivot_file_, args);
   }
 
   string filename = "COLVAR";
