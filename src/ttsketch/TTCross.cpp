@@ -352,7 +352,7 @@ void TTCross::updateVb() {
   this->log_->flush();
 }
 
-pair<double, vector<double>> TTCross::vtop() const {
+pair<double, vector<double>> TTCross::vtop() {
   this->samples_.insert(this->samples_.begin(), this->pivots_.begin(), this->pivots_.end());
   double max = 0.0;
   vector<double> topsample;

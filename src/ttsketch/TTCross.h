@@ -49,7 +49,7 @@ public:
   void updateG(const itensor::MPS& G) { this->G_ = &G; }
   void updateVshift(double vshift) { this->vshift_ = vshift; }
   void updateVb();
-  std::pair<double, std::vector<double>> vtop() const;
+  std::pair<double, std::vector<double>> vtop();
   void reset();
   void writeVb(unsigned count) const;
   void readVb(unsigned count);
