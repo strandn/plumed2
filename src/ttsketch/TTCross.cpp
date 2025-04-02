@@ -221,7 +221,6 @@ void TTCross::approximate(vector<double>& approx) {
 
 void TTCross::updateVb() {
   reset();
-  this->samples_.insert(this->samples_.begin(), this->pivots_.begin(), this->pivots_.end());
   vector<double> A0(this->samples_.size());
   unsigned nt = OpenMP::getNumThreads();
   #pragma omp parallel for num_threads(nt)
@@ -354,6 +353,7 @@ void TTCross::updateVb() {
 }
 
 pair<double, vector<double>> TTCross::vtop() const {
+  this->samples_.insert(this->samples_.begin(), this->pivots_.begin(), this->pivots_.end());
   double max = 0.0;
   vector<double> topsample;
   for(auto& s : this->samples_) {
