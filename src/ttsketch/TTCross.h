@@ -60,6 +60,7 @@ public:
   const std::vector<std::vector<double>>& aca_samples() { return this->samples_; }
   void approximate(std::vector<double>& approx);
   void addPivot(std::vector<double>& pivot) { this->pivots_.push_back(pivot); }
+  void prependPivots() { this->samples_.insert(this->samples_.begin(), this->pivots_.begin(), this->pivots_.end()); }
 };
 
 }

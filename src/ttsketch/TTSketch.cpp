@@ -221,8 +221,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->pivot_file_.open("pivots.dat");
       this->pivot_file_.setHeavyFlush();
       for(unsigned i = 0; i < this->d_; ++i) {
-        this->pivot_file_.setupPrintValue(getPntrToArgument(i));
         args[i] = getPntrToArgument(i);
+        this->pivot_file_.setupPrintValue(args[i]);
       }
     }
     this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
@@ -255,6 +255,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
 
   if(getRestart()) {
+    int npivots = 0;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       IFile ifile;
       if(ifile.FileExist(filename)) {
@@ -300,7 +301,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
         this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
       }
 
-      if(this->do_aca_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
+      if(this->do_aca_) {
         for(auto& s : this->samples_) {
           this->aca_.addSample(s);
         }
@@ -311,7 +312,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
           error("The file pivots.dat cannot be found!");
         }
         bool done = false;
-        while(!done) {
+        while(true) {
           vector<double> cv;
           vector<Value> tmpvalues;
           for(unsigned i = 0; i < this->d_; ++i) {
@@ -321,9 +322,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
             }
             cv[i] = tmpvalues[i].get();
           }
+          if(done) {
+            break;
+          }
           this->aca_.addPivot(cv);
           ifile.scanField();
-          ++nsamples;
+          ++npivots;
         }
       }
     }
@@ -362,6 +366,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       if(this->do_aca_) {
+        this->aca_.prependPivots();
         double vpeak = 0.0;
         for(auto& s : this->aca_.aca_samples()) {
           double bias = getBias(s);
@@ -388,6 +393,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
+      if(this->do_aca_) {
+        log << "  " << npivots << " pivots retrieved\n";
+      }
     }
   }
 }

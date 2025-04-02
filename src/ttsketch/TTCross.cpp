@@ -353,7 +353,7 @@ void TTCross::updateVb() {
 }
 
 pair<double, vector<double>> TTCross::vtop() {
-  this->samples_.insert(this->samples_.begin(), this->pivots_.begin(), this->pivots_.end());
+  prependPivots();
   double max = 0.0;
   vector<double> topsample;
   for(auto& s : this->samples_) {
