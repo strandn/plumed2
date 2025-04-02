@@ -295,7 +295,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
         ++nsamples;
       }
-      this->count_ = nsamples * printstride / this->pace_ + 1;
+      int adjpace = this->walkers_mpi_ ? this->pace_ * this->mpi_size_ : this->pace_;
+      this->count_ = nsamples * printstride / adjpace + 1;
       ifile.close();
       if(this->samples_.size() > this->max_samples_) {
         this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
