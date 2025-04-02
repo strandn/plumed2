@@ -444,6 +444,7 @@ void TTSketch::update() {
       this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
       if(this->do_aca_) {
         this->aca_.trimSamples(this->max_samples_);
+        this->samples_.insert(this->samples_.begin(), this->aca_.pivots().begin(), this->aca_.pivots().end());
       }
     }
   } else {
