@@ -273,7 +273,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       } else {
         break;
       }
-      for(int i = 0; i <= this->pace_ / this->stride_) {
+      for(int i = 0; i <= this->pace_ / this->stride_; ++i) {
         vector<double> cv;
         vector<Value> tmpvalues;
         for(unsigned j = 0; j < this->d_; ++j) {
@@ -486,10 +486,10 @@ void TTSketch::update() {
   }
   if(getStep() % this->stride_ == 0) {
     this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
-    for(int j = 0; j < this->d_; ++j) {
-      this->samplesOfile_->printField(getPntrToArgument(j), cv[j]);
+    for(unsigned j = 0; j < this->d_; ++j) {
+      this->samplesOfile_.printField(getPntrToArgument(j), cv[j]);
     }
-    this->samplesOfile_->printField();
+    this->samplesOfile_.printField();
   }
 
   if(nowAddATT) {
