@@ -444,6 +444,7 @@ void TTSketch::update() {
     }
   }
   if(getStep() % this->pace_ == 0 && !this->isFirstStep_) {
+    this->samplesOfile_.close();
     nowAddATT = true;
     if(this->walkers_mpi_) {
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
