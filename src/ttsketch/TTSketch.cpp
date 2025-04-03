@@ -259,8 +259,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->walkers_mpi_) {
     this->samplesfname_ += "." + to_string(this->mpi_rank_);
   }
-  this->samplesOfile_.link(*this);
-  this->samplesOfile_.enforceSuffix("");
 
   if(getRestart()) {
     int npivots = 0;
@@ -437,9 +435,8 @@ void TTSketch::calculate() {
 void TTSketch::update() {
   bool nowAddATT;
   if(getStep() % this->pace_ == 0) {
-    if(!this->isFirstStep_) {
-      this->samplesOfile_.close();
-    }
+    this->samplesOfile_.link(*this);
+    this->samplesOfile_.enforceSuffix("");
     this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
     this->samplesOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
