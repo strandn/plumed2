@@ -232,9 +232,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
     }
     this->aca_ = TTCross(this->aca_basis_, this->basis_, getkBT(), aca_cutoff,
-                         aca_rank, log, !noconv, 5 * (nbasis - 1),
-                         this->walkers_mpi_, this->mpi_rank_, aca_auto_rank,
-                         this->pivot_file_, args);
+                         aca_rank, log, !aca_noconv, !noconv,
+                         5 * (nbasis - 1), this->walkers_mpi_,
+                         this->mpi_rank_, aca_auto_rank, this->pivot_file_,
+                         args);
   }
 
   string filename = "COLVAR";
