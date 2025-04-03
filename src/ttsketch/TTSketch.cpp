@@ -436,6 +436,13 @@ void TTSketch::calculate() {
 
 void TTSketch::update() {
   bool nowAddATT;
+  if(getStep() % this->pace_ == 0) {
+    this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
+    this->samplesOfile_.setHeavyFlush();
+    for(unsigned i = 0; i < this->d_; ++i) {
+      this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
+    }
+  }
   if(getStep() % this->pace_ == 0 && !this->isFirstStep_) {
     nowAddATT = true;
     if(this->walkers_mpi_) {
@@ -989,11 +996,6 @@ void TTSketch::update() {
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
-    this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
-    this->samplesOfile_.setHeavyFlush();
-    for(unsigned i = 0; i < this->d_; ++i) {
-      this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
-    }
     stopwatch.start("Timing " + to_string(this->count_));
   }
 }
