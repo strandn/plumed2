@@ -125,7 +125,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parseFlag("DO_ACA", this->do_aca_);
   parseFlag("ACA_NOCONV", aca_noconv);
-  parseFlag("ACA_KERNEL_BASIS", aca_noconv);
+  parseFlag("ACA_KERNEL_BASIS", aca_kernel);
   parseFlag("ACA_AUTO_RANK", aca_auto_rank);
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
