@@ -437,6 +437,9 @@ void TTSketch::calculate() {
 void TTSketch::update() {
   bool nowAddATT;
   if(getStep() % this->pace_ == 0) {
+    if(!this->isFirstStep_) {
+      this->samplesOfile_.close();
+    }
     this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
     this->samplesOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
@@ -444,7 +447,6 @@ void TTSketch::update() {
     }
   }
   if(getStep() % this->pace_ == 0 && !this->isFirstStep_) {
-    this->samplesOfile_.close();
     nowAddATT = true;
     if(this->walkers_mpi_) {
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
