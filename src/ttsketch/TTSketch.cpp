@@ -310,7 +310,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
           }
         }
       } else {
-        int count = 0;
         for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
           vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
           this->samples_.push_back(step);
@@ -318,7 +317,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
           if(this->do_aca_) {
             this->aca_.addSample(step);
           }
-          ++count;
         }
       }
       this->traj_.clear();
@@ -328,7 +326,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
           this->aca_.trimSamples(this->max_samples_);
         }
       }
-      this->count++;
+      this->count_++;
     }
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       if(this->do_aca_) {
@@ -457,7 +455,6 @@ void TTSketch::update() {
         }
       }
     } else {
-      int count = 0;
       for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
         vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
         this->samples_.push_back(step);
@@ -465,7 +462,6 @@ void TTSketch::update() {
         if(this->do_aca_) {
           this->aca_.addSample(step);
         }
-        ++count;
       }
     }
     this->traj_.clear();
