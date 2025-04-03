@@ -51,6 +51,8 @@ private:
   OFile pivot_file_;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch = *stopwatch_fwd;
+  string samplesfname_;
+  OFile samplesOfile_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -94,7 +96,6 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "BIASFACTOR", "For well-tempering");
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
-  keys.add("optional", "PRINTSTRIDE", "How often samples are outputted to file");
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
   keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
@@ -238,14 +239,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
                          args);
   }
 
-  string filename = "COLVAR";
-  parse("FILE", filename);
-  int printstride = 100;
-  parse("PRINTSTRIDE", printstride);
-  if(printstride <= 0 || printstride > this->pace_) {
-    error("PRINTSTRIDE must be positive and no greater than PACE");
-  }
-
   if(this->walkers_mpi_) {
     this->mpi_size_ = multi_sim_comm.Get_size();
     this->mpi_rank_ = multi_sim_comm.Get_rank();
@@ -261,58 +254,84 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("MAX_SAMPLES must be positive");
   }
 
+  this->samplesfname_ = "SAMPLES";
+  parse("FILE", this->samplesfname_);
+  if(this->walkers_mpi_) {
+    this->samplesfname_ += "." + to_string(this->mpi_rank_);
+  }
+  this->samplesOfile_.link(*this);
+  this->samplesOfile_.enforceSuffix("");
+
   if(getRestart()) {
     int npivots = 0;
-    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      IFile ifile;
-      if(ifile.FileExist(filename)) {
-        ifile.open(filename);
+    IFile samples_ifile;
+    bool done = false;
+    while(true) {
+      string filename = this->samplesfname_ + "." + to_string(this->count_ - 1);
+      if(samples_ifile.FileExist(filename)) {
+        samples_ifile.open(filename);
       } else {
-        error("The file " + filename + " cannot be found!");
+        break;
       }
-      vector<string> field_list;
-      ifile.scanFieldList(field_list);
-
-      vector<double> cv(this->d_);
-      vector<Value> tmpvalues;
-      int nsamples = 0;
-      for(unsigned i = 0; i < this->d_; ++i) {
-        tmpvalues.push_back(Value(this, getPntrToArgument(i)->getName(), false));
-      }
-      while(true) {
-        double dummy;
-        if(ifile.scanField("time", dummy)) {
-          unsigned field_num = 1;
-          for(unsigned i = 0; i < this->d_; ++i) {
-            while(field_list[field_num] != tmpvalues[i].getName()) {
-              ifile.scanField(field_list[field_num], dummy);
-              ++field_num;
-            }
-            ifile.scanField(&tmpvalues[i]);
-            cv[i] = tmpvalues[i].get();
+      for(int i = 0; i <= this->pace_ / this->stride_) {
+        vector<double> cv;
+        vector<Value> tmpvalues;
+        for(unsigned j = 0; j < this->d_; ++j) {
+          if(!samples_ifile.scanField(&tmpvalues[j])) {
+            done = true;
+            break;
           }
-          this->samples_.push_back(cv);
-          while(field_num < field_list.size()) {
-            ifile.scanField(field_list[field_num], dummy);
-            ++field_num;
-          }
-          ifile.scanField();
-        } else {
+          cv[j] = tmpvalues[j].get();
+        }
+        if(done) {
           break;
         }
-        ++nsamples;
+        this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
+        samples_ifile.scanField();
       }
-      int adjpace = this->walkers_mpi_ ? this->pace_ * this->mpi_size_ : this->pace_;
-      this->count_ = nsamples * printstride / adjpace + 1;
-      ifile.close();
+      samples_ifile.close();
+      if(done) {
+        break;
+      }
+      if(this->walkers_mpi_) {
+        vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
+        multi_sim_comm.Allgather(this->traj_, all_traj);
+        if(this->mpi_rank_ == 0) {
+          for(int i = 0; i < this->mpi_size_; ++i) {
+            for(unsigned j = 0; j < this->traj_.size() / this->d_; ++j) {
+              vector<double> step(all_traj.begin() + i * this->traj_.size() + j * this->d_,
+                                  all_traj.begin() + i * this->traj_.size() + (j + 1) * this->d_);
+              this->samples_.push_back(step);
+              this->lastsamples_.push_back(step);
+              if(this->do_aca_) {
+                this->aca_.addSample(step);
+              }
+            }
+          }
+        }
+      } else {
+        int count = 0;
+        for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
+          vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
+          this->samples_.push_back(step);
+          this->lastsamples_.push_back(step);
+          if(this->do_aca_) {
+            this->aca_.addSample(step);
+          }
+          ++count;
+        }
+      }
+      this->traj_.clear();
       if(this->samples_.size() > this->max_samples_) {
         this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
-      }
-
-      if(this->do_aca_) {
-        for(auto& s : this->samples_) {
-          this->aca_.addSample(s);
+        if(this->do_aca_) {
+          this->aca_.trimSamples(this->max_samples_);
         }
+      }
+      this->count++;
+    }
+    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      if(this->do_aca_) {
         IFile pivot_ifile;
         if(pivot_ifile.FileExist("pivots.dat")) {
           pivot_ifile.open("pivots.dat");
@@ -324,7 +343,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
           vector<double> cv;
           vector<Value> tmpvalues;
           for(unsigned i = 0; i < this->d_; ++i) {
-            if(!ifile.scanField(&tmpvalues[i])) {
+            if(!pivot_ifile.scanField(&tmpvalues[i])) {
               done = true;
               break;
             }
@@ -334,9 +353,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
             break;
           }
           this->aca_.addPivot(cv);
-          ifile.scanField();
+          pivot_ifile.scanField();
           ++npivots;
         }
+        pivot_ifile.close();
       }
     }
 
@@ -349,40 +369,33 @@ TTSketch::TTSketch(const ActionOptions& ao):
       ttfilename = "../" + ttfilename;
     }
     for(unsigned i = 2; i <= this->count_; ++i) {
-      try {
-        this->ttList_.push_back(ttRead(ttfilename, i));
-      } catch(...) {
-        this->count_ = i - 1;
-        if(this->walkers_mpi_) {
-          multi_sim_comm.Bcast(this->count_, 0);
-        }
-        break;
-      }
+      // try {
+      //   this->ttList_.push_back(ttRead(ttfilename, i));
+      // } catch(...) {
+      //   this->count_ = i - 1;
+      //   if(this->walkers_mpi_) {
+      //     multi_sim_comm.Bcast(this->count_, 0);
+      //   }
+      //   break;
+      // }
+      this->ttList_.push_back(ttRead(ttfilename, i));
     }
     if(this->do_aca_) {
-      try {
-        this->aca_.readVb(this->count_);
-      } catch(...) {
-        --this->count_;
-        if(this->walkers_mpi_) {
-          multi_sim_comm.Bcast(this->count_, 0);
-        }
-        this->ttList_.pop_back();
-        this->aca_.readVb(this->count_);
-      }
+      // try {
+      //   this->aca_.readVb(this->count_);
+      // } catch(...) {
+      //   --this->count_;
+      //   if(this->walkers_mpi_) {
+      //     multi_sim_comm.Bcast(this->count_, 0);
+      //   }
+      //   this->ttList_.pop_back();
+      //   this->aca_.readVb(this->count_);
+      // }
+      this->aca_.readVb(this->count_);
     }
 
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      if(this->do_aca_) {
-        this->aca_.prependPivots();
-        double vpeak = 0.0;
-        for(auto& s : this->aca_.aca_samples()) {
-          double bias = getBias(s);
-          if(bias > vpeak) {
-            vpeak = bias;
-          }
-        }
-      } else {
+      if(!this->do_aca_) {
         double vpeak = 0.0;
         for(auto& s : this->samples_) {
           double bias = getBias(s);
@@ -473,6 +486,10 @@ void TTSketch::update() {
   }
   if(getStep() % this->stride_ == 0) {
     this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
+    for(int j = 0; j < this->d_; ++j) {
+      this->samplesOfile_->printField(getPntrToArgument(j), cv[j]);
+    }
+    this->samplesOfile_->printField();
   }
 
   if(nowAddATT) {
@@ -976,6 +993,11 @@ void TTSketch::update() {
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
+    this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
+    this->samplesOfile_.setHeavyFlush();
+    for(unsigned i = 0; i < this->d_; ++i) {
+      this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
+    }
     stopwatch.start("Timing " + to_string(this->count_));
   }
 }

@@ -138,12 +138,12 @@ void TTCross::continuousACA() {
       }
       updateIJ(xy);
       if(find(this->pivots_.begin(), this->pivots_.end(), xy) == this->pivots_.end()) {
-        this->pivots_.push_back(xy);
+        addPivot(xy);
         if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
           for(int j = 0; j < this->d_; ++j) {
-            pivot_file_->printField(this->args_[j], xy[j]);
+            this->pivot_file_->printField(this->args_[j], xy[j]);
           }
-          pivot_file_->printField();
+          this->pivot_file_->printField();
         }
       }
       err = err_new;
