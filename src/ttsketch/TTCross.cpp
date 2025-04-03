@@ -17,11 +17,12 @@ TTCross::TTCross()
     vshift_(0.0), log_(nullptr), conv_(true), convg_(true),
     walkers_mpi_(false), auto_rank_(false) { }
 
-TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
+TTCross::TTCross(const vector<BasisFunc>& basis,
+                 const vector<BasisFunc>& basisg, double kbt, double cutoff,
                  int maxrank, Log& log, bool conv, bool convg, int nbins,
                  bool walkers_mpi, int mpi_rank, bool auto_rank, OFile& pivot_file,
                  vector<Value*>& args)
-  : G_(nullptr), basis_(basis), n_(basis[0].nbasis()), kbt_(kbt),
+  : G_(nullptr), basis_(basis), basisg_(basisg), n_(basis[0].nbasis()), kbt_(kbt),
     cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
     I_(vector<vector<vector<double>>>(basis.size())),
     J_(vector<vector<vector<double>>>(basis.size())), log_(&log), conv_(conv),
@@ -42,10 +43,10 @@ TTCross::TTCross(const vector<BasisFunc>& basis, double kbt, double cutoff,
 double TTCross::f(const vector<double>& x) const {
   double result = 0.0;
   if(this->vb_.length() == 0) {
-    result = this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x, this->convg_), 1.0));
+    result = this->kbt_ * log(max(ttEval(*this->G_, this->basisg_, x, this->convg_), 1.0));
   } else {
     result = max(max(ttEval(this->vb_, this->basis_, x, this->conv_), 0.0) +
-                 this->kbt_ * log(max(ttEval(*this->G_, this->basis_, x,
+                 this->kbt_ * log(max(ttEval(*this->G_, this->basisg_, x,
                  this->convg_), 1.0)) - this->vshift_, 0.0);
   }
   return result;

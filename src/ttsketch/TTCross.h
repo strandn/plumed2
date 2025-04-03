@@ -13,6 +13,7 @@ private:
   itensor::MPS vb_;
   const itensor::MPS* G_;
   std::vector<BasisFunc> basis_;
+  std::vector<BasisFunc> basisg_;
   int n_;
   double kbt_;
   double cutoff_;
@@ -38,7 +39,8 @@ private:
 
 public:
   TTCross();
-  TTCross(const std::vector<BasisFunc>& basis, double kbt, double cutoff,
+  TTCross(const std::vector<BasisFunc>& basis,
+          const std::vector<BasisFunc>& basisg, double kbt, double cutoff,
           int maxrank, Log& log, bool conv, bool convg, int nbins,
           bool walkers_mpi, int mpi_rank, bool auto_rank, OFile& pivot_file,
           std::vector<Value*>& args);

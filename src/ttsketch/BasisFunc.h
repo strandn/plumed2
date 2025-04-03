@@ -23,7 +23,7 @@ private:
 
 public:
   BasisFunc();
-  BasisFunc(std::pair<double, double> dom, int nbasis, bool conv, double w, bool kernel);
+  BasisFunc(std::pair<double, double> dom, int nbasis, double w, bool kernel);
   double fourier(double x, int pos) const;
   double gaussian(double x, int pos) const;
   double fourierd(double x, int pos) const;

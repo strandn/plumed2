@@ -30,6 +30,7 @@ private:
   vector<MPS> ttList_;
   TTCross aca_;
   vector<BasisFunc> basis_;
+  vector<BasisFunc> aca_basis_;
   vector<vector<double>> samples_;
   vector<vector<double>> lastsamples_;
   vector<double> traj_;
@@ -74,7 +75,8 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.addFlag("KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis");
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.addFlag("DO_ACA", false, "Approximate Vbias not as explicit sum but rather as TTCross approximation");
-  keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
+  keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross functions and gradients should not be smoothed via Gaussian kernels whenever evaluated");
+  keys.addFlag("ACA_KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis for TTCross functions");
   keys.addFlag("ACA_AUTO_RANK", false, "Specifies that during TTCross, an optimal rank will be chosen based on error analysis");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
@@ -117,12 +119,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   max_samples_(numeric_limits<unsigned>::max())
 {
-  bool kernel, noconv, aca_noconv, aca_auto_rank;
+  bool noconv, kernel, aca_noconv, aca_kernel, aca_auto_rank;
   parseFlag("NOCONV", noconv);
   parseFlag("KERNEL_BASIS", kernel);
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parseFlag("DO_ACA", this->do_aca_);
   parseFlag("ACA_NOCONV", aca_noconv);
+  parseFlag("ACA_KERNEL_BASIS", aca_noconv);
   parseFlag("ACA_AUTO_RANK", aca_auto_rank);
   this->d_ = getNumberOfArguments();
   if(this->d_ < 2) {
@@ -175,7 +178,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("NBASIS must be greater than 1");
   }
-  if(!kernel && nbasis % 2 == 0) {
+  if(nbasis % 2 == 0) {
     ++nbasis;
   }
   parse("ALPHA", this->alpha_);
@@ -198,7 +201,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
     double width = noconv ? 0.0 : w[i];
-    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, !noconv, width, kernel));
+    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, width, kernel));
+    if(this->do_aca_) {
+      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, width, aca_kernel));
+    }
   }
   this->conv_ = !noconv;
 
@@ -225,8 +231,8 @@ TTSketch::TTSketch(const ActionOptions& ao):
         this->pivot_file_.setupPrintValue(args[i]);
       }
     }
-    this->aca_ = TTCross(this->basis_, getkBT(), aca_cutoff, aca_rank, log,
-                         !aca_noconv, !noconv, 5 * (nbasis - 1),
+    this->aca_ = TTCross(this->aca_basis_, this->basis_, getkBT(), aca_cutoff,
+                         aca_rank, log, !noconv, 5 * (nbasis - 1),
                          this->walkers_mpi_, this->mpi_rank_, aca_auto_rank,
                          this->pivot_file_, args);
   }
@@ -979,7 +985,7 @@ double TTSketch::getBiasAndDerivatives(const vector<double>& cv, vector<double>&
     return 0.0;
   }
   if(this->do_aca_) {
-    der = ttGrad(this->aca_.vb(), this->basis_, cv, this->aca_.conv());
+    der = ttGrad(this->aca_.vb(), this->aca_basis_, cv, this->aca_.conv());
   } else {
     for(auto& tt : this->ttList_) {
       double rho = ttEval(tt, this->basis_, cv, this->conv_);
@@ -998,7 +1004,7 @@ double TTSketch::getBias(const vector<double>& cv) {
     if(length(this->aca_.vb()) == 0) {
       return 0.0;
     }
-    return max(ttEval(this->aca_.vb(), this->basis_, cv, this->aca_.conv()), 0.0);
+    return max(ttEval(this->aca_.vb(), this->aca_basis_, cv, this->aca_.conv()), 0.0);
   } else {
     double bias = 0.0;
     for(auto& tt : this->ttList_) {

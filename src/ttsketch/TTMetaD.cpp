@@ -196,7 +196,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, false, 0.0, kernel));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, 0.0, kernel));
   }
   if(this->walkers_mpi_) {
     this->mpi_size_ = multi_sim_comm.Get_size();
