@@ -219,6 +219,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   }
   vector<double> aca_w(this->d_, 0.0);
   parseVector("ACA_WIDTH", aca_w);
+  cout << aca_w.size() << endl;
   if(aca_w.size() != this->d_) {
     error("Number of arguments does not match number of ACA_WIDTH parameters");
   }
