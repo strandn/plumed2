@@ -979,41 +979,25 @@ void TTSketch::update() {
   }
 
   if(getStep() % this->pace_ == 0) {
-    if(!this->isFirstStep_) {
-      this->samplesOfile_.flush();
-      this->samplesOfile_.close();
-      // if(this->mpi_rank_ == 0) {
-      //   cout << 1 << " " << getStep() << " " << this->count_ << endl;
-      // }
-    }
-    this->samplesOfile_.link(*this);
-    this->samplesOfile_.enforceSuffix("");
-    this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
-    // if(!this->samplesOfile_.isOpen()) {
-    //   plumed_merror("Failed to open samplesOfile: " + this->samplesfname_ + "." + to_string(this->count_ - 1));
+    // if(!this->isFirstStep_) {
+    //   this->samplesOfile_.flush();
+    //   this->samplesOfile_.close();
     // }
+    // this->samplesOfile_.link(*this);
+    // this->samplesOfile_.enforceSuffix("");
+    this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
     this->samplesOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
       this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
     }
-    // if(this->mpi_rank_ == 0) {
-    //   cout << 2 << " " << getStep() << " " << this->count_ << endl;
-    // }
-    // this->samplesOfile_.printField();
   }
 
   if(getStep() % this->stride_ == 0) {
     this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
-    // if(!this->samplesOfile_.isOpen()) {
-    //   plumed_merror("samplesOfile_ is not open at step " + std::to_string(getStep()));
-    // }
     for(unsigned j = 0; j < this->d_; ++j) {
       this->samplesOfile_.printField(getPntrToArgument(j), cv[j]);
     }
     this->samplesOfile_.printField();
-    // if(this->mpi_rank_ == 0) {
-    //   cout << 3 << " " << getStep() << " " << this->count_ << endl;
-    // }
   }
 
   if(getStep() % this->pace_ == 1) {
