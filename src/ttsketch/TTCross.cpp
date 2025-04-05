@@ -126,14 +126,14 @@ void TTCross::continuousACA() {
       }
       *this->log_ << ")\n";
       this->log_->flush();
-      if(res_new < 1.0e-10) {
+      if(res_new < 1.0e-10 || err_new > 1.0) {
         break;
       }
       if(this->auto_rank_) {
         if(err_new > err) {
           break;
         }
-      } else if(res_new / this->resfirst_[i] < this->cutoff_) {
+      } else if(err_new < this->cutoff_) {
         break;
       }
       updateIJ(xy);

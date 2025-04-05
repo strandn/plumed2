@@ -985,8 +985,8 @@ void TTSketch::update() {
     //   this->samplesOfile_.flush();
     //   this->samplesOfile_.close();
     // }
-    // this->samplesOfile_.link(*this);
-    // this->samplesOfile_.enforceSuffix("");
+    this->samplesOfile_.link(*this);
+    this->samplesOfile_.enforceSuffix("");
     this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
     this->samplesOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
