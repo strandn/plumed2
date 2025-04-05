@@ -205,9 +205,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
     this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel));
-    if(this->do_aca_) {
-      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, width, aca_kernel));
-    }
   }
 
   double aca_cutoff = 0.0;
@@ -229,6 +226,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
   for (double val : aca_w) {
     if (val != 0.0) {
       aca_conv = true;
+    }
+  }
+  if(this->do_aca_) {
+    for(unsigned i = 0; i < this->d_; ++i) {
+      if(aca_conv && aca_w[i] <= 0.0) {
+        error("Gaussian smoothing requires positive ACA_WIDTH");
+      }
+      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, aca_w[i], aca_kernel));
     }
   }
 
