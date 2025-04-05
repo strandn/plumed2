@@ -217,7 +217,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && aca_rank <= 0) {
     error("TTCross requires positive ACA_RANK");
   }
-  vector<double> aca_w = w;
+  vector<double> aca_w(this->d_, 0.0);
   parseVector("ACA_WIDTH", aca_w);
   if(aca_w.size() != this->d_) {
     error("Number of arguments does not match number of ACA_WIDTH parameters");
