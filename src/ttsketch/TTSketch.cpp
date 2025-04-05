@@ -288,6 +288,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
     IFile samples_ifile;
     bool done = false;
     this->count_ = 0;
+    vector<double> cv(this->d_, 0.0);
+    vector<Value> tmpvalues;
+    for(unsigned j = 0; j < this->d_; ++j) {
+      tmpvalues.push_back(Value(this, getPntrToArgument(j)->getName(), false));
+    }
     while(true) {
       string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
@@ -295,9 +300,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       } else {
         break;
       }
-      for(int i = 0; i <= this->pace_ / this->stride_; ++i) {
-        vector<double> cv;
-        vector<Value> tmpvalues;
+      for(int i = 0; i < this->pace_ / this->stride_; ++i) {
         for(unsigned j = 0; j < this->d_; ++j) {
           if(!samples_ifile.scanField(&tmpvalues[j])) {
             done = true;
@@ -373,8 +376,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
         bool done = false;
         while(true) {
-          vector<double> cv;
-          vector<Value> tmpvalues;
           for(unsigned i = 0; i < this->d_; ++i) {
             if(!pivot_ifile.scanField(&tmpvalues[i])) {
               done = true;
