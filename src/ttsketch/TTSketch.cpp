@@ -144,8 +144,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
   } else if(this->vmax_ != numeric_limits<double>::max()) {
     this->vmax_ *= this->kbt_;
   }
-  vector<double> w(this->d_, 0.0);
+  vector<double> w;
   parseVector("WIDTH", w);
+  if(w.size() == 0) {
+    w.resize(this->d_, 0.0);
+  }
   if(w.size() != this->d_) {
     error("Number of arguments does not match number of WIDTH parameters");
   }
@@ -217,9 +220,11 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && aca_rank <= 0) {
     error("TTCross requires positive ACA_RANK");
   }
-  vector<double> aca_w(this->d_, 0.0);
+  vector<double> aca_w;
   parseVector("ACA_WIDTH", aca_w);
-  cout << aca_w.size() << endl;
+  if(aca_w.size() == 0) {
+    aca_w.resize(this->d_, 0.0);
+  }
   if(aca_w.size() != this->d_) {
     error("Number of arguments does not match number of ACA_WIDTH parameters");
   }
