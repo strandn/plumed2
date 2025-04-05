@@ -289,7 +289,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     bool done = false;
     this->count_ = 0;
     while(true) {
-      string filename = this->samplesfname_ + "." + to_string(this->count_ - 1);
+      string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
         samples_ifile.open(filename);
       } else {
