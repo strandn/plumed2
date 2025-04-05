@@ -369,7 +369,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
         if(pivot_ifile.FileExist("pivots.dat")) {
           pivot_ifile.open("pivots.dat");
         } else {
-          error("The file pivots.dat cannot be found!");
+          error("The file pivots.dat cannot be found");
         }
         bool done = false;
         while(true) {
