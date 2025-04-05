@@ -294,6 +294,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       tmpvalues.push_back(Value(this, getPntrToArgument(j)->getName(), false));
     }
     while(true) {
+      if(this->mpi_rank_ == 0) {
+        cout << "this->count_ " << this->count_ << endl;
+      }
       string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
         samples_ifile.open(filename);
@@ -313,6 +316,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
         this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
         samples_ifile.scanField();
+      }
+      if(this->mpi_rank_ == 0) {
+        cout << "this->traj_.size() " << this->traj_.size() << endl;
       }
       samples_ifile.close();
       if(done) {
@@ -346,13 +352,22 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
       }
       this->traj_.clear();
+      if(this->mpi_rank_ == 0) {
+        cout << "this->samples_.size() " << this->samples_.size() << endl;
+      }
       if(this->samples_.size() > this->max_samples_) {
         this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
         if(this->do_aca_) {
           this->aca_.trimSamples(this->max_samples_);
         }
       }
+      if(this->mpi_rank_ == 0) {
+        cout << "this->samples_.size() " << this->samples_.size() << endl;
+      }
       this->count_++;
+    }
+    if(this->mpi_rank_ == 0) {
+      cout << "this->count_ " << this->count_ << endl;
     }
     if(this->count_ == 0) {
       error("No sample files are present");
@@ -366,37 +381,39 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
     }
 
-    if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-      if(this->do_aca_) {
-        IFile pivot_ifile;
-        if(pivot_ifile.FileExist("pivots.dat")) {
-          pivot_ifile.open("pivots.dat");
-        } else {
-          error("The file pivots.dat cannot be found");
-        }
-        bool done = false;
-        while(true) {
-          for(unsigned i = 0; i < this->d_; ++i) {
-            if(!pivot_ifile.scanField(&tmpvalues[i])) {
-              done = true;
-              break;
-            }
-            cv[i] = tmpvalues[i].get();
-          }
-          if(done) {
+    if(this->do_aca_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
+      IFile pivot_ifile;
+      if(pivot_ifile.FileExist("pivots.dat")) {
+        pivot_ifile.open("pivots.dat");
+      } else {
+        error("The file pivots.dat cannot be found");
+      }
+      bool done = false;
+      while(true) {
+        for(unsigned i = 0; i < this->d_; ++i) {
+          if(!pivot_ifile.scanField(&tmpvalues[i])) {
+            done = true;
             break;
           }
-          this->aca_.addPivot(cv);
-          pivot_ifile.scanField();
-          ++npivots;
+          cv[i] = tmpvalues[i].get();
         }
-        pivot_ifile.close();
+        if(done) {
+          break;
+        }
+        this->aca_.addPivot(cv);
+        pivot_ifile.scanField();
+        ++npivots;
       }
+      if(this->mpi_rank_ == 0) {
+        cout << "npivots " << npivots << endl;
+        cout << "this->aca_.aca_pivots().size() " << this->aca_.aca_pivots().size() << endl;
+      }
+      pivot_ifile.close();
     }
 
-    if(this->walkers_mpi_) {
-      multi_sim_comm.Bcast(this->count_, 0);
-    }
+    // if(this->walkers_mpi_) {
+    //   multi_sim_comm.Bcast(this->count_, 0);
+    // }
     
     string ttfilename = "ttsketch.h5";
     if(this->walkers_mpi_) {
@@ -413,6 +430,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       //   break;
       // }
       this->ttList_.push_back(ttRead(ttfilename, i));
+    }
+    if(this->mpi_rank_ == 0) {
+      cout << "this->ttList_.size() " << this->ttList_.size() << endl;
     }
     if(this->do_aca_) {
       // try {
@@ -439,12 +459,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
         this->vshift_ = max(vpeak - this->vmax_, 0.0);
         log << "  Vtop = " << vpeak << " Vshift = " << this->vshift_ << "\n";
+        if(this->walkers_mpi_) {
+          multi_sim_comm.Bcast(this->vshift_, 0);
+        }
       }
     }
 
-    if(this->walkers_mpi_) {
-      multi_sim_comm.Bcast(this->vshift_, 0);
-    }
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       log << "  restarting from step " << this->count_ << "\n";
       log << "  " << this->samples_.size() << " samples retrieved\n";
@@ -452,6 +472,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
         log << "  " << npivots << " pivots retrieved\n";
       }
     }
+  }
+  if(this->mpi_rank_ == 0) {
+    cout << "After restart" << endl;
+    cout << "this->count_ " << this->count_ << endl;
+    cout << "this->traj_.size() " << this->traj_.size() << endl;
+    cout << "this->samples_.size() " << this->samples_.size() << endl;
+    cout << "this->aca_.aca_pivots().size() " << this->aca_.aca_pivots().size() << endl;
+    cout << "getStep() " << getStep() << endl;
   }
 }
 
@@ -1023,7 +1051,6 @@ void TTSketch::update() {
     this->samplesOfile_.link(*this);
     this->samplesOfile_.enforceSuffix("");
     this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
-    // this->samplesOfile_.clearFields();
     this->samplesOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
       this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
@@ -1042,6 +1069,14 @@ void TTSketch::update() {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
     stopwatch.start("Timing " + to_string(this->count_));
+    if(this->mpi_rank_ == 0) {
+      cout << "After after restart" << endl;
+      cout << "this->count_ " << this->count_ << endl;
+      cout << "this->traj_.size() " << this->traj_.size() << endl;
+      cout << "this->samples_.size() " << this->samples_.size() << endl;
+      cout << "this->aca_.aca_pivots().size() " << this->aca_.aca_pivots().size() << endl;
+      cout << "getStep() " << getStep() << endl;
+    }
   }
 }
 
