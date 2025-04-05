@@ -381,6 +381,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
     }
 
+    // TODO: check if this is needed
+    this->traj_.clear();
+
     if(this->do_aca_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
       IFile pivot_ifile;
       if(pivot_ifile.FileExist("pivots.dat")) {
