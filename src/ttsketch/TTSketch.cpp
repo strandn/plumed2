@@ -354,6 +354,15 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(this->count_ == 0) {
       error("No sample files are present");
     }
+    
+    this->samplesOfile_.link(*this);
+    this->samplesOfile_.enforceSuffix("");
+    this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
+    this->samplesOfile_.setHeavyFlush();
+    for(unsigned i = 0; i < this->d_; ++i) {
+      this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
+    }
+
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       if(this->do_aca_) {
         IFile pivot_ifile;
@@ -466,6 +475,7 @@ void TTSketch::update() {
     nowAddATT = true;
     this->samplesOfile_.flush();
     this->samplesOfile_.close();
+    this->samplesOfile_.clearFields();
     if(this->walkers_mpi_) {
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
@@ -1012,7 +1022,7 @@ void TTSketch::update() {
     this->samplesOfile_.link(*this);
     this->samplesOfile_.enforceSuffix("");
     this->samplesOfile_.open(this->samplesfname_ + "." + to_string(this->count_ - 1));
-    this->samplesOfile_.clearFields();
+    // this->samplesOfile_.clearFields();
     this->samplesOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
       this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
