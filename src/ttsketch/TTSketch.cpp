@@ -382,7 +382,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
 
     // TODO: check if this is needed
-    this->traj_.clear();
+    // this->traj_.clear();
 
     if(this->do_aca_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
       IFile pivot_ifile;
