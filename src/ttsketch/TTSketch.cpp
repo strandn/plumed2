@@ -436,6 +436,8 @@ void TTSketch::update() {
   bool nowAddATT;
   if(getStep() % this->pace_ == 0 && !this->isFirstStep_) {
     nowAddATT = true;
+    this->samplesOfile_.flush();
+    this->samplesOfile_.close();
     if(this->walkers_mpi_) {
       vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
       multi_sim_comm.Allgather(this->traj_, all_traj);
