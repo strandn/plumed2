@@ -287,6 +287,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     int npivots = 0;
     IFile samples_ifile;
     bool done = false;
+    this->count_ = 0;
     while(true) {
       string filename = this->samplesfname_ + "." + to_string(this->count_ - 1);
       if(samples_ifile.FileExist(filename)) {
@@ -312,6 +313,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
       samples_ifile.close();
       if(done) {
+        this->count_++;
         break;
       }
       if(this->walkers_mpi_) {
@@ -348,6 +350,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
       }
       this->count_++;
+    }
+    if(this->count_ == 0) {
+      error("No sample files are present");
     }
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       if(this->do_aca_) {
