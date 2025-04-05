@@ -438,6 +438,9 @@ void TTSketch::update() {
     if(!this->isFirstStep_) {
       this->samplesOfile_.flush();
       this->samplesOfile_.close();
+      if(this->mpi_rank_ == 0) {
+        cout << 1 << " " << getStep() << " " << this->count_ << endl;
+      }
     }
     this->samplesOfile_.link(*this);
     this->samplesOfile_.enforceSuffix("");
@@ -449,7 +452,10 @@ void TTSketch::update() {
     for(unsigned i = 0; i < this->d_; ++i) {
       this->samplesOfile_.setupPrintValue(getPntrToArgument(i));
     }
-    this->samplesOfile_.printField();
+    if(this->mpi_rank_ == 0) {
+      cout << 2 << " " << getStep() << " " << this->count_ << endl;
+    }
+    // this->samplesOfile_.printField();
   }
   if(getStep() % this->pace_ == 0 && !this->isFirstStep_) {
     nowAddATT = true;
@@ -504,6 +510,9 @@ void TTSketch::update() {
       this->samplesOfile_.printField(getPntrToArgument(j), cv[j]);
     }
     this->samplesOfile_.printField();
+    if(this->mpi_rank_ == 0) {
+      cout << 3 << " " << getStep() << " " << this->count_ << endl;
+    }
   }
 
   if(nowAddATT) {
