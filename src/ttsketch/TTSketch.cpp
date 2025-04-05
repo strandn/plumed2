@@ -73,18 +73,16 @@ PLUMED_REGISTER_ACTION(TTSketch, "TTSKETCH")
 void TTSketch::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
   keys.use("ARG");
-  keys.addFlag("NOCONV", false, "Specifies that TTSketch densities and gradients should not be smoothed via Gaussian kernels whenever evaluated");
   keys.addFlag("KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis");
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.addFlag("DO_ACA", false, "Approximate Vbias not as explicit sum but rather as TTCross approximation");
-  keys.addFlag("ACA_NOCONV", false, "Specifies that TTCross functions and gradients should not be smoothed via Gaussian kernels whenever evaluated");
   keys.addFlag("ACA_KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis for TTCross functions");
   keys.addFlag("ACA_AUTO_RANK", false, "Specifies that during TTCross, an optimal rank will be chosen based on error analysis");
   keys.add("optional", "RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
   keys.add("optional", "TEMP", "The system temperature");
   keys.add("optional", "VMAX", "Upper limit of Vbias across all CV space, in units of kT");
-  keys.add("optional", "WIDTH", "Width of Gaussian kernels");
+  keys.add("optional", "WIDTH", "Width of Gaussian kernels for TT density");
   keys.add("compulsory", "INITRANK", "Initial rank for TTSketch algorithm");
   keys.add("compulsory", "PACE", "1e6", "The frequency for Vbias updates");
   keys.add("compulsory", "SAMPLESTRIDE", "100", "The frequency with which samples are collected for density estimation");
@@ -98,6 +96,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
+  keys.add("optional", "ACA_WIDTH", "Width of Gaussian kernels for TT-cross bias potential");
   keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
   keys.add("optional", "MAX_SAMPLES", "Limits the number of samples kept in memory");
 }
@@ -120,12 +119,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
   vshift_(0.0),
   max_samples_(numeric_limits<unsigned>::max())
 {
-  bool noconv, kernel, aca_noconv, aca_kernel, aca_auto_rank;
-  parseFlag("NOCONV", noconv);
+  bool kernel, aca_kernel, aca_auto_rank;
   parseFlag("KERNEL_BASIS", kernel);
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
   parseFlag("DO_ACA", this->do_aca_);
-  parseFlag("ACA_NOCONV", aca_noconv);
   parseFlag("ACA_KERNEL_BASIS", aca_kernel);
   parseFlag("ACA_AUTO_RANK", aca_auto_rank);
   this->d_ = getNumberOfArguments();
@@ -147,10 +144,16 @@ TTSketch::TTSketch(const ActionOptions& ao):
   } else if(this->vmax_ != numeric_limits<double>::max()) {
     this->vmax_ *= this->kbt_;
   }
-  vector<double> w;
+  vector<double> w(this->d_, 0.0);
   parseVector("WIDTH", w);
-  if(!noconv && w.size() != this->d_) {
+  if(w.size() != this->d_) {
     error("Number of arguments does not match number of WIDTH parameters");
+  }
+  this->conv_ = false;
+  for (double val : w) {
+    if (val != 0.0) {
+      this->conv_ = true;
+    }
   }
   parse("INITRANK", this->rc_);
   if(this->rc_ <= 0) {
@@ -195,19 +198,17 @@ TTSketch::TTSketch(const ActionOptions& ao):
     error("BIASFACTOR must be greater than 1");
   }
   for(unsigned i = 0; i < this->d_; ++i) {
-    if(!noconv && w[i] <= 0.0) {
+    if(this->conv_ && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
     }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    double width = noconv ? 0.0 : w[i];
-    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, width, kernel));
+    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel));
     if(this->do_aca_) {
       this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, width, aca_kernel));
     }
   }
-  this->conv_ = !noconv;
 
   double aca_cutoff = 0.0;
   parse("ACA_CUTOFF", aca_cutoff);
@@ -218,6 +219,17 @@ TTSketch::TTSketch(const ActionOptions& ao):
   parse("ACA_RANK", aca_rank);
   if(this->do_aca_ && aca_rank <= 0) {
     error("TTCross requires positive ACA_RANK");
+  }
+  vector<double> aca_w = w;
+  parseVector("ACA_WIDTH", aca_w);
+  if(aca_w.size() != this->d_) {
+    error("Number of arguments does not match number of ACA_WIDTH parameters");
+  }
+  bool aca_conv = false;
+  for (double val : aca_w) {
+    if (val != 0.0) {
+      aca_conv = true;
+    }
   }
 
   if(this->do_aca_) {
@@ -233,7 +245,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       }
     }
     this->aca_ = TTCross(this->aca_basis_, this->basis_, getkBT(), aca_cutoff,
-                         aca_rank, log, !aca_noconv, !noconv,
+                         aca_rank, log, aca_conv, this->conv_,
                          5 * (nbasis - 1), this->walkers_mpi_,
                          this->mpi_rank_, aca_auto_rank, this->pivot_file_,
                          args);
