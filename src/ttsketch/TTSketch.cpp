@@ -294,9 +294,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
       tmpvalues.push_back(Value(this, getPntrToArgument(j)->getName(), false));
     }
     while(true) {
-      if(this->mpi_rank_ == 0) {
-        cout << "this->count_ " << this->count_ << endl;
-      }
       string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
         samples_ifile.open(filename);
@@ -316,9 +313,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
         this->traj_.insert(this->traj_.end(), cv.begin(), cv.end());
         samples_ifile.scanField();
-      }
-      if(this->mpi_rank_ == 0) {
-        cout << "this->traj_.size() " << this->traj_.size() << endl;
       }
       samples_ifile.close();
       if(done) {
@@ -352,23 +346,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
       }
       this->traj_.clear();
-      if(this->mpi_rank_ == 0) {
-        cout << "this->samples_.size() " << this->samples_.size() << endl;
-      }
       if(this->samples_.size() > this->max_samples_) {
         this->samples_.erase(this->samples_.begin(), this->samples_.begin() + (this->samples_.size() - this->max_samples_));
         if(this->do_aca_) {
           this->aca_.trimSamples(this->max_samples_);
         }
       }
-      if(this->mpi_rank_ == 0) {
-        cout << "this->samples_.size() " << this->samples_.size() << endl;
-      }
       this->lastsamples_.clear();
       this->count_++;
-    }
-    if(this->mpi_rank_ == 0) {
-      cout << "this->count_ " << this->count_ << endl;
     }
     if(this->count_ == 0) {
       error("No sample files are present");
@@ -409,10 +394,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
         pivot_ifile.scanField();
         ++npivots;
       }
-      if(this->mpi_rank_ == 0) {
-        cout << "npivots " << npivots << endl;
-        cout << "this->aca_.aca_pivots().size() " << this->aca_.aca_pivots().size() << endl;
-      }
       pivot_ifile.close();
     }
 
@@ -435,9 +416,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
       //   break;
       // }
       this->ttList_.push_back(ttRead(ttfilename, i));
-    }
-    if(this->mpi_rank_ == 0) {
-      cout << "this->ttList_.size() " << this->ttList_.size() << endl;
     }
     if(this->do_aca_) {
       // try {
@@ -477,14 +455,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
         log << "  " << npivots << " pivots retrieved\n";
       }
     }
-  }
-  if(this->mpi_rank_ == 0) {
-    cout << "After restart" << endl;
-    cout << "this->count_ " << this->count_ << endl;
-    cout << "this->traj_.size() " << this->traj_.size() << endl;
-    cout << "this->samples_.size() " << this->samples_.size() << endl;
-    cout << "this->aca_.aca_pivots().size() " << this->aca_.aca_pivots().size() << endl;
-    cout << "getStep() " << getStep() << endl;
   }
 }
 
@@ -1074,14 +1044,6 @@ void TTSketch::update() {
   if(getStep() % this->pace_ == 1) {
     log << "Vbias update " << this->count_ << "...\n\n";
     log.flush();
-    if(this->mpi_rank_ == 0) {
-      cout << "After after restart" << endl;
-      cout << "this->count_ " << this->count_ << endl;
-      cout << "this->traj_.size() " << this->traj_.size() << endl;
-      cout << "this->samples_.size() " << this->samples_.size() << endl;
-      cout << "this->aca_.aca_pivots().size() " << this->aca_.aca_pivots().size() << endl;
-      cout << "getStep() " << getStep() << endl;
-    }
   }
 }
 
@@ -1123,13 +1085,10 @@ double TTSketch::getBias(const vector<double>& cv) {
 void TTSketch::paraSketch() {
   unsigned N = this->lastsamples_.size();
   auto coeff = createTTCoeff();
-  cout << "createTTCoeff done" << endl;
   auto [M, is] = intBasisSample(siteInds(coeff));
-  cout << "intBasisSample done" << endl;
   auto G = MPS(this->d_);
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
-  cout << "formTensorMoment done" << endl;
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
   vector<Index> links_trimmed;
@@ -1249,7 +1208,6 @@ MPS TTSketch::createTTCoeff() const {
 }
 
 pair<vector<ITensor>, IndexSet> TTSketch::intBasisSample(const IndexSet& is) const {
-  cout << "this->lastsamples_.size() " << this->lastsamples_.size() << endl;
   unsigned N = this->lastsamples_.size();
   int nb = this->basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
