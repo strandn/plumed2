@@ -364,6 +364,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       if(this->mpi_rank_ == 0) {
         cout << "this->samples_.size() " << this->samples_.size() << endl;
       }
+      this->lastsamples_.clear();
       this->count_++;
     }
     if(this->mpi_rank_ == 0) {
