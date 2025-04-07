@@ -273,8 +273,8 @@ void TTMetaD::readGaussians(IFile *ifile) {
 
   while(scanOneHill(ifile, tmpvalues, center, sigma, height)) {
     ++nhills;
-    if(welltemp_ && biasf_ > 1.0) {
-      height *= (biasf_ - 1.0) / biasf_;
+    if(this->welltemp_ && this->biasf_ > 1.0) {
+      height *= (this->biasf_ - 1.0) / this->biasf_;
     }
     this->hills_.push_back(Gaussian(height, center, sigma));
   }
@@ -325,10 +325,10 @@ void TTMetaD::writeGaussian(const Gaussian& hill, OFile&file) {
     file.printField("sigma_" + getPntrToArgument(i)->getName(), hill.sigma[i]);
   }
   double height = hill.height;
-  if(welltemp_ && biasf_ > 1.0) {
-    height *= biasf_ / (biasf_ - 1.0);
+  if(this->welltemp_ && this->biasf_ > 1.0) {
+    height *= this->biasf_ / (this->biasf_ - 1.0);
   }
-  file.printField("height", height).printField("biasf", biasf_);
+  file.printField("height", height).printField("biasf", this->biasf_);
   file.printField();
 }
 
