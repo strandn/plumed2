@@ -61,6 +61,7 @@ private:
   MPS vb_;
   double sketch_until_;
   bool frozen_;
+  bool sketch_conv_;
 
   void readGaussians(IFile *ifile);
   void writeGaussian(const Gaussian& hill, OFile& file);
@@ -108,6 +109,7 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SKETCH_NBASIS", "20", "Number of basis functions per dimension");
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("optional", "SKETCH_UNTIL", "After this time, the bias potential freezes");
+  keys.add("optional", "SKETCH_WIDTH", "Width of Gaussian kernels for smoothing");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
@@ -126,7 +128,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_cutoff_(0.0),
   sketch_count_(1),
   sketch_until_(numeric_limits<double>::max()),
-  frozen_(false)
+  frozen_(false),
+  sketch_conv_(true),
 {
   bool kernel;
   parseFlag("KERNEL_BASIS", kernel);
@@ -197,18 +200,38 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("SKETCH_NBASIS must be greater than 1");
   }
-  if(!kernel && nbasis % 2 == 0) {
+  if(nbasis % 2 == 0) {
     ++nbasis;
   }
   parse("SKETCH_ALPHA", this->sketch_alpha_);
   if(this->sketch_alpha_ <= 0.0 || this->sketch_alpha_ > 1.0) {
     error("SKETCH_ALPHA must be positive and no greater than 1");
   }
+  vector<double> w;
+  parseVector("SKETCH_WIDTH", w);
+  if(w.size() == 0) {
+    w.resize(this->d_, 0.0);
+  }
+  if(w.size() != this->d_) {
+    error("Number of arguments does not match number of SKETCH_WIDTH parameters");
+  }
+  this->sketch_conv_ = false;
+  for (double val : w) {
+    if (val != 0.0) {
+      this->sketch_conv_ = true;
+    }
+  }
   for(unsigned i = 0; i < this->d_; ++i) {
+    if(this->sketch_conv_ && w[i] <= 0.0) {
+      error("Gaussian smoothing requires positive WIDTH");
+    }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, 0.0, kernel));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel));
+  }
+  if(kernel && this->sketch_conv_) {
+    error("kernel smoothing incompatible with kernel basis");
   }
   if(this->walkers_mpi_) {
     this->mpi_size_ = multi_sim_comm.Get_size();
@@ -947,7 +970,7 @@ double TTMetaD::getHeight(const vector<double>& cv) {
 }
 
 double TTMetaD::getBias(const vector<double>& cv) {
-  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, false);
+  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, this->sketch_conv_);
   unsigned nt = OpenMP::getNumThreads();
   #pragma omp parallel num_threads(nt)
   {
@@ -960,9 +983,9 @@ double TTMetaD::getBias(const vector<double>& cv) {
 }
 
 double TTMetaD::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
-  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, false);
+  double bias = length(this->vb_) == 0 ? 0.0 : ttEval(this->vb_, this->sketch_basis_, cv, this->sketch_conv_);
   if(length(this->vb_) != 0) {
-    der = ttGrad(this->vb_, this->sketch_basis_, cv, false);
+    der = ttGrad(this->vb_, this->sketch_basis_, cv, this->sketch_conv_);
   }
   unsigned nt = OpenMP::getNumThreads();
   if(this->hills_.size() < 2 * nt || nt == 1) {
@@ -1041,6 +1064,18 @@ void TTMetaD::paraSketch() {
           for(int l = 1; l <= dim(s); ++l) {
             gram.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].gram()(j - 1, l - 1));
           }
+        }
+        this->vb_.ref(i) *= gram;
+        this->vb_.ref(i).noPrime();
+      }
+    }
+    if(this->sketch_conv_) {
+      inner(0, 0) = this->dom_.second - this->dom_.first;
+      for(unsigned i = 1; i <= this->d_; ++i) {
+        auto s = siteIndex(this->vb_, i);
+        ITensor gram(s, prime(s));
+        for(int j = 1; j < dim(s); ++j) {
+          gram.set(s = j, prime(s) = j, exp(-pow(M_PI * this->w_ * (j / 2), 2) / (2 * pow(this->L_, 2))));
         }
         this->vb_.ref(i) *= gram;
         this->vb_.ref(i).noPrime();
