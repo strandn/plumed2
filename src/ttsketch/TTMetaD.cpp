@@ -24,8 +24,8 @@ private:
     vector<double> center;
     vector<double> sigma;
     vector<double> invsigma;
-    Gaussian(const bool m, const double h, const vector<double>& c, const vector<double>& s)
-      : multivariate(m), height(h), center(c), sigma(s), invsigma(s) {
+    Gaussian(const double h, const vector<double>& c, const vector<double>& s)
+      : height(h), center(c), sigma(s), invsigma(s) {
       for(unsigned i = 0; i < invsigma.size(); ++i) {
         if(abs(invsigma[i]) > 1.e-20) {
           invsigma[i] = 1.0 / invsigma[i];
@@ -44,9 +44,9 @@ private:
   double height0_;
   vector<double> sigma0_;
   vector<Gaussian> hills_;
-  // OFile hillsOfile_;
-  // vector<unique_ptr<IFile>> ifiles_;
-  // vector<string> ifilesnames_;
+  OFile hillsOfile_;
+  string mw_dir_;
+  string hillsfname_;
   bool walkers_mpi_;
   int mpi_size_;
   int mpi_rank_;
@@ -62,14 +62,14 @@ private:
   double sketch_until_;
   bool frozen_;
 
-  // void readGaussians(IFile *ifile);
-  // void writeGaussian(const Gaussian& hill, OFile& file);
+  void readGaussians(IFile *ifile);
+  void writeGaussian(const Gaussian& hill, OFile& file);
   double getHeight(const vector<double>& cv);
   double getBias(const vector<double>& cv);
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double evaluateGaussian(const vector<double>& cv, const Gaussian& hill);
   double evaluateGaussianAndDerivatives(const vector<double>& cv, const Gaussian& hill, vector<double>& der, vector<double>& dp);
-  // bool scanOneHill(IFile* ifile, vector<Value>& tmpvalues, vector<double>& center, vector<double>& sigma, double& height, bool& multivariate);
+  bool scanOneHill(IFile* ifile, vector<Value>& tmpvalues, vector<double>& center, vector<double>& sigma, double& height);
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -91,12 +91,13 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.addFlag("KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis");
   keys.add("compulsory", "SIGMA", "the widths of the Gaussian hills");
   keys.add("compulsory", "PACE", "the frequency for hill addition");
-  // keys.add("compulsory", "FILE", "HILLS", "a file in which the list of added hills is stored");
+  keys.add("compulsory", "FILE", "HILLS", "a file in which the list of added hills is stored");
   keys.add("compulsory", "HEIGHT", "the heights of the Gaussian hills");
   keys.add("optional", "FMT", "specify format for HILLS files (useful for decrease the number of digits in regtests)");
   keys.add("optional", "BIASFACTOR", "use well tempered metadynamics and use this bias factor. Please note you must also specify temp");
   keys.add("optional", "TEMP", "the system temperature - this is only needed if you are doing well-tempered metadynamics");
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
+  keys.add("optional", "WALKERS_DIR", "shared directory with the hills files from all the walkers");
   keys.use("RESTART");
   keys.add("optional", "SKETCH_RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
   keys.add("optional", "SKETCH_CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
@@ -117,6 +118,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   biasf_(-1.0),
   isFirstStep_(true),
   height0_(numeric_limits<double>::max()),
+  mw_dir_(""),
   walkers_mpi_(false),
   mpi_size_(0),
   mpi_rank_(0),
@@ -142,8 +144,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(stride_ <= 0) {
     error("frequency for hill addition is nonsensical");
   }
-  // string hillsfname = "HILLS";
-  // parse("FILE", hillsfname);
+  this->hillsfname_ = "HILLS";
+  parse("FILE", this->hillsfname_);
   parse("BIASFACTOR", this->biasf_);
   if(this->biasf_ < 1.0 && this->biasf_ != -1.0) {
     error("well tempered bias factor is nonsensical");
@@ -157,6 +159,16 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   }
 
   parseFlag("WALKERS_MPI", this->walkers_mpi_);
+  parse("WALKERS_DIR", this->mw_dir_);
+  if(this->walkers_mpi_ && this->mw_dir_== "") {
+    const string ret = filesystem::current_path();
+    this->mw_dir_ = ret + "/";
+    multi_sim_comm.Bcast(this->mw_dir_, 0);
+  }
+  if(this->walkers_mpi_ && this->mw_dir_ != "") {
+    this->hillsfname_ = this->mw_dir_ + "/" + this->hillsfname_;
+  }
+
   parse("SKETCH_RANK", this->sketch_r_);
   parse("SKETCH_CUTOFF", this->sketch_cutoff_);
   if(this->sketch_r_ <= 0 && (this->sketch_cutoff_ <= 0.0 || this->sketch_cutoff_ > 1.0)) {
@@ -210,18 +222,114 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     if(this->walkers_mpi_) {
       ttfilename = "../" + ttfilename;
     }
-    unsigned count = 2;
     while(true) {
       try {
-        this->vb_ = ttRead(ttfilename, count++);
+        this->vb_ = ttRead(ttfilename, this->sketch_count_);
+        ++this->sketch_count_;
       } catch(...) {
         break;
       }
     }
-    if(this->sketch_until_ == 0.0) {
-      this->frozen_ = false;
+    if(this->sketch_count_ == 1) {
+      this->vb_ = MPS();
+    }
+    if(getTime() >= this->sketch_until_) {
+      this->frozen_ = true;
+    } else {
+      IFile hills_ifile;
+      if(hills_ifile.FileExist(this->hillsfname_)) {
+        hills_ifile.open(this->hillsfname_);
+      } else {
+        error("The hills file cannot be found");
+      }
+      readGaussians(&hills_ifile);
+      samples_ifile.close();
+
+      this->hillsOfile_.link(*this);
+      this->hillsOfile_.enforceSuffix("");
+      this->hillsOfile_.open(this->hillsfname_);
+      if(this->fmt_.length() > 0) {
+        this->hillsOfile_.fmtField(this->fmt_);
+      }
+
+      hillsOfile_.setHeavyFlush();
+      for(unsigned i = 0; i < this->d_; ++i) {
+        hillsOfile_.setupPrintValue(getPntrToArgument(i));
+      }
     }
   }
+}
+
+void TTMetaD::readGaussians(IFile *ifile) {
+  vector<double> center(this->d_);
+  vector<double> sigma(this->d_);
+  double height;
+  int nhills = 0;
+
+  vector<Value> tmpvalues;
+  for(unsigned j = 0; j < this->d_; ++j) {
+    tmpvalues.push_back(Value(this, getPntrToArgument(j)->getName(), false));
+  }
+
+  while(scanOneHill(ifile, tmpvalues, center, sigma, height)) {
+    ++nhills;
+    if(welltemp_ && biasf_ > 1.0) {
+      height *= (biasf_ - 1.0) / biasf_;
+    }
+    this->hills_.push_back(Gaussian(height, center, sigma));
+  }
+  log << "  restarting from step " << this->sketch_count_ << "\n";
+  log << "  " << nhills << " hills retrieved\n";
+}
+
+bool TTMetaD::scanOneHill(IFile* ifile, vector<Value>& tmpvalues, vector<double>& center, vector<double>& sigma, double& height) {
+  double dummy;
+  if(ifile->scanField("time", dummy)) {
+    unsigned ncv = tmpvalues.size();
+    for(unsigned i = 0; i < ncv; ++i) {
+      ifile->scanField(&tmpvalues[i]);
+      if(tmpvalues[i].isPeriodic() && !getPntrToArgument(i)->isPeriodic()) {
+        error("in hills file periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
+      } else if(tmpvalues[i].isPeriodic()) {
+        string imin, imax;
+        tmpvalues[i].getDomain(imin, imax);
+        string rmin, rmax;
+        getPntrToArgument(i)->getDomain(rmin, rmax);
+        if(imin != rmin || imax != rmax) {
+          error("in hills file periodicity for variable " + tmpvalues[i].getName() + " does not match periodicity in input");
+        }
+      }
+      center[i] = tmpvalues[i].get();
+    }
+    for(unsigned i = 0; i < ncv; ++i) {
+      ifile->scanField("sigma_" + getPntrToArgument(i)->getName(), sigma[i]);
+    }
+
+    ifile->scanField("height", height);
+    ifile->scanField("biasf", dummy);
+    ifile->scanField();
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void TTMetaD::writeGaussian(const Gaussian& hill, OFile&file) {
+  file.printField("time", getTimeStep() * getStep());
+  for(unsigned i = 0; i < this->d_; ++i) {
+    file.printField(getPntrToArgument(i), hill.center[i]);
+  }
+  this->hillsOfile_.printField("kerneltype", "stretched-gaussian");
+  this->hillsOfile_.printField("multivariate", "false");
+  for(unsigned i = 0; i < this->d_; ++i) {
+    file.printField("sigma_" + getPntrToArgument(i)->getName(), hill.sigma[i]);
+  }
+  double height = hill.height;
+  if(welltemp_ && biasf_ > 1.0) {
+    height *= biasf_ / (biasf_ - 1.0);
+  }
+  file.printField("height", height).printField("biasf", biasf_);
+  file.printField();
 }
 
 void TTMetaD::calculate() {
@@ -240,54 +348,14 @@ void TTMetaD::calculate() {
 }
 
 void TTMetaD::update() {
-  bool nowAddAHill;
-  if(getStep() % this->stride_ == 0 && !isFirstStep_ && !this->frozen_) {
-    nowAddAHill = true;
-  } else {
-    nowAddAHill = false;
-  }
-
-  vector<double> cv(this->d_);
-  for(unsigned i = 0; i < this->d_; ++i) {
-    cv[i] = getArgument(i);
-  }
-
-  if(nowAddAHill) {
-    double height = getHeight(cv);
-
-    if(walkers_mpi_) {
-      vector<double> all_cv(this->mpi_size_ * this->d_, 0.0);
-      vector<double> all_sigma(this->mpi_size_ * this->sigma0_.size(), 0.0);
-      vector<double> all_height(this->mpi_size_, 0.0);
-      multi_sim_comm.Allgather(cv, all_cv);
-      multi_sim_comm.Allgather(this->sigma0_, all_sigma);
-      multi_sim_comm.Allgather(height * (this->biasf_ > 1.0 ? this->biasf_ / (this->biasf_ - 1.0) : 1.0), all_height);
-
-      for(int i = 0; i < this->mpi_size_; i++) {
-        vector<double> cv_now(this->d_);
-        vector<double> sigma_now(this->sigma0_.size());
-        for(unsigned j = 0; j < this->d_; j++) {
-          cv_now[j] = all_cv[i * this->d_ + j];
-        }
-        for(unsigned j = 0; j < this->sigma0_.size(); j++) {
-          sigma_now[j] = all_sigma[i * this->sigma0_.size() + j];
-        }
-        double fact = (this->biasf_ > 1.0 ? (this->biasf_ - 1.0) / this->biasf_ : 1.0);
-        Gaussian newhill = Gaussian(false, all_height[i] * fact, cv_now, sigma_now);
-        this->hills_.push_back(newhill);
-      }
-    } else {
-      Gaussian newhill = Gaussian(false, height, cv, this->sigma0_);
-      this->hills_.push_back(newhill);
-    }
-  }
-
   bool nowAddATT;
   if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_) {
     nowAddATT = true;
+    this->hillsOfile_.flush();
+    this->hillsOfile_.close();
+    this->hillsOfile_.clearFields();
   } else {
     nowAddATT = false;
-    this->isFirstStep_ = false;
   }
 
   if(nowAddATT) {
@@ -800,6 +868,65 @@ void TTMetaD::update() {
       this->frozen_ = true;
     }
   }
+
+  if(getStep() % this->sketch_stride_ == 0 && !this->frozen_) {
+    this->hillsOfile_.link(*this);
+    this->hillsOfile_.enforceSuffix("");
+    this->hillsOfile_.open(this->hillsfname_);
+    if(this->fmt_.length() > 0) {
+      this->hillsOfile_.fmtField(this->fmt_);
+    }
+    hillsOfile_.setHeavyFlush();
+    for(unsigned i = 0; i < this->d_; ++i) {
+      hillsOfile_.setupPrintValue(getPntrToArgument(i));
+    }
+  }
+
+  bool nowAddAHill;
+  if(getStep() % this->stride_ == 0 && !isFirstStep_ && !this->frozen_) {
+    nowAddAHill = true;
+  } else {
+    nowAddAHill = false;
+    this->isFirstStep_ = false;
+  }
+
+  vector<double> cv(this->d_);
+  for(unsigned i = 0; i < this->d_; ++i) {
+    cv[i] = getArgument(i);
+  }
+
+  if(nowAddAHill) {
+    double height = getHeight(cv);
+
+    if(walkers_mpi_) {
+      vector<double> all_cv(this->mpi_size_ * this->d_, 0.0);
+      vector<double> all_sigma(this->mpi_size_ * this->sigma0_.size(), 0.0);
+      vector<double> all_height(this->mpi_size_, 0.0);
+      multi_sim_comm.Allgather(cv, all_cv);
+      multi_sim_comm.Allgather(this->sigma0_, all_sigma);
+      multi_sim_comm.Allgather(height * (this->biasf_ > 1.0 ? this->biasf_ / (this->biasf_ - 1.0) : 1.0), all_height);
+
+      for(int i = 0; i < this->mpi_size_; i++) {
+        vector<double> cv_now(this->d_);
+        vector<double> sigma_now(this->sigma0_.size());
+        for(unsigned j = 0; j < this->d_; j++) {
+          cv_now[j] = all_cv[i * this->d_ + j];
+        }
+        for(unsigned j = 0; j < this->sigma0_.size(); j++) {
+          sigma_now[j] = all_sigma[i * this->sigma0_.size() + j];
+        }
+        double fact = (this->biasf_ > 1.0 ? (this->biasf_ - 1.0) / this->biasf_ : 1.0);
+        Gaussian newhill(all_height[i] * fact, cv_now, sigma_now);
+        this->hills_.push_back(newhill);
+        writeGaussian(newhill, hillsOfile_);
+      }
+    } else {
+      Gaussian newhill(height, cv, this->sigma0_);
+      this->hills_.push_back(newhill);
+      writeGaussian(newhill, hillsOfile_);
+    }
+  }
+
   if(getStep() % this->sketch_stride_ == 1 && !this->frozen_) {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
