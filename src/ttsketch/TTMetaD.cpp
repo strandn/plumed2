@@ -129,7 +129,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_count_(1),
   sketch_until_(numeric_limits<double>::max()),
   frozen_(false),
-  sketch_conv_(true),
+  sketch_conv_(true)
 {
   bool kernel;
   parseFlag("KERNEL_BASIS", kernel);
@@ -1070,14 +1070,14 @@ void TTMetaD::paraSketch() {
       }
     }
     if(this->sketch_conv_) {
-      inner(0, 0) = this->dom_.second - this->dom_.first;
       for(unsigned i = 1; i <= this->d_; ++i) {
         auto s = siteIndex(this->vb_, i);
-        ITensor gram(s, prime(s));
+        ITensor inner(s, prime(s));
         for(int j = 1; j < dim(s); ++j) {
-          gram.set(s = j, prime(s) = j, exp(-pow(M_PI * this->w_ * (j / 2), 2) / (2 * pow(this->L_, 2))));
+          double L = (this->sketch_basis_[j - 1].dom().second - this->sketch_basis_[j - 1].dom().first) / 2;
+          inner.set(s = j, prime(s) = j, exp(-pow(M_PI * this->sketch_basis_[0].w() * (j / 2), 2) / (2 * pow(L, 2))));
         }
-        this->vb_.ref(i) *= gram;
+        this->vb_.ref(i) *= inner;
         this->vb_.ref(i).noPrime();
       }
     }
