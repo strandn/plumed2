@@ -243,7 +243,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
         error("The hills file cannot be found");
       }
       readGaussians(&hills_ifile);
-      samples_ifile.close();
+      hills_ifile.close();
 
       this->hillsOfile_.link(*this);
       this->hillsOfile_.enforceSuffix("");
