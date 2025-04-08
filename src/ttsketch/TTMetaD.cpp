@@ -267,19 +267,19 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
       }
       readGaussians(&hills_ifile);
       hills_ifile.close();
-
-      this->hillsOfile_.link(*this);
-      this->hillsOfile_.enforceSuffix("");
-      this->hillsOfile_.open(this->hillsfname_);
-      if(this->fmt_.length() > 0) {
-        this->hillsOfile_.fmtField(this->fmt_);
-      }
-
-      hillsOfile_.setHeavyFlush();
-      for(unsigned i = 0; i < this->d_; ++i) {
-        hillsOfile_.setupPrintValue(getPntrToArgument(i));
-      }
     }
+  }
+
+  this->hillsOfile_.link(*this);
+  this->hillsOfile_.enforceSuffix("");
+  this->hillsOfile_.open(this->hillsfname_);
+  if(this->fmt_.length() > 0) {
+    this->hillsOfile_.fmtField(this->fmt_);
+  }
+
+  hillsOfile_.setHeavyFlush();
+  for(unsigned i = 0; i < this->d_; ++i) {
+    hillsOfile_.setupPrintValue(getPntrToArgument(i));
   }
 }
 
@@ -373,8 +373,14 @@ void TTMetaD::update() {
   if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_) {
     nowAddATT = true;
     this->hillsOfile_.flush();
-    // this->hillsOfile_.close();
-    // this->hillsOfile_.clearFields();
+    this->hillsOfile_.rewind();
+    if(this->fmt_.length() > 0) {
+      this->hillsOfile_.fmtField(this->fmt_);
+    }
+    hillsOfile_.setHeavyFlush();
+    for(unsigned i = 0; i < this->d_; ++i) {
+      hillsOfile_.setupPrintValue(getPntrToArgument(i));
+    }
   } else {
     nowAddATT = false;
   }
@@ -887,20 +893,6 @@ void TTMetaD::update() {
     }
     if(getTime() >= this->sketch_until_) {
       this->frozen_ = true;
-    }
-  }
-
-  if(getStep() % this->sketch_stride_ == 0 && !this->frozen_) {
-    // this->hillsOfile_.link(*this);
-    // this->hillsOfile_.enforceSuffix("");
-    // this->hillsOfile_.open(this->hillsfname_);
-    this->hillsOfile_.rewind();
-    if(this->fmt_.length() > 0) {
-      this->hillsOfile_.fmtField(this->fmt_);
-    }
-    hillsOfile_.setHeavyFlush();
-    for(unsigned i = 0; i < this->d_; ++i) {
-      hillsOfile_.setupPrintValue(getPntrToArgument(i));
     }
   }
 
