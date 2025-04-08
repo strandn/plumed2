@@ -342,8 +342,6 @@ void TTMetaD::writeGaussian(const Gaussian& hill, OFile&file) {
   for(unsigned i = 0; i < this->d_; ++i) {
     file.printField(getPntrToArgument(i), hill.center[i]);
   }
-  this->hillsOfile_.printField("kerneltype", "stretched-gaussian");
-  this->hillsOfile_.printField("multivariate", "false");
   for(unsigned i = 0; i < this->d_; ++i) {
     file.printField("sigma_" + getPntrToArgument(i)->getName(), hill.sigma[i]);
   }
