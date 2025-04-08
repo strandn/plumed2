@@ -941,7 +941,9 @@ void TTMetaD::update() {
         double fact = (this->biasf_ > 1.0 ? (this->biasf_ - 1.0) / this->biasf_ : 1.0);
         Gaussian newhill(all_height[i] * fact, cv_now, sigma_now);
         this->hills_.push_back(newhill);
-        writeGaussian(newhill, hillsOfile_);
+        if(this->mpi_rank_ == 0) {
+          writeGaussian(newhill, hillsOfile_);
+        }
       }
     } else {
       Gaussian newhill(height, cv, this->sigma0_);
