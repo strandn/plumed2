@@ -246,9 +246,9 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     }
     while(true) {
       try {
-        this->vb_ = ttRead(ttfilename, this->sketch_count_);
-        ++this->sketch_count_;
+        this->vb_ = ttRead(ttfilename, ++this->sketch_count_);
       } catch(...) {
+        --this->sketch_count_;
         break;
       }
     }
