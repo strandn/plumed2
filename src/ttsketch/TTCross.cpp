@@ -26,7 +26,7 @@ TTCross::TTCross(const vector<BasisFunc>& basis,
     cutoff_(cutoff), maxrank_(maxrank), d_(basis.size()), pos_(0), vshift_(0.0),
     I_(vector<vector<vector<double>>>(basis.size())),
     J_(vector<vector<vector<double>>>(basis.size())), log_(&log), conv_(conv),
-    convg_(convg), nbins_(nbins), grid_(basis.size(), vector<double>(nbins)),
+    convg_(convg), nbins_(nbins), grid_(basis.size(), vector<double>(nbins + 1)),
     walkers_mpi_(walkers_mpi), mpi_rank_(mpi_rank), auto_rank_(auto_rank),
     pivot_file_(&pivot_file), args_(args)
 {
@@ -34,7 +34,7 @@ TTCross::TTCross(const vector<BasisFunc>& basis,
   this->J_[0].push_back(vector<double>());
   for(unsigned i = 0; i < basis.size(); ++i) {
     auto [min, max] = basis[i].dom();
-    for(int j = 0; j < nbins; ++j) {
+    for(int j = 0; j < nbins + 1; ++j) {
       this->grid_[i][j] = min + (max - min) * j / nbins;
     }
   }
@@ -221,13 +221,6 @@ void TTCross::approximate(vector<double>& approx) {
 }
 
 void TTCross::updateVb() {
-  for(int i = 0; i < d_; ++i) {
-    auto [min, max] = this->basis_[i].dom();
-    for(int j = 0; j < this->nbins_; ++j) {
-      cout << this->grid_[i][j] << " ";
-    }
-    cout << endl;
-  }
   reset();
   vector<double> A0(this->samples_.size());
   unsigned nt = OpenMP::getNumThreads();
@@ -407,9 +400,6 @@ void TTCross::addSample(vector<double>& sample) {
   this->samples_.push_back(vector<double>(this->d_));
   for(int i = 0; i < this->d_; ++i) {
     this->samples_.back()[i] = *lower_bound(this->grid_[i].begin(), this->grid_[i].end(), sample[i]);
-  }
-  for(int i = 0; i < this->d_; ++i) {
-    cout << i << " " << sample[i] << " " << this->samples_.back()[i] << endl;
   }
 }
 
