@@ -200,7 +200,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("SKETCH_NBASIS must be greater than 1");
   }
-  if(nbasis % 2 == 0) {
+  if(!kernel && nbasis % 2 == 0) {
     ++nbasis;
   }
   parse("SKETCH_ALPHA", this->sketch_alpha_);

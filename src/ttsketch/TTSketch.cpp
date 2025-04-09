@@ -185,7 +185,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(nbasis <= 1) {
     error("NBASIS must be greater than 1");
   }
-  if(nbasis % 2 == 0) {
+  if(!kernel && nbasis % 2 == 0) {
     ++nbasis;
   }
   parse("ALPHA", this->alpha_);
@@ -239,7 +239,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(this->do_aca_ && aca_nbasis <= 1) {
     error("ACA_NBASIS must be greater than 1");
   }
-  if(aca_nbasis % 2 == 0) {
+  if(!aca_kernel && aca_nbasis % 2 == 0) {
     ++aca_nbasis;
   }
   if(this->do_aca_) {
