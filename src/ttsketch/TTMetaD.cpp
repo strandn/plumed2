@@ -267,7 +267,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
       readGaussians(&hills_ifile);
       hills_ifile.close();
 
-      multi_sim_comm.Barrier();
+      // multi_sim_comm.Barrier();
       if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
         this->hillsOfile_.link(*this);
         this->hillsOfile_.enforceSuffix("");
