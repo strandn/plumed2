@@ -371,6 +371,7 @@ void TTMetaD::calculate() {
 }
 
 void TTMetaD::update() {
+  cout << "before update " << this->mpi_rank_ << endl;
   bool nowAddATT;
   if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_) {
     nowAddATT = true;
@@ -974,6 +975,7 @@ void TTMetaD::update() {
     log << "Vbias update " << this->sketch_count_ << "...\n\n";
     log.flush();
   }
+  cout << "after update " << this->mpi_rank_ << endl;
 }
 
 double TTMetaD::getHeight(const vector<double>& cv) {
