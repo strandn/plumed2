@@ -97,6 +97,7 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
   keys.add("optional", "ACA_WIDTH", "Width of Gaussian kernels for TT-cross bias potential");
+  keys.add("compulsory", "ACA_NBASIS", "20", "Number of Fourier basis functions per dimension for bias potential");
   keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
   keys.add("optional", "MAX_SAMPLES", "Limits the number of samples kept in memory");
 }
@@ -233,12 +234,20 @@ TTSketch::TTSketch(const ActionOptions& ao):
       aca_conv = true;
     }
   }
+  int aca_nbasis = nbasis;
+  parse("ACA_NBASIS", aca_nbasis);
+  if(this->do_aca_ && aca_nbasis <= 1) {
+    error("ACA_NBASIS must be greater than 1");
+  }
+  if(aca_nbasis % 2 == 0) {
+    ++aca_nbasis;
+  }
   if(this->do_aca_) {
     for(unsigned i = 0; i < this->d_; ++i) {
       if(aca_conv && aca_w[i] <= 0.0) {
         error("Gaussian smoothing requires positive ACA_WIDTH");
       }
-      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, aca_w[i], aca_kernel));
+      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), aca_nbasis, aca_w[i], aca_kernel));
     }
   }
 
@@ -256,7 +265,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     this->aca_ = TTCross(this->aca_basis_, this->basis_, getkBT(), aca_cutoff,
                          aca_rank, log, aca_conv, this->conv_,
-                         5 * (nbasis - 1), this->walkers_mpi_,
+                         5 * (aca_nbasis - 1), this->walkers_mpi_,
                          this->mpi_rank_, aca_auto_rank, this->pivot_file_,
                          args);
   }
