@@ -916,7 +916,7 @@ void TTMetaD::update() {
   if(nowAddAHill) {
     double height = getHeight(cv);
 
-    if(walkers_mpi_) {
+    if(this->walkers_mpi_) {
       vector<double> all_cv(this->mpi_size_ * this->d_, 0.0);
       vector<double> all_sigma(this->mpi_size_ * this->sigma0_.size(), 0.0);
       vector<double> all_height(this->mpi_size_, 0.0);
