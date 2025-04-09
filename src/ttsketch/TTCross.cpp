@@ -221,6 +221,13 @@ void TTCross::approximate(vector<double>& approx) {
 }
 
 void TTCross::updateVb() {
+  for(int i = 0; i < d_; ++i) {
+    auto [min, max] = this->basis_[i].dom();
+    for(int j = 0; j < this->nbins_; ++j) {
+      cout << this->grid_[i][j] << " ";
+    }
+    cout << endl;
+  }
   reset();
   vector<double> A0(this->samples_.size());
   unsigned nt = OpenMP::getNumThreads();
