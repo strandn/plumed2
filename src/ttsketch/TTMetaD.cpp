@@ -266,21 +266,20 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
       }
       readGaussians(&hills_ifile);
       hills_ifile.close();
+    }
+  }
+  
+  if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+    this->hillsOfile_.link(*this);
+    this->hillsOfile_.enforceSuffix("");
+    this->hillsOfile_.open(this->hillsfname_);
+    if(this->fmt_.length() > 0) {
+      this->hillsOfile_.fmtField(this->fmt_);
+    }
 
-      // multi_sim_comm.Barrier();
-      if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
-        this->hillsOfile_.link(*this);
-        this->hillsOfile_.enforceSuffix("");
-        this->hillsOfile_.open(this->hillsfname_);
-        if(this->fmt_.length() > 0) {
-          this->hillsOfile_.fmtField(this->fmt_);
-        }
-
-        hillsOfile_.setHeavyFlush();
-        for(unsigned i = 0; i < this->d_; ++i) {
-          hillsOfile_.setupPrintValue(getPntrToArgument(i));
-        }
-      }
+    hillsOfile_.setHeavyFlush();
+    for(unsigned i = 0; i < this->d_; ++i) {
+      hillsOfile_.setupPrintValue(getPntrToArgument(i));
     }
   }
 }
@@ -376,8 +375,6 @@ void TTMetaD::update() {
     nowAddATT = true;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
       this->hillsOfile_.flush();
-      // this->hillsOfile_.rewind();
-      // this->hillsOfile_.clearFields();
     }
   } else {
     nowAddATT = false;
@@ -894,21 +891,19 @@ void TTMetaD::update() {
     }
   }
 
-  if(getStep() % this->sketch_stride_ == 0 && !this->frozen_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
-    if(!this->isFirstStep_) {
-      this->hillsOfile_.rewind();
-      this->hillsOfile_.clearFields();
-    }
-    this->hillsOfile_.link(*this);
-    this->hillsOfile_.enforceSuffix("");
-    this->hillsOfile_.open(this->hillsfname_);
-    if(this->fmt_.length() > 0) {
-      this->hillsOfile_.fmtField(this->fmt_);
-    }
-    hillsOfile_.setHeavyFlush();
-    for(unsigned i = 0; i < this->d_; ++i) {
-      hillsOfile_.setupPrintValue(getPntrToArgument(i));
-    }
+  if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
+    this->hillsOfile_.rewind();
+    // this->hillsOfile_.clearFields();
+    // this->hillsOfile_.link(*this);
+    // this->hillsOfile_.enforceSuffix("");
+    // this->hillsOfile_.open(this->hillsfname_);
+    // if(this->fmt_.length() > 0) {
+    //   this->hillsOfile_.fmtField(this->fmt_);
+    // }
+    // hillsOfile_.setHeavyFlush();
+    // for(unsigned i = 0; i < this->d_; ++i) {
+    //   hillsOfile_.setupPrintValue(getPntrToArgument(i));
+    // }
   }
 
   bool nowAddAHill;
