@@ -111,7 +111,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
   isFirstStep_(true),
   count_(1),
   bf_(1.0),
-  conv_(true),
+  conv_(false),
   walkers_mpi_(false),
   mpi_size_(0),
   mpi_rank_(0),
@@ -152,7 +152,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(w.size() != this->d_) {
     error("Number of arguments does not match number of WIDTH parameters");
   }
-  this->conv_ = false;
   for (double val : w) {
     if (val != 0.0) {
       this->conv_ = true;

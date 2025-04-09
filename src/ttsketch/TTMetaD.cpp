@@ -129,7 +129,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_count_(1),
   sketch_until_(numeric_limits<double>::max()),
   frozen_(false),
-  sketch_conv_(true)
+  sketch_conv_(false)
 {
   bool kernel;
   parseFlag("KERNEL_BASIS", kernel);
@@ -215,7 +215,6 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   if(w.size() != this->d_) {
     error("Number of arguments does not match number of SKETCH_WIDTH parameters");
   }
-  this->sketch_conv_ = false;
   for (double val : w) {
     if (val != 0.0) {
       this->sketch_conv_ = true;
@@ -1075,11 +1074,12 @@ void TTMetaD::paraSketch() {
     }
     if(this->sketch_conv_) {
       for(unsigned i = 1; i <= this->d_; ++i) {
+        double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
+        double w = this->sketch_basis_[i - 1].w();
         auto s = siteIndex(this->vb_, i);
         ITensor inner(s, prime(s));
         for(int j = 1; j < dim(s); ++j) {
-          double L = (this->sketch_basis_[j - 1].dom().second - this->sketch_basis_[j - 1].dom().first) / 2;
-          inner.set(s = j, prime(s) = j, exp(-pow(M_PI * this->sketch_basis_[0].w() * (j / 2), 2) / (2 * pow(L, 2))));
+          inner.set(s = j, prime(s) = j, exp(-pow(M_PI * w * (j / 2), 2) / (2 * pow(L, 2))));
         }
         this->vb_.ref(i) *= inner;
         this->vb_.ref(i).noPrime();
