@@ -375,9 +375,13 @@ void TTMetaD::update() {
   if(getStep() % this->sketch_stride_ == 0 && !this->isFirstStep_ && !this->frozen_) {
     nowAddATT = true;
     if(!this->walkers_mpi_ || this->mpi_rank_ == 0) {
+      cout << 1 << " " << this->frozen_ << endl;
       this->hillsOfile_.flush();
+      cout << 2 << " " << this->frozen_ << endl;
       this->hillsOfile_.close();
+      cout << 3 << " " << this->frozen_ << endl;
       this->hillsOfile_.clearFields();
+      cout << 4 << " " << this->frozen_ << endl;
     }
   } else {
     nowAddATT = false;
@@ -890,21 +894,29 @@ void TTMetaD::update() {
       }
     }
     if(getTime() >= this->sketch_until_) {
+      cout << 5 << " " << this->frozen_ << endl;
       this->frozen_ = true;
     }
   }
 
   if(getStep() % this->sketch_stride_ == 0 && !this->frozen_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
+    cout << 6 << " " << this->frozen_ << endl;
     this->hillsOfile_.link(*this);
+    cout << 7 << " " << this->frozen_ << endl;
     this->hillsOfile_.enforceSuffix("");
+    cout << 8 << " " << this->frozen_ << endl;
     this->hillsOfile_.open(this->hillsfname_);
+    cout << 9 << " " << this->frozen_ << endl;
     if(this->fmt_.length() > 0) {
       this->hillsOfile_.fmtField(this->fmt_);
     }
+    cout << 10 << " " << this->frozen_ << endl;
     hillsOfile_.setHeavyFlush();
     for(unsigned i = 0; i < this->d_; ++i) {
+      cout << 11 << " " << i << " " << this->frozen_ << endl;
       hillsOfile_.setupPrintValue(getPntrToArgument(i));
     }
+    cout << 12 << " " << this->frozen_ << endl;
   }
 
   bool nowAddAHill;
@@ -944,13 +956,17 @@ void TTMetaD::update() {
         Gaussian newhill(all_height[i] * fact, cv_now, sigma_now);
         this->hills_.push_back(newhill);
         if(this->mpi_rank_ == 0) {
+          cout << 13 << " " << this->frozen_ << endl;
           writeGaussian(newhill, hillsOfile_);
+          cout << 14 << " " << this->frozen_ << endl;
         }
       }
     } else {
       Gaussian newhill(height, cv, this->sigma0_);
       this->hills_.push_back(newhill);
+      cout << 15 << " " << this->frozen_ << endl;
       writeGaussian(newhill, hillsOfile_);
+      cout << 16 << " " << this->frozen_ << endl;
     }
   }
 
