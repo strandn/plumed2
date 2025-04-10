@@ -302,6 +302,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
       tmpvalues.push_back(Value(this, getPntrToArgument(j)->getName(), false));
     }
     while(true) {
+      if(this->mpi_rank_ == 0) {
+        cout << 1 << " " this->count_ << " " << this->samples_.size() << endl;
+      }
       string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
         samples_ifile.open(filename);
@@ -342,6 +345,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
               }
             }
           }
+          cout << 2 << " " this->count_ << " " << this->samples_.size() << endl;
         }
       } else {
         for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
@@ -359,6 +363,9 @@ TTSketch::TTSketch(const ActionOptions& ao):
         if(this->do_aca_) {
           this->aca_.trimSamples(this->max_samples_);
         }
+      }
+      if(this->mpi_rank_ == 0) {
+        cout << 3 << " " this->count_ << " " << this->samples_.size() << endl;
       }
       this->lastsamples_.clear();
       this->count_++;
