@@ -259,11 +259,10 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
       this->frozen_ = true;
     } else {
       IFile hills_ifile;
-      if(hills_ifile.FileExist(this->hillsfname_)) {
-        hills_ifile.open(this->hillsfname_);
-      } else {
+      if(!hills_ifile.FileExist(this->hillsfname_)) {
         error("The hills file cannot be found");
       }
+      hills_ifile.open(this->hillsfname_);
       readGaussians(&hills_ifile);
       hills_ifile.close();
     }

@@ -294,7 +294,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(getRestart()) {
     int npivots = 0;
     IFile samples_ifile;
-    bool done = false;
     this->count_ = 0;
     vector<double> cv(this->d_, 0.0);
     vector<Value> tmpvalues;
@@ -303,13 +302,12 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     while(true) {
       string filename = this->samplesfname_ + "." + to_string(this->count_);
-      if(samples_ifile.FileExist(filename)) {
-        samples_ifile.open(filename);
-      } else {
+      if(!samples_ifile.FileExist(filename)) {
         break;
       }
-      // TODO: this might need to change (length of file might be different?)
-      for(int i = 0; i < this->pace_ / this->stride_; ++i) {
+      samples_ifile.open(filename);
+      bool done = false;
+      while(true) {
         for(unsigned j = 0; j < this->d_; ++j) {
           if(!samples_ifile.scanField(&tmpvalues[j])) {
             done = true;
@@ -324,10 +322,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
         samples_ifile.scanField();
       }
       samples_ifile.close();
-      if(done) {
-        this->count_++;
-        break;
-      }
+      // if(done) {
+      //   this->count_++;
+      //   break;
+      // }
       if(this->walkers_mpi_) {
         vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
         multi_sim_comm.Allgather(this->traj_, all_traj);
@@ -382,11 +380,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
 
     if(this->do_aca_ && (!this->walkers_mpi_ || this->mpi_rank_ == 0)) {
       IFile pivot_ifile;
-      if(pivot_ifile.FileExist("pivots.dat")) {
-        pivot_ifile.open("pivots.dat");
-      } else {
+      if(!pivot_ifile.FileExist("pivots.dat")) {
         error("The file pivots.dat cannot be found");
       }
+      pivot_ifile.open("pivots.dat");
       bool done = false;
       while(true) {
         for(unsigned i = 0; i < this->d_; ++i) {
