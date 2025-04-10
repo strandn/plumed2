@@ -294,7 +294,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
   if(getRestart()) {
     int npivots = 0;
     IFile samples_ifile;
-    bool done = false;
     this->count_ = 0;
     vector<double> cv(this->d_, 0.0);
     vector<Value> tmpvalues;
@@ -302,15 +301,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
       tmpvalues.push_back(Value(this, getPntrToArgument(j)->getName(), false));
     }
     while(true) {
-      if(this->mpi_rank_ == 0) {
-        cout << 1 << " " << this->count_ << " " << this->samples_.size() << " " << this->lastsamples_.size() << " " << this->traj_.size() << endl;
-      }
       string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
         samples_ifile.open(filename);
       } else {
         break;
       }
+      bool done = false;
       while(true) {
         for(unsigned j = 0; j < this->d_; ++j) {
           if(!samples_ifile.scanField(&tmpvalues[j])) {
@@ -345,7 +342,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
               }
             }
           }
-          cout << 2 << " " << this->count_ << " " << this->samples_.size() << " " << this->lastsamples_.size() << " " << this->traj_.size() << endl;
         }
       } else {
         for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
@@ -363,9 +359,6 @@ TTSketch::TTSketch(const ActionOptions& ao):
         if(this->do_aca_) {
           this->aca_.trimSamples(this->max_samples_);
         }
-      }
-      if(this->mpi_rank_ == 0) {
-        cout << 3 << " " << this->count_ << " " << this->samples_.size() << " " << this->lastsamples_.size() << " " << this->traj_.size() << endl;
       }
       this->lastsamples_.clear();
       this->count_++;
