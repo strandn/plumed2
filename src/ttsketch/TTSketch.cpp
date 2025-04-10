@@ -308,7 +308,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
       } else {
         break;
       }
-      for(int i = 0; i < this->pace_ / this->stride_; ++i) {
+      while(true) {
         for(unsigned j = 0; j < this->d_; ++j) {
           if(!samples_ifile.scanField(&tmpvalues[j])) {
             done = true;
@@ -323,10 +323,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
         samples_ifile.scanField();
       }
       samples_ifile.close();
-      if(done) {
-        this->count_++;
-        break;
-      }
+      // if(done) {
+      //   this->count_++;
+      //   break;
+      // }
       if(this->walkers_mpi_) {
         vector<double> all_traj(this->mpi_size_ * this->traj_.size(), 0.0);
         multi_sim_comm.Allgather(this->traj_, all_traj);
