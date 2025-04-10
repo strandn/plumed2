@@ -18,7 +18,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, double w, bool kernel
     for(int i = 0; i < nbasis - 1; ++i) {
       this->centers_[i] = dom.first + i * this->dx_;
     }
-    //TODO: do we want this?
+    // TODO: do we want this?
     // this->dx_ *= 1.5;
     this->gram_ = Matrix<double>(nbasis, nbasis);
     this->gram_(0, 0) = this->dom_.second - this->dom_.first;

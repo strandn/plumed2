@@ -628,7 +628,7 @@ void TTSketch::update() {
         }
       }
 
-      if(this->output_2d_ > 0) {
+      if(this->output_2d_ > 0 && this->conv_) {
         for(unsigned k = 0; k < this->d_; ++k) {
           for(unsigned l = k + 1; l < this->d_; ++l) {
             vector<vector<double>> marginals(this->output_2d_, vector<double>(this->output_2d_, 0.0));
