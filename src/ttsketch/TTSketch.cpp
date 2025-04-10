@@ -303,7 +303,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
     }
     while(true) {
       if(this->mpi_rank_ == 0) {
-        cout << 1 << " " << this->count_ << " " << this->samples_.size() " " << this->lastsamples_.size() " " << this->traj_.size() << endl;
+        cout << 1 << " " << this->count_ << " " << this->samples_.size() << " " << this->lastsamples_.size() " " << this->traj_.size() << endl;
       }
       string filename = this->samplesfname_ + "." + to_string(this->count_);
       if(samples_ifile.FileExist(filename)) {
@@ -345,7 +345,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
               }
             }
           }
-          cout << 2 << " " << this->count_ << " " << this->samples_.size() " " << this->lastsamples_.size() " " << this->traj_.size() << endl;
+          cout << 2 << " " << this->count_ << " " << this->samples_.size() << " " << this->lastsamples_.size() " " << this->traj_.size() << endl;
         }
       } else {
         for(unsigned i = 0; i < this->traj_.size(); i += this->d_) {
@@ -365,7 +365,7 @@ TTSketch::TTSketch(const ActionOptions& ao):
         }
       }
       if(this->mpi_rank_ == 0) {
-        cout << 3 << " " << this->count_ << " " << this->samples_.size() " " << this->lastsamples_.size() " " << this->traj_.size() << endl;
+        cout << 3 << " " << this->count_ << " " << this->samples_.size() << " " << this->lastsamples_.size() " " << this->traj_.size() << endl;
       }
       this->lastsamples_.clear();
       this->count_++;
