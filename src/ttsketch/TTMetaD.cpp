@@ -437,7 +437,7 @@ void TTMetaD::update() {
       
       if(this->d_ == 2) {
         ofstream file;
-        if(this->count_ == 2) {
+        if(this->sketch_count_ == 2) {
           file.open("F0.txt");
         } else {
           file.open("F0.txt", ios_base::app);
@@ -610,7 +610,7 @@ void TTMetaD::update() {
       
       if(this->d_ == 2) {
         ofstream file;
-        if(this->count_ == 2) {
+        if(this->sketch_count_ == 2) {
           file.open("F.txt");
         } else {
           file.open("F.txt", ios_base::app);
