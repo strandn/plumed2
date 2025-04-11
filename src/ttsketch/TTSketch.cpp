@@ -92,11 +92,13 @@ void TTSketch::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("optional", "LAMBDA", "Ratio of largest to smallest allowed density magnitudes");
   keys.add("optional", "BIASFACTOR", "For well-tempering");
+  keys.add("optional", "KERNEL_DX", "Width of basis function kernels");
   keys.use("RESTART");
   keys.add("optional", "FILE", "Name of the file where samples are stored");
   keys.add("optional", "ACA_CUTOFF", "Convergence threshold for TT-cross calculations");
   keys.add("optional", "ACA_RANK", "Largest possible rank for TT-cross calculations");
   keys.add("optional", "ACA_WIDTH", "Width of Gaussian kernels for TT-cross bias potential");
+  keys.add("optional", "ACA_KERNEL_DX", "Width of basis function kernels for TT-cross bias potential");
   keys.add("compulsory", "ACA_NBASIS", "20", "Number of Fourier basis functions per dimension for bias potential");
   keys.add("compulsory", "OUTPUT_2D", "0", "Number of bins per dimension for outputting 2D marginals of sketch densities - 0 for no output");
   keys.add("optional", "MAX_SAMPLES", "Limits the number of samples kept in memory");
@@ -158,6 +160,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
       this->conv_ = true;
     }
   }
+  vector<double> dx;
+  parseVector("KERNEL_DX", dx);
+  if(dx.size() == 0) {
+    dx.resize(this->d_, 0.0);
+  }
+  if(dx.size() != this->d_) {
+    error("Number of arguments does not match number of KERNEL_DX parameters");
+  }
   parse("INITRANK", this->rc_);
   if(this->rc_ <= 0) {
     error("INITRANK must be positive");
@@ -204,10 +214,13 @@ TTSketch::TTSketch(const ActionOptions& ao):
     if(this->conv_ && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
     }
+    if(kernel && dx[i] < 0.0) {
+      error("Kernel basis requires positive KERNEL_DX");
+    }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel));
+    this->basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel, dx[i]));
   }
 
   double aca_cutoff = 0.0;
@@ -234,6 +247,14 @@ TTSketch::TTSketch(const ActionOptions& ao):
       aca_conv = true;
     }
   }
+  vector<double> aca_dx;
+  parseVector("ACA_KERNEL_DX", aca_dx);
+  if(aca_dx.size() == 0) {
+    aca_dx.resize(this->d_, 0.0);
+  }
+  if(aca_dx.size() != this->d_) {
+    error("Number of arguments does not match number of ACA_WIDTH parameters");
+  }
   int aca_nbasis = nbasis;
   parse("ACA_NBASIS", aca_nbasis);
   if(this->do_aca_ && aca_nbasis <= 1) {
@@ -247,7 +268,10 @@ TTSketch::TTSketch(const ActionOptions& ao):
       if(aca_conv && aca_w[i] <= 0.0) {
         error("Gaussian smoothing requires positive ACA_WIDTH");
       }
-      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), aca_nbasis, aca_w[i], aca_kernel));
+      if(aca_kernel && aca_dx[i] < 0.0) {
+        error("Kernel basis requires positive ACA_KERNEL_DX");
+      }
+      this->aca_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), aca_nbasis, aca_w[i], aca_kernel, aca_dx[i]));
     }
   }
 

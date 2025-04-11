@@ -110,6 +110,7 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "SKETCH_ALPHA", "0.05", "Weight coefficient for random tensor train construction");
   keys.add("optional", "SKETCH_UNTIL", "After this time, the bias potential freezes");
   keys.add("optional", "SKETCH_WIDTH", "Width of Gaussian kernels for smoothing");
+  keys.add("optional", "KERNEL_DX", "Width of basis function kernels");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
@@ -220,14 +221,25 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
       this->sketch_conv_ = true;
     }
   }
+  vector<double> dx;
+  parseVector("KERNEL_DX", dx);
+  if(dx.size() == 0) {
+    dx.resize(this->d_, 0.0);
+  }
+  if(dx.size() != this->d_) {
+    error("Number of arguments does not match number of SKETCH_WIDTH parameters");
+  }
   for(unsigned i = 0; i < this->d_; ++i) {
     if(this->sketch_conv_ && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
     }
+    if(kernel && dx[i] < 0.0) {
+      error("Kernel basis requires positive KERNEL_DX");
+    }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel, dx[i]));
   }
   if(kernel && this->sketch_conv_) {
     error("kernel smoothing incompatible with kernel basis");
