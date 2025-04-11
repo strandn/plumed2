@@ -13,12 +13,13 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, double w, bool kernel
   : dom_(dom), nbasis_(nbasis), L_((dom.second - dom.first) / 2), shift_((dom.second + dom.first) / 2), w_(w), kernel_(kernel), dx_(dx)
 {
   if(kernel) {
+    double spacing = (dom.second - dom.first) / (nbasis - 1);
     if(dx == 0) {
-      this->dx_ = (dom.second - dom.first) / (nbasis - 1);
+      this->dx_ = spacing;
     }
     this->centers_ = vector<double>(nbasis - 1);
     for(int i = 0; i < nbasis - 1; ++i) {
-      this->centers_[i] = dom.first + i * this->dx_;
+      this->centers_[i] = dom.first + i * spacing;
     }
     this->gram_ = Matrix<double>(nbasis, nbasis);
     this->gram_(0, 0) = this->dom_.second - this->dom_.first;
