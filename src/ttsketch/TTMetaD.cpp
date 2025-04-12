@@ -227,7 +227,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     dx.resize(this->d_, 0.0);
   }
   if(dx.size() != this->d_) {
-    error("Number of arguments does not match number of SKETCH_WIDTH parameters");
+    error("Number of arguments does not match number of KERNEL_DX parameters");
   }
   for(unsigned i = 0; i < this->d_; ++i) {
     if(this->sketch_conv_ && w[i] <= 0.0) {
