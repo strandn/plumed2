@@ -435,7 +435,7 @@ void TTMetaD::update() {
         A0[i] = getBias(x[i]);
       }
       
-      if(this->d_ == 2) {
+      if(this->d_ == 1) {
         ofstream file;
         if(this->sketch_count_ == 2) {
           file.open("F0.txt");
