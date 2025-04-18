@@ -31,6 +31,7 @@
 #include "tools/Random.h"
 #include "tools/File.h"
 #include "tools/Communicator.h"
+#include "tools/Stopwatch.h"
 #include <ctime>
 #include <numeric>
 #include <fstream>
@@ -476,6 +477,9 @@ private:
   std::vector<Gaussian> nlist_hills_;
   std::vector<double> nlist_center_;
   std::vector<double> nlist_dev2_;
+
+  ForwardDecl<Stopwatch> stopwatch_fwd;
+  Stopwatch& stopwatch = *stopwatch_fwd;
 
   double stretchA=1.0;
   double stretchB=0.0;
@@ -1393,6 +1397,9 @@ MetaD::MetaD(const ActionOptions& ao):
   }
   if(freq_adaptive_) log<<plumed.cite("Wang, Valsson, Tiwary, Parrinello, and Lindorff-Larsen, J. Chem. Phys. 149, 072309 (2018)");
   log<<"\n";
+  if(getRestart() && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+    stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
+  }
 }
 
 void MetaD::readTemperingSpecs(TemperingSpecs &t_specs)
@@ -2218,6 +2225,12 @@ void MetaD::update()
   //   }
   //   file.close();
   // }
+  if(getStep() % 500000 == 0 && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+    stopwatch.stop("Timing " + std::to_string(getStep() / 500000));
+    log << stopwatch << "\n";
+    log.flush();
+    stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
+  }
 }
 
 /// takes a pointer to the file and a template std::string with values v and gives back the next center, sigma and height

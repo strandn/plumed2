@@ -7,6 +7,7 @@
 #include "tools/Communicator.h"
 #include "tools/File.h"
 #include "tools/OpenMP.h"
+#include "tools/Stopwatch.h"
 
 using namespace std;
 using namespace itensor;
@@ -62,6 +63,8 @@ private:
   double sketch_until_;
   bool frozen_;
   bool sketch_conv_;
+  ForwardDecl<Stopwatch> stopwatch_fwd;
+  Stopwatch& stopwatch = *stopwatch_fwd;
 
   void readGaussians(IFile *ifile);
   void writeGaussian(const Gaussian& hill, OFile& file);
@@ -291,6 +294,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     for(unsigned i = 0; i < this->d_; ++i) {
       hillsOfile_.setupPrintValue(getPntrToArgument(i));
     }
+    stopwatch.start("Timing " + to_string(this->sketch_count_));
   }
 }
 
@@ -759,6 +763,9 @@ void TTMetaD::update() {
       //   }
       //   file.close();
       // }
+      stopwatch.stop("Timing " + to_string(this->sketch_count_ - 1));
+      log << stopwatch << "\n";
+      log.flush();
     }
 
     if(this->walkers_mpi_) {
@@ -780,6 +787,7 @@ void TTMetaD::update() {
       for(unsigned i = 0; i < this->d_; ++i) {
         hillsOfile_.setupPrintValue(getPntrToArgument(i));
       }
+      stopwatch.start("Timing " + to_string(this->count_));
     }
   }
 
