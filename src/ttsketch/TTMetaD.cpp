@@ -444,7 +444,7 @@ void TTMetaD::update() {
         {
           #pragma omp for reduction(+:bias) nowait
           for(unsigned i = 0; i < hills_.size(); ++i) {
-            bias += evaluateGaussian(x, this->hills_[i]);
+            bias += evaluateGaussian(x[i], this->hills_[i]);
           }
         }
         A0[i] = bias;
