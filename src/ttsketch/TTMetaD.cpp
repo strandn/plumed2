@@ -787,7 +787,7 @@ void TTMetaD::update() {
       for(unsigned i = 0; i < this->d_; ++i) {
         hillsOfile_.setupPrintValue(getPntrToArgument(i));
       }
-      stopwatch.start("Timing " + to_string(this->count_));
+      stopwatch.start("Timing " + to_string(this->sketch_count_));
     }
   }
 
