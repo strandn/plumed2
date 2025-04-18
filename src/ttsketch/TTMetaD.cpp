@@ -443,8 +443,8 @@ void TTMetaD::update() {
         #pragma omp parallel num_threads(nt)
         {
           #pragma omp for reduction(+:bias) nowait
-          for(unsigned i = 0; i < hills_.size(); ++i) {
-            bias += evaluateGaussian(x[i], this->hills_[i]);
+          for(unsigned j = 0; j < hills_.size(); ++j) {
+            bias += evaluateGaussian(x[i], this->hills_[j]);
           }
         }
         A0[i] = bias;
