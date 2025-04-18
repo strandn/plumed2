@@ -1936,6 +1936,15 @@ void MetaD::calculate()
 
 void MetaD::update()
 {
+  if(getStep() % 500000 == 0 && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+    if(!isFirstStep_) {
+      stopwatch.stop("Timing " + std::to_string(getStep() / 500000));
+      log << stopwatch << "\n";
+      log.flush();
+    }
+    stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
+  }
+
   // adding hills criteria (could be more complex though)
   bool nowAddAHill;
   if(getStep()%current_stride_==0 && !isFirstStep_) nowAddAHill=true;
@@ -2225,12 +2234,6 @@ void MetaD::update()
   //   }
   //   file.close();
   // }
-  if(getStep() % 500000 == 0 && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
-    stopwatch.stop("Timing " + std::to_string(getStep() / 500000));
-    log << stopwatch << "\n";
-    log.flush();
-    stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
-  }
 }
 
 /// takes a pointer to the file and a template std::string with values v and gives back the next center, sigma and height
