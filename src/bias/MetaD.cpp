@@ -1397,9 +1397,9 @@ MetaD::MetaD(const ActionOptions& ao):
   }
   if(freq_adaptive_) log<<plumed.cite("Wang, Valsson, Tiwary, Parrinello, and Lindorff-Larsen, J. Chem. Phys. 149, 072309 (2018)");
   log<<"\n";
-  if(getRestart() && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
-    stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
-  }
+  // if(getRestart() && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+  //   stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
+  // }
 }
 
 void MetaD::readTemperingSpecs(TemperingSpecs &t_specs)
@@ -1936,14 +1936,14 @@ void MetaD::calculate()
 
 void MetaD::update()
 {
-  if(getStep() % 500000 == 0 && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
-    if(!isFirstStep_) {
-      stopwatch.stop("Timing " + std::to_string(getStep() / 500000));
-      log << stopwatch << "\n";
-      log.flush();
-    }
-    stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
-  }
+  // if(getStep() % 500000 == 0 && (!walkers_mpi_ || multi_sim_comm.Get_rank() == 0)) {
+  //   if(!isFirstStep_) {
+  //     stopwatch.stop("Timing " + std::to_string(getStep() / 500000));
+  //     log << stopwatch << "\n";
+  //     log.flush();
+  //   }
+  //   stopwatch.start("Timing " + std::to_string(getStep() / 500000 + 1));
+  // }
 
   // adding hills criteria (could be more complex though)
   bool nowAddAHill;

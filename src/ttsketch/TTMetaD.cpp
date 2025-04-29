@@ -294,7 +294,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     for(unsigned i = 0; i < this->d_; ++i) {
       hillsOfile_.setupPrintValue(getPntrToArgument(i));
     }
-    stopwatch.start("Timing " + to_string(this->sketch_count_));
+    // stopwatch.start("Timing " + to_string(this->sketch_count_));
   }
 }
 
@@ -449,23 +449,23 @@ void TTMetaD::update() {
         // A0[i] = bias;
       }
       
-      // if(this->d_ == 2) {
-      //   ofstream file;
-      //   if(this->sketch_count_ == 1) {
-      //     file.open("F0.txt");
-      //   } else {
-      //     file.open("F0.txt", ios_base::app);
-      //   }
-      //   for(int i = 0; i < 100; ++i) {
-      //     double x = -M_PI + 2 * i * M_PI / 100;
-      //     for(int j = 0; j < 100; ++j) {
-      //       double y = -M_PI + 2 * j * M_PI / 100;
-      //       double ene = getBias({ x, y });
-      //       file << x << " " << y << " " << ene << endl;
-      //     }
-      //   }
-      //   file.close();
-      // }
+      if(this->d_ == 2) {
+        ofstream file;
+        if(this->sketch_count_ == 1) {
+          file.open("F0.txt");
+        } else {
+          file.open("F0.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            double ene = getBias({ x, y });
+            file << x << " " << y << " " << ene << endl;
+          }
+        }
+        file.close();
+      }
 
       // if(this->d_ == 6) {
       //   ofstream file;
@@ -622,23 +622,23 @@ void TTMetaD::update() {
       }
       ttWrite(ttfilename, this->vb_, this->sketch_count_);
       
-      // if(this->d_ == 2) {
-      //   ofstream file;
-      //   if(this->sketch_count_ == 2) {
-      //     file.open("F.txt");
-      //   } else {
-      //     file.open("F.txt", ios_base::app);
-      //   }
-      //   for(int i = 0; i < 100; ++i) {
-      //     double x = -M_PI + 2 * i * M_PI / 100;
-      //     for(int j = 0; j < 100; ++j) {
-      //       double y = -M_PI + 2 * j * M_PI / 100;
-      //       double ene = getBias({ x, y });
-      //       file << x << " " << y << " " << ene << endl;
-      //     }
-      //   }
-      //   file.close();
-      // }
+      if(this->d_ == 2) {
+        ofstream file;
+        if(this->sketch_count_ == 2) {
+          file.open("F.txt");
+        } else {
+          file.open("F.txt", ios_base::app);
+        }
+        for(int i = 0; i < 100; ++i) {
+          double x = -M_PI + 2 * i * M_PI / 100;
+          for(int j = 0; j < 100; ++j) {
+            double y = -M_PI + 2 * j * M_PI / 100;
+            double ene = getBias({ x, y });
+            file << x << " " << y << " " << ene << endl;
+          }
+        }
+        file.close();
+      }
 
       // if(this->d_ == 6) {
       //   ofstream file;
@@ -773,9 +773,9 @@ void TTMetaD::update() {
       //   }
       //   file.close();
       // }
-      stopwatch.stop("Timing " + to_string(this->sketch_count_ - 1));
-      log << stopwatch << "\n";
-      log.flush();
+      // stopwatch.stop("Timing " + to_string(this->sketch_count_ - 1));
+      // log << stopwatch << "\n";
+      // log.flush();
     }
 
     if(this->walkers_mpi_) {
@@ -797,7 +797,7 @@ void TTMetaD::update() {
       for(unsigned i = 0; i < this->d_; ++i) {
         hillsOfile_.setupPrintValue(getPntrToArgument(i));
       }
-      stopwatch.start("Timing " + to_string(this->sketch_count_));
+      // stopwatch.start("Timing " + to_string(this->sketch_count_));
     }
   }
 
