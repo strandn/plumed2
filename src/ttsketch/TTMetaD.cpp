@@ -294,7 +294,7 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
     for(unsigned i = 0; i < this->d_; ++i) {
       hillsOfile_.setupPrintValue(getPntrToArgument(i));
     }
-    // stopwatch.start("Timing " + to_string(this->sketch_count_));
+    stopwatch.start("Timing " + to_string(this->sketch_count_));
   }
 }
 
@@ -773,9 +773,9 @@ void TTMetaD::update() {
       //   }
       //   file.close();
       // }
-      // stopwatch.stop("Timing " + to_string(this->sketch_count_ - 1));
-      // log << stopwatch << "\n";
-      // log.flush();
+      stopwatch.stop("Timing " + to_string(this->sketch_count_ - 1));
+      log << stopwatch << "\n";
+      log.flush();
     }
 
     if(this->walkers_mpi_) {
@@ -797,7 +797,7 @@ void TTMetaD::update() {
       for(unsigned i = 0; i < this->d_; ++i) {
         hillsOfile_.setupPrintValue(getPntrToArgument(i));
       }
-      // stopwatch.start("Timing " + to_string(this->sketch_count_));
+      stopwatch.start("Timing " + to_string(this->sketch_count_));
     }
   }
 
