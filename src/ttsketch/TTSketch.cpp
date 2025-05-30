@@ -606,7 +606,7 @@ void TTSketch::update() {
         }
       }
       matrixOut(log, sigmahat);
-      auto [sigma, mu] = covMat(this->ttList_.back(), this->basis_);
+      auto [sigma, mu, Z] = covMat(this->ttList_.back(), this->basis_);
       log << "Estimated means:\n";
       for(unsigned k = 0; k < this->d_; ++k) {
         log << mu[k] << " ";

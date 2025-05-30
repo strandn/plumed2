@@ -67,7 +67,7 @@ vector<double> ttGrad(const MPS& tt, const vector<BasisFunc>& basis, const vecto
   return grad;
 }
 
-pair<Matrix<double>, vector<double>> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
+tuple<Matrix<double>, vector<double>, double> covMat(const MPS& tt, const vector<BasisFunc>& basis) {
   int d = length(tt);
   auto s = siteInds(tt);
   vector<ITensor> basis_int0(d), basis_int1(d), basis_int2(d);
@@ -110,7 +110,7 @@ pair<Matrix<double>, vector<double>> covMat(const MPS& tt, const vector<BasisFun
       sigma(k - 1, l - 1) = sigma(l - 1, k - 1) = k == l ? eii[k - 1] - pow(ei[k - 1], 2) : eij[k - 1][l - 1] - ei[k - 1] * ei[l - 1];
     }
   }
-  return make_pair(sigma, ei);
+  return make_tuple(sigma, ei, Z);
 }
 
 void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos1, int pos2, vector<vector<double>>& grid, bool conv) {

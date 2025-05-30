@@ -103,8 +103,8 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.addFlag("WALKERS_MPI", false, "To be used when gromacs + multiple walkers are used");
   keys.add("optional", "WALKERS_DIR", "shared directory with the hills files from all the walkers");
   keys.use("RESTART");
-  keys.add("optional", "SKETCH_RANK", "Target rank for TTSketch algorithm - compulsory if CUTOFF is not specified");
-  keys.add("optional", "SKETCH_CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if RANK is not specified");
+  keys.add("optional", "SKETCH_RANK", "Target rank for TTSketch algorithm - compulsory if SKETCH_CUTOFF is not specified");
+  keys.add("optional", "SKETCH_CUTOFF", "Truncation error cutoff for singular value decomposition - compulsory if SKETCH_RANK is not specified");
   keys.add("compulsory", "SKETCH_INITRANK", "Initial rank for TTSketch algorithm");
   keys.add("compulsory", "SKETCH_PACE", "1e6", "The frequency for TT Vbias updates");
   keys.add("compulsory", "INTERVAL_MIN", "Lower limits, outside the limits the system will not feel the biasing force");
