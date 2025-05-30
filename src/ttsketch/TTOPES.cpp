@@ -398,7 +398,7 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   }
   double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob / this->Zed_ + this->epsilon_);
-  vector<double> der_prob(this->d_, 0) = ttGrad(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  vector<double> der_prob = ttGrad(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / (prob / this->Zed_ + this->epsilon_) * der_prob[i] / this->Zed_;
   }
