@@ -110,7 +110,7 @@ tuple<Matrix<double>, vector<double>, double> covMat(const MPS& tt, const vector
       sigma(k - 1, l - 1) = sigma(l - 1, k - 1) = k == l ? eii[k - 1] - pow(ei[k - 1], 2) : eij[k - 1][l - 1] - ei[k - 1] * ei[l - 1];
     }
   }
-  return make_tuple(sigma, ei, Z);
+  return make_tuple(sigma, ei, elt(Z));
 }
 
 void marginal2d(const MPS& tt, const vector<BasisFunc>& basis, int pos1, int pos2, vector<vector<double>>& grid, bool conv) {

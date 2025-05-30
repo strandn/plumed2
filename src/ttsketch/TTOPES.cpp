@@ -51,7 +51,7 @@ public:
   void calculate() override;
   void update() override;
   static void registerKeywords(Keywords& keys);
-}
+};
 
 PLUMED_REGISTER_ACTION(TTOPES, "TTOPES")
 
@@ -100,7 +100,6 @@ TTOPES::TTOPES(const ActionOptions& ao):
   sketch_count_(1),
   sketch_conv_(false)
 {
-  const double kB = getKBoltzmann();
   this->kbt_ = getkBT();
 
   parse("PACE", this->stride_);
@@ -299,7 +298,7 @@ void TTOPES::update() {
     vector<double> muhat(this->d_, 0.0);
     for(unsigned k = 0; k < this->d_; ++k) {
       for(unsigned j = 0; j < this->samples_.size(); ++j) {
-        muhat[k] += this->weights_[j] * this->samples_[j][k] / sum_heights;
+        muhat[k] += this->heights_[j] * this->samples_[j][k] / sum_heights;
       }
       log << muhat[k] << " ";
     }
@@ -308,13 +307,13 @@ void TTOPES::update() {
       for(unsigned l = k; l < this->d_; ++l) {
         sigmahat(k, l) = sigmahat(l, k) = 0.0;
         for(unsigned j = 0; j < this->samples_.size(); ++j) {
-          sigmahat(k, l) += this->weights_[j] * (this->samples_[j][k] - muhat[k]) * (this->samples_[j][l] - muhat[l]) / sum_heights;
+          sigmahat(k, l) += this->heights_[j] * (this->samples_[j][k] - muhat[k]) * (this->samples_[j][l] - muhat[l]) / sum_heights;
         }
         sigmahat(l, k) = sigmahat(k, l);
       }
     }
     matrixOut(log, sigmahat);
-    auto [sigma, mu, Z] = covMat(this->tt_, this->basis_);
+    auto [sigma, mu, Z] = covMat(this->tt_, this->sketch_basis_);
     log << "Estimated means:\n";
     for(unsigned k = 0; k < this->d_; ++k) {
       log << mu[k] << " ";
@@ -397,8 +396,8 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   if(length(this->tt_) == 0) {
     return 0.0;
   }
-  double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob / this->Zed_ + this->epsilon_);
   double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob / this->Zed_ + this->epsilon_);
   vector<double> der_prob(this->d_, 0) = ttGrad(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / (prob / this->Zed_ + this->epsilon_) * der_prob[i] / this->Zed_;
