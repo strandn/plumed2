@@ -62,7 +62,7 @@ void TTOPES::registerKeywords(Keywords& keys)
   keys.add("compulsory", "TEMP", "-1", "temperature. If not set, it is taken from MD engine, but not all MD codes provide it");
   keys.add("compulsory", "PACE", "the frequency for sample retrieval");
   keys.add("compulsory", "BARRIER", "the free energy barrier to be overcome. It is used to set BIASFACTOR and EPSILON to reasonable values");
-  keys.add("compulsory", "COMPRESSION_THRESHOLD", "1", "merge samples if closer than this threshold");
+  keys.add("compulsory", "COMPRESSION_THRESHOLD", "0.0", "merge samples if closer than this threshold");
   keys.add("optional", "BIASFACTOR", "the gamma bias factor used for the well-tempered target distribution.");
   keys.add("optional", "EPSILON", "the value of the regularization constant for the probability");
   keys.addFlag("RECURSIVE_MERGE_OFF",false,"do not recursively attempt sample merging when a new one is added");
