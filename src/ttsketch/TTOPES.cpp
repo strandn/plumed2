@@ -377,6 +377,24 @@ void TTOPES::update() {
     }
     log << "\n";
     log.flush();
+
+    if(this->d_ == 2) {
+      ofstream file;
+      if(this->sketch_count_ == 2) {
+        file.open("F.txt");
+      } else {
+        file.open("F.txt", ios_base::app);
+      }
+      for(int i = 0; i < 100; ++i) {
+        double x = -M_PI + 2 * i * M_PI / 100;
+        for(int j = 0; j < 100; ++j) {
+          double y = -M_PI + 2 * j * M_PI / 100;
+          double ene = getBias({ x, y });
+          file << x << " " << y << " " << ene << endl;
+        }
+      }
+      file.close();
+    }
   }
 
   if(getStep() % this->stride_ == 0) {
