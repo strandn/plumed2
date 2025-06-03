@@ -386,26 +386,36 @@ void TTOPES::update() {
     log.flush();
 
     if(this->d_ == 2) {
-      ofstream file, filep;
+      ofstream file, filep, filex, filey;
       if(this->sketch_count_ == 2) {
         file.open("F.txt");
         filep.open("P.txt");
+        filex.open("dFdx.txt");
+        filey.open("dFdy.txt");
       } else {
         file.open("F.txt", ios_base::app);
         filep.open("P.txt", ios_base::app);
+        filex.open("dFdx.txt", std::ios_base::app);
+        filey.open("dFdy.txt", std::ios_base::app);
       }
       for(int i = 0; i < 100; ++i) {
         double x = -M_PI + 2 * i * M_PI / 100;
         for(int j = 0; j < 100; ++j) {
           double y = -M_PI + 2 * j * M_PI / 100;
-          double ene = getBias({ x, y });
+          vector<double> der(this->d_, 0.0);
+          double ene = getBiasAndDerivatives({ x, y }, der);
           double prob = ttEval(this->tt_, this->sketch_basis_, { x, y }, this->sketch_conv_);
+          vector<double> der(this->d_, 0.0);
           file << x << " " << y << " " << ene << endl;
           filep << x << " " << y << " " << prob << endl;
+          filex << x << " " << y << " " << der[0] << endl;
+          filey << x << " " << y << " " << der[1] << endl;
         }
       }
       file.close();
       filep.close();
+      filex.close();
+      filey.close();
     }
   }
 

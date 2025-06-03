@@ -1263,26 +1263,35 @@ void OPESmetad<mode>::update()
 
   int pace = 500000;
   if(getStep() != 0 && getStep() % pace == 0 && (NumWalkers_ == 1 || walker_rank_ == 0)) {
-    std::ofstream file, filep;
+    std::ofstream file, filep, filex, filey;
     if(getStep() == pace) {
       file.open("F.txt");
       filep.open("P.txt");
+      filex.open("dFdx.txt");
+      filey.open("dFdy.txt");
     } else {
       file.open("F.txt", std::ios_base::app);
       filep.open("P.txt", std::ios_base::app);
+      filex.open("dFdx.txt", std::ios_base::app);
+      filey.open("dFdy.txt", std::ios_base::app);
     }
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
         double y = -M_PI + 2 * j * M_PI / 100;
-        std::vector<double> dummy(ncv_);
-        double prob = getProbAndDerivatives({ x, y }, dummy);
-        file << x << " " << y << " " << kbt_ * bias_prefactor_ * std::log(prob / Zed_ + epsilon_) << std::endl;
+        std::vector<double> der_prob(ncv_, 0);
+        double prob = getProbAndDerivatives({ x, y }, der_prob);
+        double bias = kbt_ * bias_prefactor_ * std::log(prob / Zed_ + epsilon_);
+        file << x << " " << y << " " << bias << std::endl;
         filep << x << " " << y << " " << prob << std::endl;
+        filex << x << " " << y << " " << -kbt_ * bias_prefactor_ / (prob / Zed_ + epsilon_) * der_prob[0] / Zed_ << std::endl;
+        filey << x << " " << y << " " << -kbt_ * bias_prefactor_ / (prob / Zed_ + epsilon_) * der_prob[1] / Zed_ << std::endl;
       }
     }
     file.close();
     filep.close();
+    filex.close();
+    filey.close();
   }
 }
 
