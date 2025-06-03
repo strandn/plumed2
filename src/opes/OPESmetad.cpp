@@ -22,6 +22,7 @@
 #include "tools/Communicator.h"
 #include "tools/File.h"
 #include "tools/OpenMP.h"
+#include <fstream>
 
 namespace PLMD {
 namespace opes {
