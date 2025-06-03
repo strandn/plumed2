@@ -465,11 +465,11 @@ void TTOPES::paraSketch() {
     }
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
-    cout << "core_id " << core_id << endl;
-    PrintData(A);
-    PrintData(U[core_id - 1]);
-    PrintData(S[core_id - 1]);
-    PrintData(V[core_id - 1]);
+    // cout << "core_id " << core_id << endl;
+    // PrintData(A);
+    // PrintData(U[core_id - 1]);
+    // PrintData(S[core_id - 1]);
+    // PrintData(V[core_id - 1]);
     if(this->sketch_r_ > 0) {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
           {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
@@ -563,6 +563,8 @@ MPS TTOPES::createTTCoeff() const {
     coeff.ref(i).noPrime();
   }
   return coeff;
+  cout << "coeff" << endl;
+  PrintData(coeff);
 }
 
 pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const {
@@ -585,6 +587,10 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
         M.back().set(sites_new(i) = j, is(i) = pos, h * this->sketch_basis_[i - 1](x, pos, false));
       }
     }
+    cout << "M " << i << endl;
+    PrintData(M.back());
+    cout << "is_new " << i << endl;
+    PrintData(is_new.back());
   }
   return make_pair(M, IndexSet(is_new));
 }
