@@ -88,6 +88,9 @@ void TTOPES::registerKeywords(Keywords& keys)
   keys.add("optional", "SKETCH_UNTIL", "after this time, the bias potential freezes");
   keys.add("optional", "SKETCH_WIDTH", "width of Gaussian kernels for smoothing");
   keys.add("optional", "KERNEL_DX", "width of basis function kernels");
+
+  keys.addOutputComponent("zed", "default", "estimate of Z_n. should become flat once no new CV-space region is explored");
+  keys.addOutputComponent("ns", "default", "total number of compressed samples used to represent the bias");
 }
 
 TTOPES::TTOPES(const ActionOptions& ao):
