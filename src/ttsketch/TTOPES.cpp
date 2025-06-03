@@ -575,7 +575,7 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
   for(double height : this->heights_) {
     sum_heights += height;
   }
-  cout << "sum_heights " << sum_heights << endl;
+  // cout << "sum_heights " << sum_heights << endl;
   int nb = this->sketch_basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
@@ -586,9 +586,9 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
     for(unsigned j = 1; j <= N; ++j) {
       double x = this->samples_[j - 1][i - 1];
       double h = pow(this->heights_[j - 1] / sum_heights, 1.0 / this->d_);
-      cout << "i " << i << " j " << j << " height " << this->heights_[j - 1] << " sample " << this->samples_[j - 1][i - 1] << endl;
+      // cout << "i " << i << " j " << j << " height " << this->heights_[j - 1] << " sample " << this->samples_[j - 1][i - 1] << endl;
       for(int pos = 1; pos <= nb; ++pos) {
-        cout << "i " << i << " j " << j << " pos " << pos << " basis " << this->sketch_basis_[i - 1](x, pos, false) << endl;
+        // cout << "i " << i << " j " << j << " pos " << pos << " basis " << this->sketch_basis_[i - 1](x, pos, false) << endl;
         M.back().set(sites_new(i) = j, is(i) = pos, h * this->sketch_basis_[i - 1](x, pos, false));
       }
     }
