@@ -405,7 +405,6 @@ void TTOPES::update() {
           vector<double> der(this->d_, 0.0);
           double ene = getBiasAndDerivatives({ x, y }, der);
           double prob = ttEval(this->tt_, this->sketch_basis_, { x, y }, this->sketch_conv_);
-          vector<double> der(this->d_, 0.0);
           file << x << " " << y << " " << ene << endl;
           filep << x << " " << y << " " << prob << endl;
           filex << x << " " << y << " " << der[0] << endl;
