@@ -399,8 +399,7 @@ void TTOPES::update() {
         for(int j = 0; j < 100; ++j) {
           double y = -M_PI + 2 * j * M_PI / 100;
           double ene = getBias({ x, y });
-          vector<double> dummy(this->d_);
-          double prob = getProbAndDerivatives({ x, y }, dummy);
+          double prob = ttEval(this->tt_, this->sketch_basis_, { x, y }, this->sketch_conv_);
           file << x << " " << y << " " << ene << endl;
           filep << x << " " << y << " " << prob << endl;
         }
