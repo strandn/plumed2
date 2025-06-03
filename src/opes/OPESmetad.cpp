@@ -1261,7 +1261,7 @@ void OPESmetad<mode>::update()
     dumpStateToFile();
 
   int pace = 500000;
-  if(getStep() != 0 && getStep() % pace == 0 && (NumWalkers_ > 1 || walker_rank_ == 0)) {
+  if(getStep() != 0 && getStep() % pace == 0 && (NumWalkers_ == 1 || walker_rank_ == 0)) {
     std::ofstream file;
     if(getStep() == pace) {
       file.open("F.txt");
