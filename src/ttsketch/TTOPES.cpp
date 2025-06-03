@@ -243,6 +243,10 @@ void TTOPES::update() {
   bool nowTT;
   if(getStep() % this->sketch_stride_== 0 && !this->isFirstStep_) {
     nowTT = true;
+    cout << "traj size " << traj_.size() << endl;
+    for(double elt : traj_) {
+      cout << elt << endl;
+    }
     for(unsigned i = 0; i < this->traj_.size(); i += this->d_ + 1) {
       vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
       double height = this->traj_[i] + this->d_;
