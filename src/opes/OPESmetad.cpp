@@ -1263,22 +1263,26 @@ void OPESmetad<mode>::update()
 
   int pace = 500000;
   if(getStep() != 0 && getStep() % pace == 0 && (NumWalkers_ == 1 || walker_rank_ == 0)) {
-    std::ofstream file;
+    std::ofstream file, filep;
     if(getStep() == pace) {
       file.open("F.txt");
+      filep.open("P.txt");
     } else {
       file.open("F.txt", std::ios_base::app);
+      filep.open("P.txt", std::ios_base::app);
     }
     for(int i = 0; i < 100; ++i) {
       double x = -M_PI + 2 * i * M_PI / 100;
       for(int j = 0; j < 100; ++j) {
         double y = -M_PI + 2 * j * M_PI / 100;
         std::vector<double> dummy(ncv_);
-        double prob = getProbAndDerivatives({ x, y },dummy);
+        double prob = getProbAndDerivatives({ x, y }, dummy);
         file << x << " " << y << " " << kbt_ * bias_prefactor_ * std::log(prob / Zed_ + epsilon_) << std::endl;
+        file << x << " " << y << " " << prob << std::endl;
       }
     }
     file.close();
+    filep.close();
   }
 }
 

@@ -386,21 +386,27 @@ void TTOPES::update() {
     log.flush();
 
     if(this->d_ == 2) {
-      ofstream file;
+      ofstream file, filep;
       if(this->sketch_count_ == 2) {
         file.open("F.txt");
+        filep.open("P.txt");
       } else {
         file.open("F.txt", ios_base::app);
+        filep.open("P.txt", ios_base::app);
       }
       for(int i = 0; i < 100; ++i) {
         double x = -M_PI + 2 * i * M_PI / 100;
         for(int j = 0; j < 100; ++j) {
           double y = -M_PI + 2 * j * M_PI / 100;
           double ene = getBias({ x, y });
+          vector<double> dummy(this->d_);
+          double prob = getProbAndDerivatives({ x, y }, dummy);
           file << x << " " << y << " " << ene << endl;
+          filep << x << " " << y << " " << prob << endl;
         }
       }
       file.close();
+      filep.close();
     }
   }
 
