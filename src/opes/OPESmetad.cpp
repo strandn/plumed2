@@ -1278,7 +1278,7 @@ void OPESmetad<mode>::update()
         std::vector<double> dummy(ncv_);
         double prob = getProbAndDerivatives({ x, y }, dummy);
         file << x << " " << y << " " << kbt_ * bias_prefactor_ * std::log(prob / Zed_ + epsilon_) << std::endl;
-        file << x << " " << y << " " << prob << std::endl;
+        filep << x << " " << y << " " << prob << std::endl;
       }
     }
     file.close();
