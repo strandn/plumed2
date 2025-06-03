@@ -465,6 +465,11 @@ void TTOPES::paraSketch() {
     }
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
+    cout << "core_id " << core_id << endl;
+    PrintData(A);
+    PrintData(U[core_id - 1]);
+    PrintData(S[core_id - 1]);
+    PrintData(V[core_id - 1]);
     if(this->sketch_r_ > 0) {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
           {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
