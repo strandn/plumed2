@@ -206,9 +206,6 @@ TTOPES::TTOPES(const ActionOptions& ao):
     }
     this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel, dx[i]));
   }
-  if(kernel && this->sketch_conv_) {
-    error("kernel smoothing incompatible with kernel basis");
-  }
 
   checkRead();
 
