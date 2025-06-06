@@ -962,10 +962,10 @@ void TTMetaD::paraSketch() {
   vector<ITensor> envi_R_Vb;
   if(this->sketch_count_ != 1) {
     if(this->nonintrusive_) {
-      auto sites = siteIndices(Bemp);
-      auto sites_prev = siteIndices(this->B_prev_);
-      auto links = linkIndices(Bemp);
-      auto links_prev = linkIndices(this->B_prev_);
+      auto sites = siteInds(Bemp);
+      auto sites_prev = siteInds(this->B_prev_);
+      auto links = linkInds(Bemp);
+      auto links_prev = linkInds(this->B_prev_);
       for(unsigned i = 1; i <= this->d_; ++i) {
         // cout << "i " << i << endl;
         // PrintData(Bemp(i));
