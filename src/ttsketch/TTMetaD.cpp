@@ -65,6 +65,9 @@ private:
   bool sketch_conv_;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch = *stopwatch_fwd;
+  bool nonintrusive_;
+  MPS B_prev_;
+  vector<ITensor> A_prev_;
 
   void readGaussians(IFile *ifile);
   void writeGaussian(const Gaussian& hill, OFile& file);
@@ -114,6 +117,7 @@ void TTMetaD::registerKeywords(Keywords& keys) {
   keys.add("optional", "SKETCH_UNTIL", "After this time, the bias potential freezes");
   keys.add("optional", "SKETCH_WIDTH", "Width of Gaussian kernels for smoothing");
   keys.add("optional", "KERNEL_DX", "Width of basis function kernels");
+  keys.addFlag("NONINTRUSIVE", false, "Sketching uses previous exact sum of Gaussians instead of TT approximation");
 }
 
 TTMetaD::TTMetaD(const ActionOptions& ao):
@@ -133,7 +137,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   sketch_count_(1),
   sketch_until_(numeric_limits<double>::max()),
   frozen_(false),
-  sketch_conv_(false)
+  sketch_conv_(false),
+  nonintrusive_(false)
 {
   bool kernel;
   parseFlag("KERNEL_BASIS", kernel);
@@ -253,6 +258,8 @@ TTMetaD::TTMetaD(const ActionOptions& ao):
   }
 
   parse("SKETCH_UNTIL", this->sketch_until_);
+
+  parseFlag("NONINTRUSIVE", this->nonintrusive_);
 
   if(getRestart()) {
     string ttfilename = "ttsketch.h5";
@@ -954,39 +961,48 @@ void TTMetaD::paraSketch() {
   vector<ITensor> envi_L_Vb;
   vector<ITensor> envi_R_Vb;
   if(this->sketch_count_ != 1) {
-    if(this->sketch_basis_[0].kernel()) {
+    if(this->nonintrusive_) {
       for(unsigned i = 1; i <= this->d_; ++i) {
-        auto s = siteIndex(this->vb_, i);
-        ITensor gram(s, prime(s));
-        for(int j = 1; j <= dim(s); ++j) {
-          for(int l = 1; l <= dim(s); ++l) {
-            gram.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].gram()(j - 1, l - 1));
+        Bemp.ref(i) += this->B_prev_(i);
+      }
+    } else {
+      if(this->sketch_basis_[0].kernel()) {
+        for(unsigned i = 1; i <= this->d_; ++i) {
+          auto s = siteIndex(this->vb_, i);
+          ITensor gram(s, prime(s));
+          for(int j = 1; j <= dim(s); ++j) {
+            for(int l = 1; l <= dim(s); ++l) {
+              gram.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].gram()(j - 1, l - 1));
+            }
           }
+          this->vb_.ref(i) *= gram;
+          this->vb_.ref(i).noPrime();
         }
-        this->vb_.ref(i) *= gram;
-        this->vb_.ref(i).noPrime();
       }
-    }
-    if(this->sketch_conv_) {
+      if(this->sketch_conv_) {
+        for(unsigned i = 1; i <= this->d_; ++i) {
+          double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
+          double w = this->sketch_basis_[i - 1].w();
+          auto s = siteIndex(this->vb_, i);
+          ITensor inner(s, prime(s));
+          for(int j = 1; j < dim(s); ++j) {
+            inner.set(s = j, prime(s) = j, exp(-pow(M_PI * w * (j / 2), 2) / (2 * pow(L, 2))));
+          }
+          this->vb_.ref(i) *= inner;
+          this->vb_.ref(i).noPrime();
+        }
+      }
+      auto vbresult = formTensorMomentVb(coeff);
+      Bemp_Vb = get<0>(vbresult);
+      envi_L_Vb = get<1>(vbresult);
+      envi_R_Vb = get<2>(vbresult);
       for(unsigned i = 1; i <= this->d_; ++i) {
-        double L = (this->sketch_basis_[i - 1].dom().second - this->sketch_basis_[i - 1].dom().first) / 2;
-        double w = this->sketch_basis_[i - 1].w();
-        auto s = siteIndex(this->vb_, i);
-        ITensor inner(s, prime(s));
-        for(int j = 1; j < dim(s); ++j) {
-          inner.set(s = j, prime(s) = j, exp(-pow(M_PI * w * (j / 2), 2) / (2 * pow(L, 2))));
-        }
-        this->vb_.ref(i) *= inner;
-        this->vb_.ref(i).noPrime();
+        Bemp.ref(i) += Bemp_Vb(i);
       }
     }
-    auto vbresult = formTensorMomentVb(coeff);
-    Bemp_Vb = get<0>(vbresult);
-    envi_L_Vb = get<1>(vbresult);
-    envi_R_Vb = get<2>(vbresult);
-    for(unsigned i = 1; i <= this->d_; ++i) {
-      Bemp.ref(i) += Bemp_Vb(i);
-    }
+  }
+  if(this->nonintrusive_) {
+    this->B_prev_ = Bemp;
   }
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
@@ -1004,7 +1020,7 @@ void TTMetaD::paraSketch() {
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
 
-    if(this->sketch_count_ != 1) {
+    if(this->sketch_count_ != 1 && !this->nonintrusive_) {
       auto ivb = linkIndex(this->vb_, core_id - 1);
       int rank_vb = dim(ivb);
       LMat = Matrix<double>(rank_vb, rank);
@@ -1026,13 +1042,20 @@ void TTMetaD::paraSketch() {
       }
     }
     if(this->sketch_count_ != 1) {
-      ITensor A_Vb(prime(links(core_id - 1)), links(core_id - 1));
-      for(int i = 1; i <= rank; ++i) {
-        for(int j = 1; j <= rank; ++j) {
-          A_Vb.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat_Vb(i - 1, j - 1));
+      if(this->nonintrusive_) {
+        A += this->A_prev_[core_id - 2];
+      } else {
+        ITensor A_Vb(prime(links(core_id - 1)), links(core_id - 1));
+        for(int i = 1; i <= rank; ++i) {
+          for(int j = 1; j <= rank; ++j) {
+            A_Vb.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat_Vb(i - 1, j - 1));
+          }
         }
+        A += A_Vb;
       }
-      A += A_Vb;
+    }
+    if(this->nonintrusive_) {
+      this->A_prev_[core_id - 2] = A;
     }
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
