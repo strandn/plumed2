@@ -962,22 +962,26 @@ void TTMetaD::paraSketch() {
   vector<ITensor> envi_R_Vb;
   if(this->sketch_count_ != 1) {
     if(this->nonintrusive_) {
+      auto sites = siteIndices(Bemp);
+      auto sites_prev = siteIndices(this->B_prev_);
+      auto links = linkIndices(Bemp);
+      auto links_prev = linkIndices(this->B_prev_);
       for(unsigned i = 1; i <= this->d_; ++i) {
-        cout << "i " << i << endl;
-        PrintData(Bemp(i));
-        PrintData(B_prev_(i));
-        PrintData(siteIndex(this->B_prev_, i));
-        PrintData(siteIndex(Bemp, i));
-        this->B_prev_.ref(i) *= delta(siteIndex(this->B_prev_, i), siteIndex(Bemp, i));
+        // cout << "i " << i << endl;
+        // PrintData(Bemp(i));
+        // PrintData(B_prev_(i));
+        // PrintData(siteIndex(this->B_prev_, i));
+        // PrintData(siteIndex(Bemp, i));
+        this->B_prev_.ref(i) *= delta(sites(i), sites_prev(i));
         if(i != 1) {
-          PrintData(linkIndex(this->B_prev_, i - 1));
-          PrintData(linkIndex(Bemp, i - 1));
-          this->B_prev_.ref(i) *= delta(linkIndex(this->B_prev_, i - 1), linkIndex(Bemp, i - 1));
+          // PrintData(linkIndex(this->B_prev_, i - 1));
+          // PrintData(linkIndex(Bemp, i - 1));
+          this->B_prev_.ref(i) *= delta(links(i - 1), links_prev(i - 1));
         }
         if (i != this->d_) {
-          PrintData(linkIndex(this->B_prev_, i));
-          PrintData(linkIndex(Bemp, i));
-          this->B_prev_.ref(i) *= delta(linkIndex(this->B_prev_, i), linkIndex(Bemp, i));
+          // PrintData(linkIndex(this->B_prev_, i));
+          // PrintData(linkIndex(Bemp, i));
+          this->B_prev_.ref(i) *= delta(links(i), links_prev(i));
         }
         Bemp.ref(i) += this->B_prev_(i);
       }
