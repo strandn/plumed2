@@ -1003,6 +1003,9 @@ void TTMetaD::paraSketch() {
   }
   if(this->nonintrusive_) {
     this->B_prev_ = Bemp;
+    if(this->sketch_count_ == 1) {
+      this->A_prev_.resize(this->d_ - 1);
+    }
   }
   auto links = linkInds(coeff);
   vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
