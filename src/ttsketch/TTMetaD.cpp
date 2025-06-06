@@ -1066,9 +1066,11 @@ void TTMetaD::paraSketch() {
     }
     if(this->sketch_count_ != 1) {
       if(this->nonintrusive_) {
-        cout << "core_id " << core_id << endl;
-        PrintData(A);
-        PrintData(A_prev_[core_id - 2]);
+        // cout << "core_id " << core_id << endl;
+        // PrintData(A);
+        // PrintData(A_prev_[core_id - 2]);
+        this->A_prev_[core_id - 2] *= delta(this->A_prev_[core_id - 2].index(0), A.index(0));
+        this->A_prev_[core_id - 2] *= delta(this->A_prev_[core_id - 2].index(1), A.index(1));
         A += this->A_prev_[core_id - 2];
       } else {
         ITensor A_Vb(prime(links(core_id - 1)), links(core_id - 1));
