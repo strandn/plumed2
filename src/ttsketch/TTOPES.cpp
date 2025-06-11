@@ -780,7 +780,6 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
       error("NNLS failed for column " + to_string(j));
     }
 
-    // Store the solution back in PLUMED Matrix<double> G
     for (unsigned i = 0; i < ncols; ++i) {
       Gk(i, j) = g(i);
     }
