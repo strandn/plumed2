@@ -530,9 +530,7 @@ void TTOPES::paraSketch() {
 
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
-    cout << "before 0" << endl;
     ITensor A = U[core_id - 1] * S[core_id - 1];
-    cout << "after 0" << endl;
     // ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
     // Matrix<double> AMat(rank, rank_trimmed), PMat;
     // for(int i = 1; i <= rank; ++i) {
@@ -551,9 +549,7 @@ void TTOPES::paraSketch() {
     //   G.ref(core_id) *= V[core_id];
     // }
     auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
-    cout << "before 1" << endl;
     ITensor B = Bemp(core_id) * V[core_id] * C;
-    cout << "after 1" << endl;
     Ak = Eigen::MatrixXd(rank, rank_trimmed);
     Bk = Eigen::MatrixXd(rank, dim(c));
     Gk = Eigen::MatrixXd(rank_trimmed, dim(c));
@@ -583,7 +579,6 @@ void TTOPES::paraSketch() {
   }
 
   ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
-  ITensor B = Bemp(this->d_) * V[this->d_];
   Ak = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
   Bk = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
   Gk = Eigen::MatrixXd(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
@@ -594,7 +589,7 @@ void TTOPES::paraSketch() {
   }
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
-      Bk(i - 1, j - 1) = B.elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
+      Bk(i - 1, j - 1) = Bemp(this->d_).elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
     }
   }
   cout << "core " << d_ << endl;
