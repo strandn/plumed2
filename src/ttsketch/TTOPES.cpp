@@ -530,7 +530,9 @@ void TTOPES::paraSketch() {
 
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
+    cout << "before 0" << endl;
     ITensor A = U[core_id - 1] * S[core_id - 1];
+    cout << "after 0" << endl;
     // ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
     // Matrix<double> AMat(rank, rank_trimmed), PMat;
     // for(int i = 1; i <= rank; ++i) {
@@ -549,7 +551,9 @@ void TTOPES::paraSketch() {
     //   G.ref(core_id) *= V[core_id];
     // }
     auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
+    cout << "before 1" << endl;
     ITensor B = Bemp(core_id) * V[core_id] * C;
+    cout << "after 1" << endl;
     Ak = Eigen::MatrixXd(rank, rank_trimmed);
     Bk = Eigen::MatrixXd(rank, dim(c));
     Gk = Eigen::MatrixXd(rank_trimmed, dim(c));
