@@ -578,18 +578,19 @@ void TTOPES::paraSketch() {
     PrintData(G(core_id));
   }
 
-  cout << 0 << endl;
   ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
-  cout << 1 << endl;
   Ak = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
   Bk = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
   Gk = Eigen::MatrixXd(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
+  PrintData(links(this->d_ - 1));
+  PrintData(links_trimmed[this->d_ - 2]);
+  PrintData(A);
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(links_trimmed[this->d_ - 2]); ++j) {
+      cout << i << " " << j << endl;
       Ak(i - 1, j - 1) = A.elt(links(this->d_ - 1) = i, links_trimmed[this->d_ - 2] = j);
     }
   }
-  cout << 2 << endl;
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
       Bk(i - 1, j - 1) = Bemp(this->d_).elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
