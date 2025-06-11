@@ -4,10 +4,13 @@
 #include "core/ActionRegister.h"
 #include "tools/Communicator.h"
 #include "tools/File.h"
+#include <Eigen/Dense>
+#include <unsupported/Eigen/NNLS>
 
 using namespace std;
 using namespace itensor;
 using namespace PLMD::bias;
+using namespace Eigen;
 
 namespace PLMD {
 namespace ttsketch {
@@ -38,6 +41,7 @@ private:
   unsigned sketch_count_;
   MPS tt_;
   bool sketch_conv_;
+  double sketch_lambda_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
   double getBias(const vector<double>& cv);
@@ -45,6 +49,7 @@ private:
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
+  void solveNonNegativeLeastSquares(const MatrixXd& Ak, const MatrixXd& Bk, MatrixXd& Gk);
 
 public:
   explicit TTOPES(const ActionOptions&);
@@ -76,7 +81,6 @@ void TTOPES::registerKeywords(Keywords& keys)
   // keys.addFlag("WALKERS_MPI", false, "switch on MPI version of multiple walkers");
   // keys.addFlag("SERIAL", false, "perform calculations in serial");
   keys.use("RESTART");
-  keys.addFlag("KERNEL_BASIS", false, "Specifies that local kernel basis should be used instead of Fourier basis");
   keys.add("optional", "SKETCH_RANK", "target rank for TTSketch algorithm. Compulsory if SKETCH_CUTOFF is not specified");
   keys.add("optional", "SKETCH_CUTOFF", "truncation error cutoff for singular value decomposition. Compulsory if SKETCH_RANK is not specified");
   keys.add("compulsory", "SKETCH_INITRANK", "initial rank for TTSketch algorithm");
@@ -88,6 +92,7 @@ void TTOPES::registerKeywords(Keywords& keys)
   keys.add("optional", "SKETCH_UNTIL", "after this time, the bias potential freezes");
   keys.add("optional", "SKETCH_WIDTH", "width of Gaussian kernels for smoothing");
   keys.add("optional", "KERNEL_DX", "width of basis function kernels");
+  keys.add("compulsory", "SKETCH_LAMBDA", "0.1", "Ridge parameter for ridge regression");
 
   keys.addOutputComponent("zed", "default", "estimate of Z_n. should become flat once no new CV-space region is explored");
   keys.addOutputComponent("ns", "default", "total number of compressed samples used to represent the bias");
@@ -136,8 +141,6 @@ TTOPES::TTOPES(const ActionOptions& ao):
   parseFlag("RECURSIVE_MERGE_OFF", recursive_merge_off);
   this->recursive_merge_ =! recursive_merge_off;
 
-  bool kernel;
-  parseFlag("KERNEL_BASIS", kernel);
   parse("SKETCH_RANK", this->sketch_r_);
   parse("SKETCH_CUTOFF", this->sketch_cutoff_);
   if(this->sketch_r_ <= 0 && (this->sketch_cutoff_ <= 0.0 || this->sketch_cutoff_ > 1.0)) {
@@ -165,9 +168,6 @@ TTOPES::TTOPES(const ActionOptions& ao):
   parse("SKETCH_NBASIS", nbasis);
   if(nbasis <= 1) {
     error("SKETCH_NBASIS must be greater than 1");
-  }
-  if(!kernel && nbasis % 2 == 0) {
-    ++nbasis;
   }
   parse("SKETCH_ALPHA", this->sketch_alpha_);
   if(this->sketch_alpha_ <= 0.0 || this->sketch_alpha_ > 1.0) {
@@ -198,13 +198,18 @@ TTOPES::TTOPES(const ActionOptions& ao):
     if(this->sketch_conv_ && w[i] <= 0.0) {
       error("Gaussian smoothing requires positive WIDTH");
     }
-    if(kernel && dx[i] < 0.0) {
+    if(dx[i] < 0.0) {
       error("Kernel basis requires positive KERNEL_DX");
     }
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], kernel, dx[i]));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], true, dx[i]));
+  }
+
+  parse("SKETCH_LAMBDA", this->sketch_lambda_);
+  if(this->sketch_stride_ <= 0) {
+    error("SKETCH_PACE must be positive");
   }
 
   checkRead();
@@ -240,10 +245,6 @@ void TTOPES::update() {
   bool nowTT;
   if(getStep() % this->sketch_stride_== 0 && !this->isFirstStep_) {
     nowTT = true;
-    // cout << "traj size " << traj_.size() << endl;
-    // for(double elt : traj_) {
-    //   cout << elt << endl;
-    // }
     for(unsigned i = 0; i < this->traj_.size(); i += this->d_ + 1) {
       vector<double> step(this->traj_.begin() + i, this->traj_.begin() + i + this->d_);
       double height = this->traj_[i + this->d_];
@@ -480,11 +481,6 @@ void TTOPES::paraSketch() {
     }
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
-    // cout << "core_id " << core_id << endl;
-    // PrintData(A);
-    // PrintData(U[core_id - 1]);
-    // PrintData(S[core_id - 1]);
-    // PrintData(V[core_id - 1]);
     if(this->sketch_r_ > 0) {
       svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
           {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
@@ -494,29 +490,105 @@ void TTOPES::paraSketch() {
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
   }
 
-  G.ref(1) = Bemp(1) * V[1];
-  for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
-    int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
-    ITensor A = U[core_id - 1] * S[core_id - 1];
-    ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
-    Matrix<double> AMat(rank, rank_trimmed), PMat;
-    for(int i = 1; i <= rank; ++i) {
-      for(int j = 1; j <= rank_trimmed; ++j) {
-        AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
+  for(unsigned i = 1; i <= this->d_; ++i) {
+    auto s = siteIndex(Bemp, i);
+    ITensor ginv(s, prime(s));
+    for(int j = 1; j <= dim(s); ++j) {
+      for(int l = 1; l <= dim(s); ++l) {
+        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
       }
     }
-    pseudoInvert(AMat, PMat);
+    Bemp.ref(i) *= ginv;
+    Bemp.ref(i).noPrime();
+  }
 
-    for(int i = 1; i <= rank_trimmed; ++i) {
-      for(int j = 1; j <= rank; ++j) {
-        Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
-      }
-    }
-    G.ref(core_id) = Pinv * Bemp(core_id);
-    if(core_id != this->d_) {
-      G.ref(core_id) *= V[core_id];
+  // G.ref(1) = Bemp(1) * V[1];
+  MatrixXd Ak(dim(links(1)), dim(links_trimmed[0])), Bk(dim(links(1)), dim(siteIndex(Bemp, 1))), Gk(dim(links_trimmed[0]), dim(siteIndex(Bemp, 1)));
+  for(int i = 1; i <= dim(links(1)); ++i) {
+    for(int j = 1; j <= dim(links_trimmed[0]); ++j) {
+      Ak(i - 1, j - 1) = V[1].elt(links(1) = i, links_trimmed[0] = j);
     }
   }
+  for(int i = 1; i <= dim(links(1)); ++i) {
+    for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
+      Bk(i - 1, j - 1) = Bemp(1).elt(links(1) = i, siteIndex(Bemp, 1) = j);
+    }
+  }
+  solveNonNegativeLeastSquares(Ak, Bk, Gk);
+  G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
+  for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
+    for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
+      G.ref(1).set(links_trimmed[0] = i, siteIndex(Bemp, 1) = j, Gk(i - 1, j - 1));
+    }
+  }
+
+  for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
+    int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
+    ITensor A = U[core_id - 1] * S[core_id - 1];
+    // ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
+    // Matrix<double> AMat(rank, rank_trimmed), PMat;
+    // for(int i = 1; i <= rank; ++i) {
+    //   for(int j = 1; j <= rank_trimmed; ++j) {
+    //     AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
+    //   }
+    // }
+    // pseudoInvert(AMat, PMat);
+    // for(int i = 1; i <= rank_trimmed; ++i) {
+    //   for(int j = 1; j <= rank; ++j) {
+    //     Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
+    //   }
+    // }
+    // G.ref(core_id) = Pinv * Bemp(core_id);
+    // if(core_id != this->d_) {
+    //   G.ref(core_id) *= V[core_id];
+    // }
+    auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
+    ITensor B = Bemp(core_id) * V[core_id] * C;
+    MatrixXd Ak(rank, rank_trimmed), Bk(rank, dim(c)), Gk(rank_trimmed, dim(c));
+    for(int i = 1; i <= rank; ++i) {
+      for(int j = 1; j <= rank_trimmed; ++j) {
+        Ak(i - 1, j - 1) = A.elt(links(core_id - 1) = i, links_trimmed[core_id - 2] = j);
+      }
+    }
+    for(int i = 1; i <= rank; ++i) {
+      for(int j = 1; j <= dim(c); ++j) {
+        Bk(i - 1, j - 1) = B.elt(links(core_id - 1) = i, c = j);
+      }
+    }
+    solveNonNegativeLeastSquares(Ak, Bk, Gk);
+    G.ref(core_id) = ITensor(links_trimmed[core_id - 2], c);
+    for(int i = 1; i <= rank_trimmed; ++i) {
+      for(int j = 1; j <= dim(c); ++j) {
+        G.ref(core_id).set(links_trimmed[core_id - 2] = i, c = j, Gk(i - 1, j - 1));
+      }
+    }
+    G.ref(core_id) *= C;
+  }
+
+  ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
+  ITensor B = Bemp(this->d_) * V[this->d_];
+  MatrixXd Ak(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
+  MatrixXd Bk(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
+  MatrixXd Gk(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
+  for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
+    for(int j = 1; j <= dim(links_trimmed[this->d_ - 2]); ++j) {
+      Ak(i - 1, j - 1) = A.elt(links(this->d_ - 1) = i, links_trimmed[this->d_ - 2] = j);
+    }
+  }
+  for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
+    for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
+      Bk(i - 1, j - 1) = B.elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
+    }
+  }
+  solveNonNegativeLeastSquares(Ak, Bk, Gk);
+  G.ref(core_id) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
+  for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
+    for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
+      G.ref(core_id).set(links_trimmed[this->d_ - 2] = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
+    }
+  }
+
+  PrintData(G);
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
@@ -524,20 +596,6 @@ void TTOPES::paraSketch() {
   }
   log << "\n";
   log.flush();
-
-  if(this->sketch_basis_[0].kernel()) {
-    for(unsigned i = 1; i <= this->d_; ++i) {
-      auto s = siteIndex(G, i);
-      ITensor ginv(s, prime(s));
-      for(int j = 1; j <= dim(s); ++j) {
-        for(int l = 1; l <= dim(s); ++l) {
-          ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-        }
-      }
-      G.ref(i) *= ginv;
-      G.ref(i).noPrime();
-    }
-  }
 
   this->tt_ = G;
   ++this->sketch_count_;
@@ -586,7 +644,6 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
   for(double height : this->heights_) {
     sum_heights += height;
   }
-  // cout << "sum_heights " << sum_heights << endl;
   int nb = this->sketch_basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
@@ -597,9 +654,7 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
     for(unsigned j = 1; j <= N; ++j) {
       double x = this->samples_[j - 1][i - 1];
       double h = pow(this->heights_[j - 1] / sum_heights, 1.0 / this->d_);
-      // cout << "i " << i << " j " << j << " height " << this->heights_[j - 1] << " sample " << this->samples_[j - 1][i - 1] << endl;
       for(int pos = 1; pos <= nb; ++pos) {
-        // cout << "i " << i << " j " << j << " pos " << pos << " basis " << this->sketch_basis_[i - 1](x, pos, false) << endl;
         M.back().set(sites_new(i) = j, is(i) = pos, h * this->sketch_basis_[i - 1](x, pos, false));
       }
     }
@@ -672,6 +727,61 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTOPES::formTensorMoment(const vect
   B.ref(this->d_) = envi_L[this->d_ - 1] * M[this->d_ - 1];
 
   return make_tuple(B, envi_L, envi_R);
+}
+
+void TTOPES::solveNonNegativeLeastSquares(const MatrixXd& Ak, const MatrixXd& Bk, MatrixXd& Gk) {
+  const unsigned nrows = Ak.rows();  // rows of Ak
+  const unsigned ncols = Ak.cols();  // cols of Ak
+  const unsigned nrhs  = Bk.cols();  // cols of Bk (number of right-hand sides)
+
+  if(Ak.rows() != Bk.rows()) {
+    error("Ak and Bk must have the same number of rows (" + to_string(Ak.rows()) + " vs " + to_string(Bk.rows()) + ")");
+  }
+
+  if(Gk.rows() != ncols) {
+    error("Gk has the incorrect number of rows (got " + to_string(Gk.rows()) + ", expected " + to_string(ncols) + ")");
+  }
+  if(Gk.cols() != nrhs) {
+    error("Gk has the incorrect number of columns (got " + to_string(Gk.cols()) + ", expected " + to_string(nrhs) + ")");
+  }
+
+  // Loop over each column in Bk
+  for (unsigned j = 0; j < nrhs; ++j) {
+    VectorXd b(nrows);
+    for (unsigned i = 0; i < nrows; ++i) {
+      b(i) = Bk(i, j);
+    }
+
+    MatrixXd A_aug;
+    VectorXd b_aug;
+
+    if (this->sketch_lambda_ > 0.0) {
+      // Apply Tikhonov regularization: [Ak; sqrt(lambda)*I], [b; 0]
+      A_aug.resize(nrows + ncols, ncols);
+      A_aug.topRows(nrows) = Ak;
+      A_aug.bottomRows(ncols) = std::sqrt(this->sketch_lambda_) * MatrixXd::Identity(ncols, ncols);
+
+      b_aug.resize(nrows + ncols);
+      b_aug.head(nrows) = b;
+      b_aug.tail(ncols).setZero();
+    } else {
+      A_aug = Ak;
+      b_aug = b;
+    }
+
+    // Solve NNLS
+    NNLS<MatrixXd> nnls(A_aug);
+    const VectorXd& g = nnls.solve(b_aug);
+
+    if (nnls.info() != Eigen::Success) {
+      error("NNLS failed for column " + to_string(j));
+    }
+
+    // Store the solution back in PLUMED Matrix<double> G
+    for (unsigned i = 0; i < ncols; ++i) {
+      G(i, j) = g(i);
+    }
+  }
 }
 
 }
