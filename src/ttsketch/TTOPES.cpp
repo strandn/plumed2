@@ -10,7 +10,6 @@
 using namespace std;
 using namespace itensor;
 using namespace PLMD::bias;
-using namespace Eigen;
 
 namespace PLMD {
 namespace ttsketch {
@@ -49,7 +48,7 @@ private:
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
-  void solveNonNegativeLeastSquares(const MatrixXd& Ak, const MatrixXd& Bk, MatrixXd& Gk);
+  void solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd& Bk, Eigen::MatrixXd& Gk);
 
 public:
   explicit TTOPES(const ActionOptions&);
@@ -503,7 +502,9 @@ void TTOPES::paraSketch() {
   }
 
   // G.ref(1) = Bemp(1) * V[1];
-  MatrixXd Ak(dim(links(1)), dim(links_trimmed[0])), Bk(dim(links(1)), dim(siteIndex(Bemp, 1))), Gk(dim(links_trimmed[0]), dim(siteIndex(Bemp, 1)));
+  Eigen::MatrixXd Ak(dim(links(1)), dim(links_trimmed[0]));
+  Eigen::MatrixXd Bk(dim(links(1)), dim(siteIndex(Bemp, 1)));
+  Eigen::MatrixXd Gk(dim(links_trimmed[0]), dim(siteIndex(Bemp, 1)));
   for(int i = 1; i <= dim(links(1)); ++i) {
     for(int j = 1; j <= dim(links_trimmed[0]); ++j) {
       Ak(i - 1, j - 1) = V[1].elt(links(1) = i, links_trimmed[0] = j);
@@ -544,7 +545,7 @@ void TTOPES::paraSketch() {
     // }
     auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
     ITensor B = Bemp(core_id) * V[core_id] * C;
-    MatrixXd Ak(rank, rank_trimmed), Bk(rank, dim(c)), Gk(rank_trimmed, dim(c));
+    Eigen::MatrixXd Ak(rank, rank_trimmed), Bk(rank, dim(c)), Gk(rank_trimmed, dim(c));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank_trimmed; ++j) {
         Ak(i - 1, j - 1) = A.elt(links(core_id - 1) = i, links_trimmed[core_id - 2] = j);
@@ -567,9 +568,9 @@ void TTOPES::paraSketch() {
 
   ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
   ITensor B = Bemp(this->d_) * V[this->d_];
-  MatrixXd Ak(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
-  MatrixXd Bk(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
-  MatrixXd Gk(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
+  Eigen::MatrixXd Ak(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
+  Eigen::MatrixXd Bk(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
+  Eigen::MatrixXd Gk(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(links_trimmed[this->d_ - 2]); ++j) {
       Ak(i - 1, j - 1) = A.elt(links(this->d_ - 1) = i, links_trimmed[this->d_ - 2] = j);
@@ -729,7 +730,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTOPES::formTensorMoment(const vect
   return make_tuple(B, envi_L, envi_R);
 }
 
-void TTOPES::solveNonNegativeLeastSquares(const MatrixXd& Ak, const MatrixXd& Bk, MatrixXd& Gk) {
+void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd& Bk, Eigen::MatrixXd& Gk) {
   const unsigned nrows = Ak.rows();  // rows of Ak
   const unsigned ncols = Ak.cols();  // cols of Ak
   const unsigned nrhs  = Bk.cols();  // cols of Bk (number of right-hand sides)
@@ -747,13 +748,13 @@ void TTOPES::solveNonNegativeLeastSquares(const MatrixXd& Ak, const MatrixXd& Bk
 
   // Loop over each column in Bk
   for (unsigned j = 0; j < nrhs; ++j) {
-    VectorXd b(nrows);
+    Eigen::VectorXd b(nrows);
     for (unsigned i = 0; i < nrows; ++i) {
       b(i) = Bk(i, j);
     }
 
-    MatrixXd A_aug;
-    VectorXd b_aug;
+    Eigen::MatrixXd A_aug;
+    Eigen::VectorXd b_aug;
 
     if (this->sketch_lambda_ > 0.0) {
       // Apply Tikhonov regularization: [Ak; sqrt(lambda)*I], [b; 0]
@@ -770,8 +771,8 @@ void TTOPES::solveNonNegativeLeastSquares(const MatrixXd& Ak, const MatrixXd& Bk
     }
 
     // Solve NNLS
-    NNLS<MatrixXd> nnls(A_aug);
-    const VectorXd& g = nnls.solve(b_aug);
+    Eigen::NNLS<Eigen::MatrixXd> nnls(A_aug);
+    const Eigen::VectorXd& g = nnls.solve(b_aug);
 
     if (nnls.info() != Eigen::Success) {
       error("NNLS failed for column " + to_string(j));
