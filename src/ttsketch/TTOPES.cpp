@@ -555,7 +555,7 @@ void TTOPES::paraSketch() {
     Gk = Eigen::MatrixXd(rank_trimmed, dim(c));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank_trimmed; ++j) {
-        Ak(i - 1, j - 1) = A.elt(links(core_id - 1) = i, links_trimmed[core_id - 2] = j);
+        Ak(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
       }
     }
     for(int i = 1; i <= rank; ++i) {
@@ -582,13 +582,9 @@ void TTOPES::paraSketch() {
   Ak = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
   Bk = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
   Gk = Eigen::MatrixXd(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
-  PrintData(links(this->d_ - 1));
-  PrintData(links_trimmed[this->d_ - 2]);
-  PrintData(A);
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(links_trimmed[this->d_ - 2]); ++j) {
-      cout << i << " " << j << endl;
-      Ak(i - 1, j - 1) = A.elt(links(this->d_ - 1) = i, links_trimmed[this->d_ - 2] = j);
+      Ak(i - 1, j - 1) = A.elt(prime(links(this->d_ - 1)) = i, links_trimmed[this->d_ - 2] = j);
     }
   }
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
