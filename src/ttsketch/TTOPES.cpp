@@ -545,7 +545,9 @@ void TTOPES::paraSketch() {
     // }
     auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
     ITensor B = Bemp(core_id) * V[core_id] * C;
-    Eigen::MatrixXd Ak(rank, rank_trimmed), Bk(rank, dim(c)), Gk(rank_trimmed, dim(c));
+    Ak = Eigen::MatrixXd(rank, rank_trimmed);
+    Bk = Eigen::MatrixXd(rank, dim(c));
+    Gk = Eigen::MatrixXd(rank_trimmed, dim(c));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank_trimmed; ++j) {
         Ak(i - 1, j - 1) = A.elt(links(core_id - 1) = i, links_trimmed[core_id - 2] = j);
@@ -568,9 +570,9 @@ void TTOPES::paraSketch() {
 
   ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
   ITensor B = Bemp(this->d_) * V[this->d_];
-  Eigen::MatrixXd Ak(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
-  Eigen::MatrixXd Bk(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
-  Eigen::MatrixXd Gk(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
+  Ak = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
+  Bk = Eigen::MatrixXd(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
+  Gk = Eigen::MatrixXd(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(links_trimmed[this->d_ - 2]); ++j) {
       Ak(i - 1, j - 1) = A.elt(links(this->d_ - 1) = i, links_trimmed[this->d_ - 2] = j);
@@ -582,10 +584,10 @@ void TTOPES::paraSketch() {
     }
   }
   solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  G.ref(core_id) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
+  G.ref(this->d_) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
-      G.ref(core_id).set(links_trimmed[this->d_ - 2] = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
+      G.ref(this->d_).set(links_trimmed[this->d_ - 2] = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
     }
   }
 
@@ -780,7 +782,7 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
 
     // Store the solution back in PLUMED Matrix<double> G
     for (unsigned i = 0; i < ncols; ++i) {
-      G(i, j) = g(i);
+      Gk(i, j) = g(i);
     }
   }
 }
