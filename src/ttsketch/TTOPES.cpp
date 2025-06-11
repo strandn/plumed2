@@ -762,7 +762,7 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
       // Apply Tikhonov regularization: [Ak; sqrt(lambda)*I], [b; 0]
       A_aug.resize(nrows + ncols, ncols);
       A_aug.topRows(nrows) = Ak;
-      A_aug.bottomRows(ncols) = std::sqrt(this->sketch_lambda_) * MatrixXd::Identity(ncols, ncols);
+      A_aug.bottomRows(ncols) = std::sqrt(this->sketch_lambda_) * Eigen::MatrixXd::Identity(ncols, ncols);
 
       b_aug.resize(nrows + ncols);
       b_aug.head(nrows) = b;
