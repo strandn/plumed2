@@ -515,18 +515,17 @@ void TTOPES::paraSketch() {
       Bk(i - 1, j - 1) = Bemp(1).elt(links(1) = i, siteIndex(Bemp, 1) = j);
     }
   }
-  cout << "core 1" << endl;
-  cout << "Ak " << Ak.rows() << " " << Ak.cols() << endl << Ak << endl;
-  cout << "Bk " << Bk.rows() << " " << Bk.cols() << endl << Bk << endl;
   solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  cout << "Gk " << Gk.rows() << " " << Gk.cols() << endl << Gk << endl;
+  cout << "core 1" << endl;
+  cout << "AG" << endl << Ak * Gk << endl;
+  cout << "B" << endl << Bk << endl;
+  cout << "AG-B" << endl << Ak * Gk << endl;
   G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
   for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
       G.ref(1).set(links_trimmed[0] = i, siteIndex(Bemp, 1) = j, Gk(i - 1, j - 1));
     }
   }
-  PrintData(G(1));
 
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
@@ -563,11 +562,7 @@ void TTOPES::paraSketch() {
         Bk(i - 1, j - 1) = B.elt(links(core_id - 1) = i, c = j);
       }
     }
-    cout << "core " << core_id << endl;
-    cout << "Ak " << Ak.rows() << " " << Ak.cols() << endl << Ak << endl;
-    cout << "Bk " << Bk.rows() << " " << Bk.cols() << endl << Bk << endl;
     solveNonNegativeLeastSquares(Ak, Bk, Gk);
-    cout << "Gk " << Gk.rows() << " " << Gk.cols() << endl << Gk << endl;
     G.ref(core_id) = ITensor(links_trimmed[core_id - 2], c);
     for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= dim(c); ++j) {
@@ -575,7 +570,6 @@ void TTOPES::paraSketch() {
       }
     }
     G.ref(core_id) *= C;
-    PrintData(G(core_id));
   }
 
   ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
@@ -592,18 +586,17 @@ void TTOPES::paraSketch() {
       Bk(i - 1, j - 1) = Bemp(this->d_).elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
     }
   }
-  cout << "core " << d_ << endl;
-  cout << "Ak " << Ak.rows() << " " << Ak.cols() << endl << Ak << endl;
-  cout << "Bk " << Bk.rows() << " " << Bk.cols() << endl << Bk << endl;
   solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  cout << "Gk " << Gk.rows() << " " << Gk.cols() << endl << Gk << endl;
+  cout << "core 2" << endl;
+  cout << "AG" << endl << Ak * Gk << endl;
+  cout << "B" << endl << Bk << endl;
+  cout << "AG-B" << endl << Ak * Gk << endl;
   G.ref(this->d_) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
       G.ref(this->d_).set(links_trimmed[this->d_ - 2] = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
     }
   }
-  PrintData(G(d_));
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
