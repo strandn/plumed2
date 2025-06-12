@@ -592,7 +592,9 @@ void TTOPES::paraSketch() {
   cout << "core 2" << endl;
   cout << "AG" << endl << Ak * Gk << endl;
   cout << "B" << endl << Bk << endl;
-  cout << "AG-B" << endl << Ak * Gk << endl;
+  Eigen::MatrixXd AGB = Ak * Gk - Bk;
+  cout << "AG-B" << endl << AGB << endl;
+  cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
   G.ref(this->d_) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
