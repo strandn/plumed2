@@ -529,22 +529,22 @@ void TTOPES::paraSketch() {
 
   int rank = dim(links(this->d_ - 1));
   Eigen::MatrixXd Ak(rank, rank);
-  Eigen::MatrixXd Bk(rank, this->sketch_basis_[0].nbasis());
-  Eigen::MatrixXd Gk(links(this->d_ - 1)), this->sketch_basis_[0].nbasis();
+  Eigen::MatrixXd Bk(rank, dim(siteIndex(Bemp, this->d_)));
+  Eigen::MatrixXd Gk(rank, dim(siteIndex(Bemp, this->d_)));
   for(int i = 1; i <= rank; ++i) {
     for(int j = 1; j <= rank; ++j) {
       Ak(i - 1, j - 1) = A[this->d_ - 1].elt(prime(links(this->d_ - 1)) = i, links(this->d_ - 1) = j);
     }
   }
   for(int i = 1; i <= rank; ++i) {
-    for(int j = 1; j <= this->sketch_basis_[0].nbasis(); ++j) {
+    for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
       Bk(i - 1, j - 1) = Bemp(this->d_).elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
     }
   }
   solveLeastSquares(Ak, Bk, Gk);
   G.ref(this->d_) = ITensor(links(this->d_ - 1), siteIndex(Bemp, this->d_));
   for(int i = 1; i <= rank; ++i) {
-    for(int j = 1; j <= this->sketch_basis_[0].nbasis(); ++j) {
+    for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
       G.ref(this->d_).set(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
     }
   }
@@ -564,7 +564,7 @@ void TTOPES::paraSketch() {
 MPS TTOPES::createTTCoeff() const {
   default_random_engine generator(static_cast<unsigned int>(time(nullptr)));
   normal_distribution<double> distribution(0.0, 1.0);
-  int n = this->sketch_basis_[0].nbasis();
+  int n = dim(siteIndex(Bemp, this->d_));
   auto sites = SiteSet(this->d_, n);
   auto coeff = MPS(sites, this->sketch_rc_);
   for(int j = 1; j <= n; ++j) {
@@ -604,7 +604,7 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
   for(double height : this->heights_) {
     sum_heights += height;
   }
-  int nb = this->sketch_basis_[0].nbasis();
+  int nb = dim(siteIndex(Bemp, this->d_));
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
   vector<Index> is_new;
