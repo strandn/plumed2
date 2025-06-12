@@ -470,7 +470,7 @@ void TTOPES::paraSketch() {
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
 
-    A[core_id - 1] = (prime(links(core_id - 1)), links(core_id - 1));
+    A[core_id - 1] = ITensor(prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank; ++j) {
         A[core_id - 1].set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
