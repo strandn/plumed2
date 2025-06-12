@@ -792,7 +792,10 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
     for (unsigned i = 0; i < ncols; ++i) {
       Gk(i, j) = g(i);
     }
-    cout << "tolerance " << j << " " << nnls.tolerance() << endl;
+    cout << j << " tolerance " << nnls.tolerance() << " iterations " << nnls.iterations() << " maxIterations " << nnls.maxIterations();
+    cout << " info " << nnls.info() << endl;
+    Eigen::VectorXd& agb = A_aug * g - b_aug;
+    cout << "|Ax-b|/|b| = " << norm(agb) / norm(b) << endl;
   }
 }
 
