@@ -519,7 +519,7 @@ void TTOPES::paraSketch() {
   cout << "core 1" << endl;
   cout << "AG" << endl << Ak * Gk << endl;
   cout << "B" << endl << Bk << endl;
-  cout << "AG-B" << endl << Ak * Gk << endl;
+  cout << "AG-B" << endl << Ak * Gk - Bk << endl;
   G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
   for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
