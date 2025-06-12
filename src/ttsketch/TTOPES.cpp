@@ -564,7 +564,7 @@ void TTOPES::paraSketch() {
 MPS TTOPES::createTTCoeff() const {
   default_random_engine generator(static_cast<unsigned int>(time(nullptr)));
   normal_distribution<double> distribution(0.0, 1.0);
-  int n = dim(siteIndex(Bemp, this->d_));
+  int n = this->sketch_basis_[0].nbasis();
   auto sites = SiteSet(this->d_, n);
   auto coeff = MPS(sites, this->sketch_rc_);
   for(int j = 1; j <= n; ++j) {
@@ -604,7 +604,7 @@ pair<vector<ITensor>, IndexSet> TTOPES::intBasisSample(const IndexSet& is) const
   for(double height : this->heights_) {
     sum_heights += height;
   }
-  int nb = dim(siteIndex(Bemp, this->d_));
+  int nb = this->sketch_basis_[0].nbasis();
   auto sites_new = SiteSet(this->d_, N);
   vector<ITensor> M;
   vector<Index> is_new;
