@@ -549,6 +549,7 @@ void TTOPES::paraSketch() {
     }
   }
   G.ref(this->d_) *= V[this->d_ - 1];
+  PrintData(G);
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
@@ -704,8 +705,7 @@ void TTOPES::solveLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd&
   if(Gk.cols() != nrhs) {
     error("Gk has the incorrect number of columns (got " + to_string(Gk.cols()) + ", expected " + to_string(nrhs) + ")");
   }
-
-  cout << "Ak" << endl << Ak << endl;
+  // cout << "Ak" << endl << Ak << endl;
 
   // Loop over each column in Bk
   for (unsigned j = 0; j < nrhs; ++j) {
@@ -729,8 +729,8 @@ void TTOPES::solveLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd&
     }
 
     Eigen::ColPivHouseholderQR<Eigen::MatrixXd> ls(A_aug);
-    cout << "b" << endl << b_aug.transpose() << endl;
-    cout << "||A_aug|| = " << A_aug.norm() << ", ||b_aug|| = " << b_aug.norm() << endl;
+    // cout << "b" << endl << b_aug.transpose() << endl;
+    // cout << "||A_aug|| = " << A_aug.norm() << ", ||b_aug|| = " << b_aug.norm() << endl;
     const Eigen::VectorXd& g = ls.solve(b_aug);
 
     if (ls.info() != Eigen::Success) {
@@ -739,10 +739,10 @@ void TTOPES::solveLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd&
 
     Gk.col(j) = g;
 
-    cout << j << " info " << ls.info() << endl;
-    cout << "g" << endl << g.transpose() << endl;
-    Eigen::VectorXd agb = A_aug * g - b_aug;
-    cout << "|Ax-b|/|b| = " << agb.norm() / b_aug.norm() << endl;
+    // cout << j << " info " << ls.info() << endl;
+    // cout << "g" << endl << g.transpose() << endl;
+    // Eigen::VectorXd agb = A_aug * g - b_aug;
+    // cout << "|Ax-b|/|b| = " << agb.norm() / b_aug.norm() << endl;
   }
 }
 
