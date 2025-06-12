@@ -504,11 +504,11 @@ void TTOPES::paraSketch() {
     int rank = dim(links(core_id - 1));
     auto [C, c] = combiner(links(core_id - 1), siteIndex(Bemp, core_id));
     ITensor B = Bemp(core_id) * V[core_id] * C;
-    Eigen::MatrixXd Ak(rank, rank_trimmed);
+    Eigen::MatrixXd Ak(rank, rank);
     Eigen::MatrixXd Bk(rank, dim(c));
-    Eigen::MatrixXd Gk(rank_trimmed, dim(c));
+    Eigen::MatrixXd Gk(rank, dim(c));
     for(int i = 1; i <= rank; ++i) {
-      for(int j = 1; j <= rank_trimmed; ++j) {
+      for(int j = 1; j <= rank; ++j) {
         Ak(i - 1, j - 1) = A[core_id - 1].elt(prime(links(core_id - 1)) = i, links(core_id - 1) = j);
       }
     }
@@ -519,7 +519,7 @@ void TTOPES::paraSketch() {
     }
     solveLeastSquares(Ak, Bk, Gk);
     G.ref(core_id) = ITensor(links(core_id - 1), c);
-    for(int i = 1; i <= rank_trimmed; ++i) {
+    for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= dim(c); ++j) {
         G.ref(core_id).set(links(core_id - 1) = i, c = j, Gk(i - 1, j - 1));
       }
@@ -528,7 +528,7 @@ void TTOPES::paraSketch() {
   }
 
   Eigen::MatrixXd Ak(dim(links(this->d_ - 1)), dim(links(this->d_ - 1)));
-  Eigen::MatrixXd Bk (dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
+  Eigen::MatrixXd Bk(dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
   Eigen::MatrixXd Gk(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(links(this->d_ - 1)); ++j) {
@@ -547,7 +547,7 @@ void TTOPES::paraSketch() {
       G.ref(this->d_).set(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
     }
   }
-  G.ref(core_id) *= V[this->d_ - 1];
+  G.ref(this->d_) *= V[this->d_ - 1];
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
