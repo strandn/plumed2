@@ -516,12 +516,12 @@ void TTOPES::paraSketch() {
     }
   }
   solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  cout << "core 1" << endl;
-  cout << "AG" << endl << Ak * Gk << endl;
-  cout << "B" << endl << Bk << endl;
-  Eigen::MatrixXd AGB = Ak * Gk - Bk;
-  cout << "AG-B" << endl << AGB << endl;
-  cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
+  // cout << "core 1" << endl;
+  // cout << "AG" << endl << Ak * Gk << endl;
+  // cout << "B" << endl << Bk << endl;
+  // Eigen::MatrixXd AGB = Ak * Gk - Bk;
+  // cout << "AG-B" << endl << AGB << endl;
+  // cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
   G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
   for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
@@ -589,12 +589,12 @@ void TTOPES::paraSketch() {
     }
   }
   solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  cout << "core 2" << endl;
-  cout << "AG" << endl << Ak * Gk << endl;
-  cout << "B" << endl << Bk << endl;
-  AGB = Ak * Gk - Bk;
-  cout << "AG-B" << endl << AGB << endl;
-  cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
+  // cout << "core 2" << endl;
+  // cout << "AG" << endl << Ak * Gk << endl;
+  // cout << "B" << endl << Bk << endl;
+  // AGB = Ak * Gk - Bk;
+  // cout << "AG-B" << endl << AGB << endl;
+  // cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
   G.ref(this->d_) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
@@ -757,6 +757,8 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
     error("Gk has the incorrect number of columns (got " + to_string(Gk.cols()) + ", expected " + to_string(nrhs) + ")");
   }
 
+  cout << "Ak" << endl << Ak << endl;
+
   // Loop over each column in Bk
   for (unsigned j = 0; j < nrhs; ++j) {
     Eigen::VectorXd b(nrows);
@@ -783,6 +785,8 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
 
     // Solve NNLS
     Eigen::NNLS<Eigen::MatrixXd> nnls(A_aug);
+    cout << "b" << endl << b_aug.transpose() << endl;
+    cout << "||A_aug|| = " << A_aug.norm() << ", ||b_aug|| = " << b_aug.norm() << endl;
     const Eigen::VectorXd& g = nnls.solve(b_aug);
 
     if (nnls.info() != Eigen::Success) {
@@ -792,8 +796,10 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
     for (unsigned i = 0; i < ncols; ++i) {
       Gk(i, j) = g(i);
     }
+
     cout << j << " tolerance " << nnls.tolerance() << " iterations " << nnls.iterations() << " maxIterations " << nnls.maxIterations();
     cout << " info " << nnls.info() << endl;
+    cout << "g" << endl << g.transpose() << endl;
     Eigen::VectorXd agb = A_aug * g - b_aug;
     cout << "|Ax-b|/|b| = " << agb.norm() / b.norm() << endl;
   }
