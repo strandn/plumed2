@@ -489,17 +489,17 @@ void TTOPES::paraSketch() {
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
   }
 
-  for(unsigned i = 1; i <= this->d_; ++i) {
-    auto s = siteIndex(Bemp, i);
-    ITensor ginv(s, prime(s));
-    for(int j = 1; j <= dim(s); ++j) {
-      for(int l = 1; l <= dim(s); ++l) {
-        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-      }
-    }
-    Bemp.ref(i) *= ginv;
-    Bemp.ref(i).noPrime();
-  }
+  // for(unsigned i = 1; i <= this->d_; ++i) {
+  //   auto s = siteIndex(Bemp, i);
+  //   ITensor ginv(s, prime(s));
+  //   for(int j = 1; j <= dim(s); ++j) {
+  //     for(int l = 1; l <= dim(s); ++l) {
+  //       ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+  //     }
+  //   }
+  //   Bemp.ref(i) *= ginv;
+  //   Bemp.ref(i).noPrime();
+  // }
 
   // G.ref(1) = Bemp(1) * V[1];
   Eigen::MatrixXd Ak(dim(links(1)), dim(links_trimmed[0]));
@@ -621,21 +621,21 @@ MPS TTOPES::createTTCoeff() const {
   auto coeff = MPS(sites, this->sketch_rc_);
   for(int j = 1; j <= n; ++j) {
     for(int k = 1; k <= this->sketch_rc_; ++k) {
-      coeff.ref(1).set(sites(1) = j, linkIndex(coeff, 1) = k, abs(distribution(generator)));
+      coeff.ref(1).set(sites(1) = j, linkIndex(coeff, 1) = k, distribution(generator));
     }
   }
   for(unsigned i = 2; i <= this->d_ - 1; ++i) {
     for(int j = 1; j <= n; ++j) {
       for(int k = 1; k <= this->sketch_rc_; ++k) {
         for(int l = 1; l <= this->sketch_rc_; ++l) {
-          coeff.ref(i).set(sites(i) = j, linkIndex(coeff, i - 1) = k, linkIndex(coeff, i) = l, abs(distribution(generator)));
+          coeff.ref(i).set(sites(i) = j, linkIndex(coeff, i - 1) = k, linkIndex(coeff, i) = l, distribution(generator));
         }
       }
     }
   }
   for(int j = 1; j <= n; ++j) {
     for(int k = 1; k <= this->sketch_rc_; ++k) {
-      coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, abs(distribution(generator)));
+      coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, distribution(generator));
     }
   }
   for(unsigned i = 1; i <= this->d_; ++i) {
