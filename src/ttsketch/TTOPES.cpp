@@ -544,9 +544,9 @@ void TTOPES::paraSketch() {
     // }
     auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
     ITensor B = Bemp(core_id) * V[core_id] * C;
-    Ak = Eigen::MatrixXd(rank, rank_trimmed);
-    Bk = Eigen::MatrixXd(rank, dim(c));
-    Gk = Eigen::MatrixXd(rank_trimmed, dim(c));
+    Eigen::MatrixXd Ak(rank, rank_trimmed);
+    Eigen::MatrixXd Bk(rank, dim(c));
+    Eigen::MatrixXd Gk(rank_trimmed, dim(c));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank_trimmed; ++j) {
         Ak(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
