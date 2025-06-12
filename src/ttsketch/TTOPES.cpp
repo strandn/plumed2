@@ -330,6 +330,7 @@ void TTOPES::update() {
     log.flush();
 
     this->tt_ /= Z;
+    PrintData(tt_);
 
     getPntrToComponent("ns")->set(this->samples_.size());
 
@@ -549,7 +550,6 @@ void TTOPES::paraSketch() {
     }
   }
   G.ref(this->d_) *= V[this->d_ - 1];
-  PrintData(G);
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
