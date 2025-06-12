@@ -5,7 +5,6 @@
 #include "tools/Communicator.h"
 #include "tools/File.h"
 #include <Eigen/Dense>
-#include <unsupported/Eigen/NNLS>
 
 using namespace std;
 using namespace itensor;
@@ -48,7 +47,7 @@ private:
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
   tuple<MPS, vector<ITensor>, vector<ITensor>> formTensorMoment(const vector<ITensor>& M, const MPS& coeff, const IndexSet& is);
-  void solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd& Bk, Eigen::MatrixXd& Gk);
+  void solveLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd& Bk, Eigen::MatrixXd& Gk);
 
 public:
   explicit TTOPES(const ActionOptions&);
@@ -489,45 +488,39 @@ void TTOPES::paraSketch() {
     links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
   }
 
-  // for(unsigned i = 1; i <= this->d_; ++i) {
-  //   auto s = siteIndex(Bemp, i);
-  //   ITensor ginv(s, prime(s));
-  //   for(int j = 1; j <= dim(s); ++j) {
-  //     for(int l = 1; l <= dim(s); ++l) {
-  //       ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-  //     }
-  //   }
-  //   Bemp.ref(i) *= ginv;
-  //   Bemp.ref(i).noPrime();
-  // }
+  for(unsigned i = 1; i <= this->d_; ++i) {
+    auto s = siteIndex(Bemp, i);
+    ITensor ginv(s, prime(s));
+    for(int j = 1; j <= dim(s); ++j) {
+      for(int l = 1; l <= dim(s); ++l) {
+        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+      }
+    }
+    Bemp.ref(i) *= ginv;
+    Bemp.ref(i).noPrime();
+  }
 
-  // G.ref(1) = Bemp(1) * V[1];
-  Eigen::MatrixXd Ak(dim(links(1)), dim(links_trimmed[0]));
-  Eigen::MatrixXd Bk(dim(links(1)), dim(siteIndex(Bemp, 1)));
-  Eigen::MatrixXd Gk(dim(links_trimmed[0]), dim(siteIndex(Bemp, 1)));
-  for(int i = 1; i <= dim(links(1)); ++i) {
-    for(int j = 1; j <= dim(links_trimmed[0]); ++j) {
-      Ak(i - 1, j - 1) = V[1].elt(links(1) = i, links_trimmed[0] = j);
-    }
-  }
-  for(int i = 1; i <= dim(links(1)); ++i) {
-    for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
-      Bk(i - 1, j - 1) = Bemp(1).elt(links(1) = i, siteIndex(Bemp, 1) = j);
-    }
-  }
-  solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  // cout << "core 1" << endl;
-  // cout << "AG" << endl << Ak * Gk << endl;
-  // cout << "B" << endl << Bk << endl;
-  // Eigen::MatrixXd AGB = Ak * Gk - Bk;
-  // cout << "AG-B" << endl << AGB << endl;
-  // cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
-  G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
-  for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
-    for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
-      G.ref(1).set(links_trimmed[0] = i, siteIndex(Bemp, 1) = j, Gk(i - 1, j - 1));
-    }
-  }
+  G.ref(1) = Bemp(1) * V[1];
+  // Eigen::MatrixXd Ak(dim(links(1)), dim(links_trimmed[0]));
+  // Eigen::MatrixXd Bk(dim(links(1)), dim(siteIndex(Bemp, 1)));
+  // Eigen::MatrixXd Gk(dim(links_trimmed[0]), dim(siteIndex(Bemp, 1)));
+  // for(int i = 1; i <= dim(links(1)); ++i) {
+  //   for(int j = 1; j <= dim(links_trimmed[0]); ++j) {
+  //     Ak(i - 1, j - 1) = V[1].elt(links(1) = i, links_trimmed[0] = j);
+  //   }
+  // }
+  // for(int i = 1; i <= dim(links(1)); ++i) {
+  //   for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
+  //     Bk(i - 1, j - 1) = Bemp(1).elt(links(1) = i, siteIndex(Bemp, 1) = j);
+  //   }
+  // }
+  // solveLeastSquares(Ak, Bk, Gk);
+  // G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
+  // for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
+  //   for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
+  //     G.ref(1).set(links_trimmed[0] = i, siteIndex(Bemp, 1) = j, Gk(i - 1, j - 1));
+  //   }
+  // }
 
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
     int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
@@ -564,7 +557,7 @@ void TTOPES::paraSketch() {
         Bk(i - 1, j - 1) = B.elt(links(core_id - 1) = i, c = j);
       }
     }
-    solveNonNegativeLeastSquares(Ak, Bk, Gk);
+    solveLeastSquares(Ak, Bk, Gk);
     G.ref(core_id) = ITensor(links_trimmed[core_id - 2], c);
     for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= dim(c); ++j) {
@@ -588,13 +581,7 @@ void TTOPES::paraSketch() {
       Bk(i - 1, j - 1) = Bemp(this->d_).elt(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j);
     }
   }
-  solveNonNegativeLeastSquares(Ak, Bk, Gk);
-  // cout << "core 2" << endl;
-  // cout << "AG" << endl << Ak * Gk << endl;
-  // cout << "B" << endl << Bk << endl;
-  // AGB = Ak * Gk - Bk;
-  // cout << "AG-B" << endl << AGB << endl;
-  // cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
+  solveLeastSquares(Ak, Bk, Gk);
   G.ref(this->d_) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
@@ -741,7 +728,7 @@ tuple<MPS, vector<ITensor>, vector<ITensor>> TTOPES::formTensorMoment(const vect
   return make_tuple(B, envi_L, envi_R);
 }
 
-void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd& Bk, Eigen::MatrixXd& Gk) {
+void TTOPES::solveLeastSquares(const Eigen::MatrixXd& Ak, const Eigen::MatrixXd& Bk, Eigen::MatrixXd& Gk) {
   const unsigned nrows = Ak.rows();  // rows of Ak
   const unsigned ncols = Ak.cols();  // cols of Ak
   const unsigned nrhs  = Bk.cols();  // cols of Bk (number of right-hand sides)
@@ -761,10 +748,7 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
 
   // Loop over each column in Bk
   for (unsigned j = 0; j < nrhs; ++j) {
-    Eigen::VectorXd b(nrows);
-    for (unsigned i = 0; i < nrows; ++i) {
-      b(i) = Bk(i, j);
-    }
+    Eigen::VectorXd b = Bk.col(j);
 
     Eigen::MatrixXd A_aug;
     Eigen::VectorXd b_aug;
@@ -783,25 +767,21 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
       b_aug = b;
     }
 
-    // Solve NNLS
-    Eigen::NNLS<Eigen::MatrixXd> nnls(A_aug);
+    Eigen::ColPivHouseholderQR<Eigen::MatrixXd> ls(A_aug);
     cout << "b" << endl << b_aug.transpose() << endl;
     cout << "||A_aug|| = " << A_aug.norm() << ", ||b_aug|| = " << b_aug.norm() << endl;
-    const Eigen::VectorXd& g = nnls.solve(b_aug);
+    const Eigen::VectorXd& g = ls.solve(b_aug);
 
-    if (nnls.info() != Eigen::Success) {
-      error("NNLS failed for column " + to_string(j));
+    if (ls.info() != Eigen::Success) {
+      error("Least squares failed for column " + to_string(j));
     }
 
-    for (unsigned i = 0; i < ncols; ++i) {
-      Gk(i, j) = g(i);
-    }
+    Gk.col(j) = g;
 
-    cout << j << " tolerance " << nnls.tolerance() << " iterations " << nnls.iterations() << " maxIterations " << nnls.maxIterations();
-    cout << " info " << nnls.info() << endl;
+    cout << j << " info " << ls.info() << endl;
     cout << "g" << endl << g.transpose() << endl;
     Eigen::VectorXd agb = A_aug * g - b_aug;
-    cout << "|Ax-b|/|b| = " << agb.norm() / b.norm() << endl;
+    cout << "|Ax-b|/|b| = " << agb.norm() / b_aug.norm() << endl;
   }
 }
 
