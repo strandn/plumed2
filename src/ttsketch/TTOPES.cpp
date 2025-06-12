@@ -519,7 +519,9 @@ void TTOPES::paraSketch() {
   cout << "core 1" << endl;
   cout << "AG" << endl << Ak * Gk << endl;
   cout << "B" << endl << Bk << endl;
-  cout << "AG-B" << endl << Ak * Gk - Bk << endl;
+  Eigen::MatrixXd AGB = Ak * Gk - Bk;
+  cout << "AG-B" << endl << AGB << endl;
+  cout << "|AG-B|/|b| = " << AGB.norm() / Bk.norm() << endl;
   G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
   for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
@@ -788,6 +790,7 @@ void TTOPES::solveNonNegativeLeastSquares(const Eigen::MatrixXd& Ak, const Eigen
     for (unsigned i = 0; i < ncols; ++i) {
       Gk(i, j) = g(i);
     }
+    cout << "tolerance " << j << " " << nnls.tolerance() << endl;
   }
 }
 
