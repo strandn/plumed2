@@ -621,21 +621,21 @@ MPS TTOPES::createTTCoeff() const {
   auto coeff = MPS(sites, this->sketch_rc_);
   for(int j = 1; j <= n; ++j) {
     for(int k = 1; k <= this->sketch_rc_; ++k) {
-      coeff.ref(1).set(sites(1) = j, linkIndex(coeff, 1) = k, distribution(generator));
+      coeff.ref(1).set(sites(1) = j, linkIndex(coeff, 1) = k, abs(distribution(generator)));
     }
   }
   for(unsigned i = 2; i <= this->d_ - 1; ++i) {
     for(int j = 1; j <= n; ++j) {
       for(int k = 1; k <= this->sketch_rc_; ++k) {
         for(int l = 1; l <= this->sketch_rc_; ++l) {
-          coeff.ref(i).set(sites(i) = j, linkIndex(coeff, i - 1) = k, linkIndex(coeff, i) = l, distribution(generator));
+          coeff.ref(i).set(sites(i) = j, linkIndex(coeff, i - 1) = k, linkIndex(coeff, i) = l, abs(distribution(generator)));
         }
       }
     }
   }
   for(int j = 1; j <= n; ++j) {
     for(int k = 1; k <= this->sketch_rc_; ++k) {
-      coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, distribution(generator));
+      coeff.ref(this->d_).set(sites(this->d_) = j, linkIndex(coeff, this->d_ - 1) = k, abs(distribution(generator)));
     }
   }
   for(unsigned i = 1; i <= this->d_; ++i) {
