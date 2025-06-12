@@ -456,8 +456,7 @@ void TTOPES::paraSketch() {
 
   auto [Bemp, envi_L, envi_R] = formTensorMoment(M, coeff, is);
   auto links = linkInds(coeff);
-  vector<ITensor> U(this->d_), S(this->d_), V(this->d_);
-  vector<Index> links_trimmed;
+  vector<ITensor> A(this->d_), U(this->d_), S(this->d_), V(this->d_);
   for(unsigned core_id = 2; core_id <= this->d_; ++core_id) {
     int rank = dim(links(core_id - 1));
     Matrix<double> LMat(N, rank), RMat(N, rank);
@@ -471,21 +470,20 @@ void TTOPES::paraSketch() {
     transpose(LMat, Lt);
     mult(Lt, RMat, AMat);
 
-    ITensor A(prime(links(core_id - 1)), links(core_id - 1));
+    A[core_id - 1] = (prime(links(core_id - 1)), links(core_id - 1));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank; ++j) {
-        A.set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
+        A[core_id - 1].set(prime(links(core_id - 1)) = i, links(core_id - 1) = j, AMat(i - 1, j - 1));
       }
     }
     auto original_link_tags = tags(links(core_id - 1));
     V[core_id - 1] = ITensor(links(core_id - 1));
     if(this->sketch_r_ > 0) {
-      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1],
+      svd(A[core_id - 1], U[core_id - 1], S[core_id - 1], V[core_id - 1],
           {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags, "MaxDim=", this->sketch_r_});
     } else {
-      svd(A, U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
+      svd(A[core_id - 1], U[core_id - 1], S[core_id - 1], V[core_id - 1], {"Cutoff=", this->sketch_cutoff_, "RightTags=", original_link_tags});
     }
-    links_trimmed.push_back(commonIndex(S[core_id - 1], V[core_id - 1]));
   }
 
   for(unsigned i = 1; i <= this->d_; ++i) {
@@ -501,55 +499,17 @@ void TTOPES::paraSketch() {
   }
 
   G.ref(1) = Bemp(1) * V[1];
-  // Eigen::MatrixXd Ak(dim(links(1)), dim(links_trimmed[0]));
-  // Eigen::MatrixXd Bk(dim(links(1)), dim(siteIndex(Bemp, 1)));
-  // Eigen::MatrixXd Gk(dim(links_trimmed[0]), dim(siteIndex(Bemp, 1)));
-  // for(int i = 1; i <= dim(links(1)); ++i) {
-  //   for(int j = 1; j <= dim(links_trimmed[0]); ++j) {
-  //     Ak(i - 1, j - 1) = V[1].elt(links(1) = i, links_trimmed[0] = j);
-  //   }
-  // }
-  // for(int i = 1; i <= dim(links(1)); ++i) {
-  //   for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
-  //     Bk(i - 1, j - 1) = Bemp(1).elt(links(1) = i, siteIndex(Bemp, 1) = j);
-  //   }
-  // }
-  // solveLeastSquares(Ak, Bk, Gk);
-  // G.ref(1) = ITensor(links_trimmed[0], siteIndex(Bemp, 1));
-  // for(int i = 1; i <= dim(links_trimmed[0]); ++i) {
-  //   for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
-  //     G.ref(1).set(links_trimmed[0] = i, siteIndex(Bemp, 1) = j, Gk(i - 1, j - 1));
-  //   }
-  // }
 
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
-    int rank = dim(links(core_id - 1)), rank_trimmed = dim(links_trimmed[core_id - 2]);
-    ITensor A = U[core_id - 1] * S[core_id - 1];
-    // ITensor Pinv(links_trimmed[core_id - 2], links(core_id - 1));
-    // Matrix<double> AMat(rank, rank_trimmed), PMat;
-    // for(int i = 1; i <= rank; ++i) {
-    //   for(int j = 1; j <= rank_trimmed; ++j) {
-    //     AMat(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
-    //   }
-    // }
-    // pseudoInvert(AMat, PMat);
-    // for(int i = 1; i <= rank_trimmed; ++i) {
-    //   for(int j = 1; j <= rank; ++j) {
-    //     Pinv.set(links_trimmed[core_id - 2] = i, links(core_id - 1) = j, PMat(i - 1, j - 1));
-    //   }
-    // }
-    // G.ref(core_id) = Pinv * Bemp(core_id);
-    // if(core_id != this->d_) {
-    //   G.ref(core_id) *= V[core_id];
-    // }
-    auto [C, c] = combiner(links_trimmed[core_id - 1], siteIndex(Bemp, core_id));
+    int rank = dim(links(core_id - 1));
+    auto [C, c] = combiner(links(core_id - 1), siteIndex(Bemp, core_id));
     ITensor B = Bemp(core_id) * V[core_id] * C;
     Eigen::MatrixXd Ak(rank, rank_trimmed);
     Eigen::MatrixXd Bk(rank, dim(c));
     Eigen::MatrixXd Gk(rank_trimmed, dim(c));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank_trimmed; ++j) {
-        Ak(i - 1, j - 1) = A.elt(prime(links(core_id - 1)) = i, links_trimmed[core_id - 2] = j);
+        Ak(i - 1, j - 1) = A[core_id - 1].elt(prime(links(core_id - 1)) = i, links(core_id - 1) = j);
       }
     }
     for(int i = 1; i <= rank; ++i) {
@@ -558,22 +518,21 @@ void TTOPES::paraSketch() {
       }
     }
     solveLeastSquares(Ak, Bk, Gk);
-    G.ref(core_id) = ITensor(links_trimmed[core_id - 2], c);
+    G.ref(core_id) = ITensor(links(core_id - 1), c);
     for(int i = 1; i <= rank_trimmed; ++i) {
       for(int j = 1; j <= dim(c); ++j) {
-        G.ref(core_id).set(links_trimmed[core_id - 2] = i, c = j, Gk(i - 1, j - 1));
+        G.ref(core_id).set(links(core_id - 1) = i, c = j, Gk(i - 1, j - 1));
       }
     }
-    G.ref(core_id) *= C;
+    G.ref(core_id) *= C * V[core_id - 1] * V[core_id];
   }
 
-  ITensor A = U[this->d_ - 1] * S[this->d_ - 1];
-  Eigen::MatrixXd Ak(dim(links(this->d_ - 1)), dim(links_trimmed[this->d_ - 2]));
+  Eigen::MatrixXd Ak(dim(links(this->d_ - 1)), dim(links(this->d_ - 1)));
   Eigen::MatrixXd Bk (dim(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_)));
-  Eigen::MatrixXd Gk(dim(links_trimmed[this->d_ - 2]), dim(siteIndex(Bemp, this->d_)));
+  Eigen::MatrixXd Gk(links(this->d_ - 1)), dim(siteIndex(Bemp, this->d_));
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
-    for(int j = 1; j <= dim(links_trimmed[this->d_ - 2]); ++j) {
-      Ak(i - 1, j - 1) = A.elt(prime(links(this->d_ - 1)) = i, links_trimmed[this->d_ - 2] = j);
+    for(int j = 1; j <= dim(links(this->d_ - 1)); ++j) {
+      Ak(i - 1, j - 1) = A[this->d_ - 1].elt(prime(links(this->d_ - 1)) = i, links(this->d_ - 1) = j);
     }
   }
   for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
@@ -582,12 +541,13 @@ void TTOPES::paraSketch() {
     }
   }
   solveLeastSquares(Ak, Bk, Gk);
-  G.ref(this->d_) = ITensor(links_trimmed[this->d_ - 2], siteIndex(Bemp, this->d_));
-  for(int i = 1; i <= dim(links_trimmed[this->d_ - 2]); ++i) {
+  G.ref(this->d_) = ITensor(links(this->d_ - 1), siteIndex(Bemp, this->d_));
+  for(int i = 1; i <= dim(links(this->d_ - 1)); ++i) {
     for(int j = 1; j <= dim(siteIndex(Bemp, this->d_)); ++j) {
-      G.ref(this->d_).set(links_trimmed[this->d_ - 2] = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
+      G.ref(this->d_).set(links(this->d_ - 1) = i, siteIndex(Bemp, this->d_) = j, Gk(i - 1, j - 1));
     }
   }
+  G.ref(core_id) *= V[this->d_ - 1];
 
   log << "Final ranks ";
   for(unsigned i = 1; i < this->d_; ++i) {
