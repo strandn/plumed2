@@ -337,7 +337,9 @@ void TTOPES::update() {
     if(!this->no_Zed_) {
       this->Zed_ = 0.0;
       for(auto& sample : this->samples_) {
-        this->Zed_ += ttEval(this->tt_, this->sketch_basis_, sample, this->sketch_conv_) / this->samples_.size();
+        double prob = ttEval(this->tt_, this->sketch_basis_, sample, this->sketch_conv_);
+        prob = max(prob, 0.0);
+        this->Zed_ += prob / this->samples_.size();
       }
       getPntrToComponent("zed")->set(this->Zed_);
     }
@@ -433,7 +435,11 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
     return 0.0;
   }
   double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  prob = max(prob, 0.0);
   double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob / this->Zed_ + this->epsilon_);
+  if(prob == 0.0) {
+    return bias;
+  }
   vector<double> der_prob = ttGrad(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / (prob / this->Zed_ + this->epsilon_) * der_prob[i] / this->Zed_;
@@ -446,6 +452,7 @@ double TTOPES::getBias(const vector<double>& cv) {
     return 0.0;
   }
   double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  prob = max(prob, 0.0);
   return this->kbt_ * this->bias_prefactor_ * std::log(prob / this->Zed_ + this->epsilon_);
 }
 

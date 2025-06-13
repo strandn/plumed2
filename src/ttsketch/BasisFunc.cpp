@@ -48,7 +48,7 @@ BasisFunc::BasisFunc(pair<double, double> dom, int nbasis, double w, bool kernel
         }
         this->gram_(i, j) = this->gram_(j, i) = result;
       }
-      this->gram_(i, i) += 1.0e-6;
+      // this->gram_(i, i) += 1.0e-6;
     }
     Invert(this->gram_, this->ginv_);
   }
