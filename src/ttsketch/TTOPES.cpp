@@ -508,7 +508,7 @@ void TTOPES::paraSketch() {
 
   // G.ref(1) = Bemp(1) * V[1];
   int rank = dim(links(1));
-  Eigen::MatrixXd Ak = MatrixXd::Identity(rank, rank);
+  Eigen::MatrixXd Ak = Eigen::MatrixXd::Identity(rank, rank);
   Eigen::MatrixXd Bk(rank, dim(siteIndex(Bemp, 1)));
   Eigen::MatrixXd Gk(rank, dim(siteIndex(Bemp, 1)));
   for(int i = 1; i <= dim(links(1)); ++i) {
