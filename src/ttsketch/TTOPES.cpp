@@ -202,7 +202,8 @@ TTOPES::TTOPES(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], true, dx[i]));
+    // TODO: Gaussian or Fourier?
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], false, dx[i]));
   }
 
   parse("SKETCH_LAMBDA", this->sketch_lambda_);
@@ -494,44 +495,28 @@ void TTOPES::paraSketch() {
     }
   }
 
-  for(unsigned i = 1; i <= this->d_; ++i) {
-    auto s = siteIndex(Bemp, i);
-    ITensor ginv(s, prime(s));
-    for(int j = 1; j <= dim(s); ++j) {
-      for(int l = 1; l <= dim(s); ++l) {
-        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-      }
-    }
-    Bemp.ref(i) *= ginv;
-    Bemp.ref(i).noPrime();
-  }
+  // TODO: this might be required
+  // for(unsigned i = 1; i <= this->d_; ++i) {
+  //   auto s = siteIndex(Bemp, i);
+  //   ITensor ginv(s, prime(s));
+  //   for(int j = 1; j <= dim(s); ++j) {
+  //     for(int l = 1; l <= dim(s); ++l) {
+  //       ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+  //     }
+  //   }
+  //   Bemp.ref(i) *= ginv;
+  //   Bemp.ref(i).noPrime();
+  // }
 
-  // G.ref(1) = Bemp(1) * V[1];
-  int rank = dim(links(1));
-  Eigen::MatrixXd Ak = Eigen::MatrixXd::Identity(rank, rank);
-  Eigen::MatrixXd Bk(rank, dim(siteIndex(Bemp, 1)));
-  Eigen::MatrixXd Gk(rank, dim(siteIndex(Bemp, 1)));
-  for(int i = 1; i <= dim(links(1)); ++i) {
-    for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
-      Bk(i - 1, j - 1) = Bemp(1).elt(links(1) = i, siteIndex(Bemp, 1) = j);
-    }
-  }
-  solveLeastSquares(Ak, Bk, Gk);
-  G.ref(1) = ITensor(links(1), siteIndex(Bemp, 1));
-  for(int i = 1; i <= rank; ++i) {
-    for(int j = 1; j <= dim(siteIndex(Bemp, 1)); ++j) {
-      G.ref(1).set(links(1) = i, siteIndex(Bemp, 1) = j, Gk(i - 1, j - 1));
-    }
-  }
-  G.ref(1) *= V[1];
+  G.ref(1) = Bemp(1) * V[1];
 
   for(unsigned core_id = 2; core_id < this->d_; ++core_id) {
-    rank = dim(links(core_id - 1));
+    int rank = dim(links(core_id - 1));
     auto [C, c] = combiner(links(core_id - 1), siteIndex(Bemp, core_id));
     ITensor B = Bemp(core_id) * V[core_id] * C;
-    Ak = Eigen::MatrixXd(rank, rank);
-    Bk = Eigen::MatrixXd(rank, dim(c));
-    Gk = Eigen::MatrixXd(rank, dim(c));
+    Eigen::MatrixXd Ak(rank, rank);
+    Eigen::MatrixXd Bk(rank, dim(c));
+    Eigen::MatrixXd Gk(rank, dim(c));
     for(int i = 1; i <= rank; ++i) {
       for(int j = 1; j <= rank; ++j) {
         Ak(i - 1, j - 1) = A[core_id - 1].elt(prime(links(core_id - 1)) = i, links(core_id - 1) = j);
@@ -552,10 +537,10 @@ void TTOPES::paraSketch() {
     G.ref(core_id) *= C * V[core_id - 1] * V[core_id];
   }
 
-  rank = dim(links(this->d_ - 1));
-  Ak = Eigen::MatrixXd(rank, rank);
-  Bk = Eigen::MatrixXd(rank, dim(siteIndex(Bemp, this->d_)));
-  Gk = Eigen::MatrixXd(rank, dim(siteIndex(Bemp, this->d_)));
+  int rank = dim(links(this->d_ - 1));
+  Eigen::MatrixXd Ak(rank, rank);
+  Eigen::MatrixXd Bk(rank, dim(siteIndex(Bemp, this->d_)));
+  Eigen::MatrixXd Gk(rank, dim(siteIndex(Bemp, this->d_)));
   for(int i = 1; i <= rank; ++i) {
     for(int j = 1; j <= rank; ++j) {
       Ak(i - 1, j - 1) = A[this->d_ - 1].elt(prime(links(this->d_ - 1)) = i, links(this->d_ - 1) = j);
