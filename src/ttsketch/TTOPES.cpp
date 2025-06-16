@@ -433,10 +433,7 @@ void TTOPES::update() {
 }
 
 double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
-  if(length(this->tt_) == 0) {
-    return 0.0;
-  }
-  double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  double prob = length(this->tt_) == 0 ? 0.0 : ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   prob = max(prob, this->epsilon_);
   double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob);
   if(prob == this->epsilon_) {
@@ -446,14 +443,17 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / prob * der_prob[i];
   }
+  if(sqrt(norm(der)) > 1.0e5) {
+    bias = this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
+    for(unsigned i = 0; i < this->d_; i++) {
+      der[i] = 0.0;
+    }
+  }
   return bias;
 }
 
 double TTOPES::getBias(const vector<double>& cv) {
-  if(length(this->tt_) == 0) {
-    return 0.0;
-  }
-  double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  double prob = length(this->tt_) == 0 ? 0.0 : ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   prob = max(prob, this->epsilon_);
   return this->kbt_ * this->bias_prefactor_ * std::log(prob);
 }
