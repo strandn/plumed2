@@ -42,7 +42,7 @@ private:
   double sketch_lambda_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
-  double getBias(const vector<double>& cv);
+  // double getBias(const vector<double>& cv);
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -202,7 +202,7 @@ TTOPES::TTOPES(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], false, dx[i]));
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], true, dx[i]));
   }
 
   parse("SKETCH_LAMBDA", this->sketch_lambda_);
@@ -337,7 +337,7 @@ void TTOPES::update() {
       this->Zed_ = 0.0;
       for(auto& sample : this->samples_) {
         double prob = ttEval(this->tt_, this->sketch_basis_, sample, this->sketch_conv_);
-        prob = max(prob, this->epsilon_);
+        // prob = max(prob, this->epsilon_);
         this->Zed_ += prob / this->samples_.size();
       }
       getPntrToComponent("zed")->set(this->Zed_);
@@ -446,17 +446,23 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / prob * der_prob[i];
   }
+  if(sqrt(norm(der)) > 1.0e5) {
+    bias = this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
+    for(unsigned i = 0; i < this->d_; i++) {
+      der[i] = 0.0;
+    }
+  }
   return bias;
 }
 
-double TTOPES::getBias(const vector<double>& cv) {
-  if(length(this->tt_) == 0) {
-    return 0.0;
-  }
-  double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
-  prob = max(prob, this->epsilon_);
-  return this->kbt_ * this->bias_prefactor_ * std::log(prob);
-}
+// double TTOPES::getBias(const vector<double>& cv) {
+//   if(length(this->tt_) == 0) {
+//     return 0.0;
+//   }
+//   double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+//   prob = max(prob, this->epsilon_);
+//   return this->kbt_ * this->bias_prefactor_ * std::log(prob);
+// }
 
 void TTOPES::paraSketch() {
   unsigned N = this->samples_.size();
@@ -496,17 +502,17 @@ void TTOPES::paraSketch() {
     }
   }
 
-  // for(unsigned i = 1; i <= this->d_; ++i) {
-  //   auto s = siteIndex(Bemp, i);
-  //   ITensor ginv(s, prime(s));
-  //   for(int j = 1; j <= dim(s); ++j) {
-  //     for(int l = 1; l <= dim(s); ++l) {
-  //       ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-  //     }
-  //   }
-  //   Bemp.ref(i) *= ginv;
-  //   Bemp.ref(i).noPrime();
-  // }
+  for(unsigned i = 1; i <= this->d_; ++i) {
+    auto s = siteIndex(Bemp, i);
+    ITensor ginv(s, prime(s));
+    for(int j = 1; j <= dim(s); ++j) {
+      for(int l = 1; l <= dim(s); ++l) {
+        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+      }
+    }
+    Bemp.ref(i) *= ginv;
+    Bemp.ref(i).noPrime();
+  }
 
   G.ref(1) = Bemp(1) * V[1];
 
