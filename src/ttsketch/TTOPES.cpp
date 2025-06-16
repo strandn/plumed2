@@ -494,18 +494,17 @@ void TTOPES::paraSketch() {
     }
   }
 
-  // TODO: this might be required
-  // for(unsigned i = 1; i <= this->d_; ++i) {
-  //   auto s = siteIndex(Bemp, i);
-  //   ITensor ginv(s, prime(s));
-  //   for(int j = 1; j <= dim(s); ++j) {
-  //     for(int l = 1; l <= dim(s); ++l) {
-  //       ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
-  //     }
-  //   }
-  //   Bemp.ref(i) *= ginv;
-  //   Bemp.ref(i).noPrime();
-  // }
+  for(unsigned i = 1; i <= this->d_; ++i) {
+    auto s = siteIndex(Bemp, i);
+    ITensor ginv(s, prime(s));
+    for(int j = 1; j <= dim(s); ++j) {
+      for(int l = 1; l <= dim(s); ++l) {
+        ginv.set(s = j, prime(s) = l, this->sketch_basis_[i - 1].ginv()(j - 1, l - 1));
+      }
+    }
+    Bemp.ref(i) *= ginv;
+    Bemp.ref(i).noPrime();
+  }
 
   G.ref(1) = Bemp(1) * V[1];
 
