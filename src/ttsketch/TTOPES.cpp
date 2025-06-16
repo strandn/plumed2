@@ -42,7 +42,7 @@ private:
   double sketch_lambda_;
 
   double getBiasAndDerivatives(const vector<double>& cv, vector<double>& der);
-  // double getBias(const vector<double>& cv);
+  double getBias(const vector<double>& cv);
   void paraSketch();
   MPS createTTCoeff() const;
   pair<vector<ITensor>, IndexSet> intBasisSample(const IndexSet& is) const;
@@ -446,23 +446,17 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / prob * der_prob[i];
   }
-  if(sqrt(norm(der)) > 100.0) {
-    bias = this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
-    for(unsigned i = 0; i < this->d_; i++) {
-      der[i] = 0.0;
-    }
-  }
   return bias;
 }
 
-// double TTOPES::getBias(const vector<double>& cv) {
-//   if(length(this->tt_) == 0) {
-//     return 0.0;
-//   }
-//   double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
-//   prob = max(prob, this->epsilon_);
-//   return this->kbt_ * this->bias_prefactor_ * std::log(prob);
-// }
+double TTOPES::getBias(const vector<double>& cv) {
+  if(length(this->tt_) == 0) {
+    return 0.0;
+  }
+  double prob = ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
+  prob = max(prob, this->epsilon_);
+  return this->kbt_ * this->bias_prefactor_ * std::log(prob);
+}
 
 void TTOPES::paraSketch() {
   unsigned N = this->samples_.size();
