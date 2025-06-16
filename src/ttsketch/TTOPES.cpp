@@ -446,7 +446,7 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / prob * der_prob[i];
   }
-  if(sqrt(norm(der)) > 1.0e3) {
+  if(sqrt(norm(der)) > 100.0) {
     bias = this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
     for(unsigned i = 0; i < this->d_; i++) {
       der[i] = 0.0;
