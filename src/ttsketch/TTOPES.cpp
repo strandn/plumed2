@@ -202,7 +202,8 @@ TTOPES::TTOPES(const ActionOptions& ao):
     if(interval_max[i] <= interval_min[i]) {
       error("INTERVAL_MAX parameters need to be greater than respective INTERVAL_MIN parameters");
     }
-    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], true, dx[i]));
+    // TODO: Gaussian or Fourier?
+    this->sketch_basis_.push_back(BasisFunc(make_pair(interval_min[i], interval_max[i]), nbasis, w[i], false, dx[i]));
   }
 
   parse("SKETCH_LAMBDA", this->sketch_lambda_);
