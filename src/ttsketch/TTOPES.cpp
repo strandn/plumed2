@@ -443,7 +443,7 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / prob * der_prob[i];
   }
-  cout << "step " << getStep() << endl();
+  cout << "step " << getStep() << endl;
   cout << "cv " << cv[0] << " " << cv[1] << endl;
   cout << "prob " << prob << endl;
   cout << "der_prob " << der_prob[0] << " " << der_prob[1] << endl;
