@@ -458,7 +458,7 @@ double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& d
 double TTOPES::getBias(const vector<double>& cv) {
   double prob = length(this->tt_) == 0 ? 0.0 : ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   // prob = max(prob, this->epsilon_);
-  if(prob < 1.0e-4) {
+  if(prob < 1.0e-3) {
     return this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
   }
   return this->kbt_ * this->bias_prefactor_ * std::log(prob);
