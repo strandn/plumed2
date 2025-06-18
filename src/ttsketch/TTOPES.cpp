@@ -434,27 +434,33 @@ void TTOPES::update() {
 
 double TTOPES::getBiasAndDerivatives(const vector<double>& cv, vector<double>& der) {
   double prob = length(this->tt_) == 0 ? 0.0 : ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
-  prob = max(prob, this->epsilon_);
-  double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob);
-  if(prob == this->epsilon_) {
-    return bias;
+  // prob = max(prob, this->epsilon_);
+  if(prob < 1.0e-4) {
+    return this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
   }
+  double bias = this->kbt_ * this->bias_prefactor_ * std::log(prob);
+  // if(prob == this->epsilon_) {
+  //   return bias;
+  // }
   vector<double> der_prob = ttGrad(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
   for(unsigned i = 0; i < this->d_; i++) {
     der[i] = this->kbt_ * this->bias_prefactor_ / prob * der_prob[i];
   }
-  cout << "step " << getStep() << endl;
-  cout << "cv " << cv[0] << " " << cv[1] << endl;
-  cout << "prob " << prob << endl;
-  cout << "der_prob " << der_prob[0] << " " << der_prob[1] << endl;
-  cout << "bias " << bias << endl;
-  cout << "der " << der[0] << " " << der[1] << endl;
+  // cout << "step " << getStep() << endl;
+  // cout << "cv " << cv[0] << " " << cv[1] << endl;
+  // cout << "prob " << prob << endl;
+  // cout << "der_prob " << der_prob[0] << " " << der_prob[1] << endl;
+  // cout << "bias " << bias << endl;
+  // cout << "der " << der[0] << " " << der[1] << endl;
   return bias;
 }
 
 double TTOPES::getBias(const vector<double>& cv) {
   double prob = length(this->tt_) == 0 ? 0.0 : ttEval(this->tt_, this->sketch_basis_, cv, this->sketch_conv_);
-  prob = max(prob, this->epsilon_);
+  // prob = max(prob, this->epsilon_);
+  if(prob < 1.0e-4) {
+    return this->kbt_ * this->bias_prefactor_ * std::log(this->epsilon_);
+  }
   return this->kbt_ * this->bias_prefactor_ * std::log(prob);
 }
 
