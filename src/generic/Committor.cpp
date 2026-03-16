@@ -24,6 +24,7 @@
 #include "core/ActionWithArguments.h"
 #include "core/ActionRegister.h"
 #include "core/PlumedMain.h"
+#include <cmath>
 
 namespace PLMD {
 namespace generic {
@@ -32,12 +33,25 @@ namespace generic {
 /*
 Does a committor analysis.
 
-\par Examples
+Supports three region shapes: rectangular (the original behavior), spherical
+(hyperspherical in CV space), and elliptical (axis-aligned ellipsoids in CV
+space).  Each basin can be a single region or a **union** of several regions,
+which is useful when a metastable macro-state spans multiple local minima.
 
-The following input monitors two torsional angles during a simulation,
-defines two basins (A and B) as a function of the two torsion angles and
-stops the simulation when it falls in one of the two. In the log
-file will be shown the latest values for the CVs and the basin reached.
+Periodic boundary conditions are handled automatically for periodic CVs
+such as torsion angles.  For spheres and ellipses the minimum-image distance
+is used.  For rectangles on periodic CVs, setting REGION_LL > REGION_UL
+for a given CV dimension is interpreted as a wrap-around interval that
+crosses the periodic boundary (e.g. the region near ±π for a torsion).
+
+Two input modes are supported.  **Legacy mode** uses the original BASIN_LL /
+BASIN_UL keywords and is fully backward compatible; every numbered pair
+defines one rectangular basin.  **Region mode** lets you define an arbitrary
+collection of regions with REGION_* keywords and then group them into
+basins with BASIN keywords.  The two modes cannot be mixed.
+
+\par Legacy syntax (backward compatible)
+
 \plumedfile
 TORSION ATOMS=1,2,3,4 LABEL=r1
 TORSION ATOMS=2,3,4,5 LABEL=r2
@@ -51,6 +65,48 @@ COMMITTOR ...
 ... COMMITTOR
 \endplumedfile
 
+\par Spherical region
+
+\plumedfile
+TORSION ATOMS=1,2,3,4 LABEL=phi
+TORSION ATOMS=2,3,4,5 LABEL=psi
+COMMITTOR ...
+  ARG=phi,psi
+  STRIDE=10
+  REGION_LL1=-3.0,0.5
+  REGION_UL1=-0.8,3.1
+  REGION_CENTER2=1.1,-0.7
+  REGION_RADIUS2=0.5
+  BASIN1=1
+  BASIN2=2
+... COMMITTOR
+\endplumedfile
+
+\par Union of regions (e.g. two minima in basin A)
+
+\plumedfile
+TORSION ATOMS=1,2,3,4 LABEL=phi
+TORSION ATOMS=2,3,4,5 LABEL=psi
+COMMITTOR ...
+  ARG=phi,psi
+  STRIDE=10
+  REGION_LL1=-3.0,2.0
+  REGION_UL1=-2.0,3.1
+  REGION_CENTER2=-1.4,1.0
+  REGION_RADIUS2=0.4
+  REGION_CENTER3=1.1,-0.7
+  REGION_AXES3=0.5,0.3
+  BASIN1=1,2
+  BASIN2=3
+... COMMITTOR
+\endplumedfile
+
+\par Wrap-around rectangle on a periodic CV
+
+For a torsion angle (period 2π on [−π, π]), a rectangle with
+REGION_LL = 2.5 and REGION_UL = −2.5 in that dimension covers
+the region near ±π, i.e. [2.5, π] ∪ [−π, −2.5].
+
 */
 //+ENDPLUMEDOC
 
@@ -62,14 +118,39 @@ private:
   std::string file;
   OFile ofile;
   std::string fmt;
-  std::vector< std::vector<double> > lowerlimits;
-  std::vector< std::vector<double> > upperlimits;
+
+  // ---- Region geometry ----
+  struct Region {
+    enum Type { RECT, SPHERE, ELLIPSE };
+    Type type;
+    // RECT: lower/upper bounds per CV dimension
+    std::vector<double> lower, upper;
+    // SPHERE / ELLIPSE: center and semi-axis lengths per CV dimension
+    // (for a sphere all semi_axes entries are equal to the radius)
+    std::vector<double> center;
+    std::vector<double> semi_axes;
+  };
+
+  std::vector<Region> regions;
+  // Each basin is a union of region indices (0-based into regions[])
+  std::vector< std::vector<unsigned> > basinRegions;
   unsigned nbasins;
-  unsigned basin;
+  unsigned basin;   // 1-based index of the basin currently occupied (0 = none)
   bool doNotStop;
+
+  // Periodicity cache (filled once in constructor)
+  std::vector<bool>   argIsPeriodic;
+  std::vector<double> argPeriod;  // period length; 0 when not periodic
+
+  // Minimum-image signed displacement  x − c  respecting periodicity
+  double periodicDiff(double x, double c, unsigned dim) const;
+
+  // Test whether a point lies inside a region
+  bool regionContains(const Region& reg, const std::vector<double>& args) const;
+
 public:
   static void registerKeywords( Keywords& keys );
-  explicit Committor(const ActionOptions&ao);
+  explicit Committor(const ActionOptions& ao);
   void calculate() override;
   void apply() override {}
 };
@@ -81,23 +162,46 @@ void Committor::registerKeywords( Keywords& keys ) {
   ActionPilot::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
   keys.use("ARG");
-  keys.add("numbered", "BASIN_LL","List of lower limits for basin #");
-  keys.add("numbered", "BASIN_UL","List of upper limits for basin #");
-  keys.reset_style("BASIN_LL","compulsory"); keys.reset_style("BASIN_UL","compulsory");
+
+  // ---------- legacy rectangular-basin keywords (backward compatible) ----------
+  keys.add("numbered", "BASIN_LL","List of lower limits for basin #. "
+           "Legacy syntax: each numbered pair BASIN_LL / BASIN_UL defines one rectangular basin.");
+  keys.add("numbered", "BASIN_UL","List of upper limits for basin #.");
+  keys.reset_style("BASIN_LL","optional");
+  keys.reset_style("BASIN_UL","optional");
+
+  // ---------- new region keywords ----------
+  keys.add("numbered", "REGION_LL",    "Lower limits for rectangular region #. "
+           "For periodic CVs, setting REGION_LL > REGION_UL indicates a wrap-around interval.");
+  keys.add("numbered", "REGION_UL",    "Upper limits for rectangular region #.");
+  keys.add("numbered", "REGION_CENTER","Center of spherical or elliptical region #.");
+  keys.add("numbered", "REGION_RADIUS","Radius of spherical region # (single value).");
+  keys.add("numbered", "REGION_AXES",  "Semi-axis lengths of elliptical region # (one per CV).");
+
+  // ---------- basin-as-union keyword ----------
+  keys.add("numbered", "BASIN", "Comma-separated list of 1-based region indices that form basin #. "
+           "A basin is the union of all listed regions.");
+
+  // ---------- common keywords ----------
   keys.add("compulsory","STRIDE","1","the frequency with which the CVs are analyzed");
   keys.add("optional","FILE","the name of the file on which to output the reached basin");
   keys.add("optional","FMT","the format that should be used to output real numbers");
   keys.addFlag("NOSTOP",false,"if true do not stop the simulation when reaching a basin but just keep track of it");
 }
 
-Committor::Committor(const ActionOptions&ao):
+// ---------------------------------------------------------------------------
+//  Constructor – parse input and build regions + basins
+// ---------------------------------------------------------------------------
+Committor::Committor(const ActionOptions& ao):
   Action(ao),
   ActionPilot(ao),
   ActionWithArguments(ao),
   fmt("%f"),
+  nbasins(0),
   basin(0),
   doNotStop(false)
 {
+  // --- output file ---
   ofile.link(*this);
   parse("FILE",file);
   if(file.length()>0) {
@@ -111,63 +215,321 @@ Committor::Committor(const ActionOptions&ao):
   fmt=" "+fmt;
   log.printf("  with format %s\n",fmt.c_str());
 
-  for(unsigned b=1;; ++b ) {
-    std::vector<double> tmpl, tmpu;
-    parseNumberedVector("BASIN_LL", b, tmpl );
-    parseNumberedVector("BASIN_UL", b, tmpu );
-    if( tmpl.empty() && tmpu.empty() ) break;
-    if( tmpl.size()!=getNumberOfArguments()) error("Wrong number of values for BASIN_LL: they should be equal to the number of arguments");
-    if( tmpu.size()!=getNumberOfArguments()) error("Wrong number of values for BASIN_UL: they should be equal to the number of arguments");
-    lowerlimits.push_back(tmpl);
-    upperlimits.push_back(tmpu);
-    nbasins=b;
+  const unsigned nargs = getNumberOfArguments();
+
+  // --- cache periodicity information for every CV ---
+  argIsPeriodic.resize(nargs, false);
+  argPeriod.resize(nargs, 0.0);
+  for(unsigned i=0; i<nargs; ++i) {
+    if( getPntrToArgument(i)->isPeriodic() ) {
+      argIsPeriodic[i] = true;
+      std::string smin, smax;
+      getPntrToArgument(i)->getDomain(smin, smax);
+      double dmin, dmax;
+      Tools::convert(smin, dmin);
+      Tools::convert(smax, dmax);
+      argPeriod[i] = dmax - dmin;
+    }
   }
+
+  // =====================================================================
+  //  Detect input mode: legacy (BASIN_LL/UL) vs. region-based (REGION_*)
+  // =====================================================================
+  bool hasLegacy  = false;
+  bool hasRegions = false;
+  {
+    // Probe for the first legacy keyword
+    std::vector<double> probe;
+    parseNumberedVector("BASIN_LL", 1, probe);
+    if(!probe.empty()) hasLegacy = true;
+    // Probe for any region keyword
+    std::vector<double> p1, p2, p3, p4;
+    parseNumberedVector("REGION_LL",     1, p1);
+    parseNumberedVector("REGION_CENTER", 1, p2);
+    parseNumberedVector("REGION_RADIUS", 1, p3);
+    parseNumberedVector("REGION_AXES",   1, p4);
+    if(!p1.empty() || !p2.empty() || !p3.empty() || !p4.empty()) hasRegions = true;
+  }
+
+  if(hasLegacy && hasRegions)
+    error("COMMITTOR: cannot mix legacy BASIN_LL/BASIN_UL syntax with REGION_* syntax.  Use one or the other.");
+
+  // =====================================================================
+  //  LEGACY MODE – each BASIN_LL/BASIN_UL pair is one rectangular basin
+  // =====================================================================
+  if(hasLegacy) {
+    for(unsigned b=1;; ++b) {
+      std::vector<double> tmpl, tmpu;
+      parseNumberedVector("BASIN_LL", b, tmpl);
+      parseNumberedVector("BASIN_UL", b, tmpu);
+      if(tmpl.empty() && tmpu.empty()) break;
+      if(tmpl.size()!=nargs) error("Wrong number of values for BASIN_LL: they should be equal to the number of arguments");
+      if(tmpu.size()!=nargs) error("Wrong number of values for BASIN_UL: they should be equal to the number of arguments");
+
+      // Validate bounds (non-periodic CVs require lower < upper)
+      for(unsigned i=0; i<nargs; ++i) {
+        if(tmpl[i] > tmpu[i] && !argIsPeriodic[i])
+          error("COMMITTOR: BASIN_UL must be >= BASIN_LL for non-periodic CVs");
+      }
+
+      Region reg;
+      reg.type  = Region::RECT;
+      reg.lower = tmpl;
+      reg.upper = tmpu;
+      regions.push_back(reg);
+
+      // One region per basin in legacy mode
+      std::vector<unsigned> bvec(1, static_cast<unsigned>(regions.size()-1));
+      basinRegions.push_back(bvec);
+      nbasins = b;
+    }
+  }
+
+  // =====================================================================
+  //  REGION MODE – parse numbered REGION_* keywords, then BASIN keywords
+  // =====================================================================
+  if(hasRegions) {
+    for(unsigned r=1;; ++r) {
+      std::vector<double> rll, rul, rcenter, rradius, raxes;
+      parseNumberedVector("REGION_LL",     r, rll);
+      parseNumberedVector("REGION_UL",     r, rul);
+      parseNumberedVector("REGION_CENTER", r, rcenter);
+      parseNumberedVector("REGION_RADIUS", r, rradius);
+      parseNumberedVector("REGION_AXES",   r, raxes);
+
+      // Stop when no keywords found for this index
+      if(rll.empty() && rul.empty() && rcenter.empty() && rradius.empty() && raxes.empty()) break;
+
+      Region reg;
+
+      // --- Rectangular ---
+      if(!rll.empty() || !rul.empty()) {
+        if(rll.empty() || rul.empty())
+          error("COMMITTOR: REGION_LL and REGION_UL must both be given for rectangular region " + std::to_string(r));
+        if(rll.size()!=nargs)
+          error("COMMITTOR: REGION_LL" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+        if(rul.size()!=nargs)
+          error("COMMITTOR: REGION_UL" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+        if(!rcenter.empty() || !rradius.empty() || !raxes.empty())
+          error("COMMITTOR: region " + std::to_string(r) + " mixes RECT keywords (LL/UL) with SPHERE/ELLIPSE keywords (CENTER/RADIUS/AXES)");
+        for(unsigned i=0; i<nargs; ++i) {
+          if(rll[i] > rul[i] && !argIsPeriodic[i])
+            error("COMMITTOR: REGION_UL must be >= REGION_LL for non-periodic CV dimension " + std::to_string(i) + " in region " + std::to_string(r));
+        }
+        reg.type  = Region::RECT;
+        reg.lower = rll;
+        reg.upper = rul;
+      }
+      // --- Spherical ---
+      else if(!rcenter.empty() && !rradius.empty() && raxes.empty()) {
+        if(rcenter.size()!=nargs)
+          error("COMMITTOR: REGION_CENTER" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+        if(rradius.size()!=1)
+          error("COMMITTOR: REGION_RADIUS" + std::to_string(r) + " must be a single value");
+        reg.type      = Region::SPHERE;
+        reg.center    = rcenter;
+        reg.semi_axes.assign(nargs, rradius[0]);
+      }
+      // --- Elliptical ---
+      else if(!rcenter.empty() && !raxes.empty() && rradius.empty()) {
+        if(rcenter.size()!=nargs)
+          error("COMMITTOR: REGION_CENTER" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+        if(raxes.size()!=nargs)
+          error("COMMITTOR: REGION_AXES" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+        for(unsigned i=0; i<nargs; ++i) {
+          if(raxes[i]<=0.0) error("COMMITTOR: REGION_AXES values must be positive in region " + std::to_string(r));
+        }
+        reg.type      = Region::ELLIPSE;
+        reg.center    = rcenter;
+        reg.semi_axes = raxes;
+      }
+      else {
+        error("COMMITTOR: could not determine region type for region " + std::to_string(r) +
+              ". Use REGION_LL+REGION_UL (rect), REGION_CENTER+REGION_RADIUS (sphere), "
+              "or REGION_CENTER+REGION_AXES (ellipse).");
+      }
+      regions.push_back(reg);
+    }
+
+    // --- Parse BASIN keywords (unions of regions) ---
+    for(unsigned b=1;; ++b) {
+      std::vector<double> bvec_d;
+      parseNumberedVector("BASIN", b, bvec_d);
+      if(bvec_d.empty()) break;
+      std::vector<unsigned> bvec;
+      for(unsigned k=0; k<bvec_d.size(); ++k) {
+        int idx = static_cast<int>(std::round(bvec_d[k]));
+        if(idx<1 || idx>static_cast<int>(regions.size()))
+          error("COMMITTOR: BASIN" + std::to_string(b) + " references region " + std::to_string(idx) +
+                " which is out of range [1," + std::to_string(regions.size()) + "]");
+        bvec.push_back(static_cast<unsigned>(idx-1)); // convert to 0-based
+      }
+      basinRegions.push_back(bvec);
+      nbasins = b;
+    }
+    if(nbasins==0) error("COMMITTOR: REGION_* keywords found but no BASIN keywords to assign regions to basins");
+  }
+
+  if(!hasLegacy && !hasRegions)
+    error("COMMITTOR: no basins defined.  Use BASIN_LL/BASIN_UL (legacy) or REGION_*/BASIN (region mode).");
 
   parseFlag("NOSTOP", doNotStop);
-
   checkRead();
 
-
-  for(unsigned b=0; b<nbasins; b++) {
-    log.printf("  BASIN %u definition:\n", b+1);
-    for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-      if(lowerlimits[b][i]>upperlimits[b][i]) error("COMMITTOR: UPPER bounds must always be greater than LOWER bounds");
-      log.printf(" %f - %f\n", lowerlimits[b][i], upperlimits[b][i]);
+  // --- Log the parsed configuration ---
+  log.printf("  Number of regions: %u\n", static_cast<unsigned>(regions.size()));
+  for(unsigned r=0; r<regions.size(); ++r) {
+    const Region& reg = regions[r];
+    switch(reg.type) {
+    case Region::RECT:
+      log.printf("  Region %u: RECT\n", r+1);
+      for(unsigned i=0; i<nargs; ++i) {
+        if(reg.lower[i] > reg.upper[i])
+          log.printf("    dim %u: [%f, domain_max] U [domain_min, %f]  (wrap-around)\n", i, reg.lower[i], reg.upper[i]);
+        else
+          log.printf("    dim %u: [%f, %f]\n", i, reg.lower[i], reg.upper[i]);
+      }
+      break;
+    case Region::SPHERE:
+      log.printf("  Region %u: SPHERE  center=(", r+1);
+      for(unsigned i=0; i<nargs; ++i) log.printf("%s%f", i?",":"", reg.center[i]);
+      log.printf(")  radius=%f\n", reg.semi_axes[0]);
+      break;
+    case Region::ELLIPSE:
+      log.printf("  Region %u: ELLIPSE  center=(", r+1);
+      for(unsigned i=0; i<nargs; ++i) log.printf("%s%f", i?",":"", reg.center[i]);
+      log.printf(")  semi_axes=(");
+      for(unsigned i=0; i<nargs; ++i) log.printf("%s%f", i?",":"", reg.semi_axes[i]);
+      log.printf(")\n");
+      break;
     }
-    if(doNotStop) log.printf(" COMMITOR will keep track of the visited basins without stopping the simulations\n");
+  }
+  log.printf("  Number of basins: %u\n", nbasins);
+  for(unsigned b=0; b<nbasins; ++b) {
+    log.printf("  Basin %u = union of region(s):", b+1);
+    for(unsigned k=0; k<basinRegions[b].size(); ++k)
+      log.printf(" %u", basinRegions[b][k]+1);
+    log.printf("\n");
+  }
+  if(doNotStop) log.printf("  NOSTOP: will track visited basins without stopping the simulation\n");
+
+  // --- Periodicity summary ---
+  for(unsigned i=0; i<nargs; ++i) {
+    if(argIsPeriodic[i])
+      log.printf("  CV %u is periodic with period %f\n", i, argPeriod[i]);
   }
 
-  for(unsigned i=0; i<getNumberOfArguments(); ++i) ofile.setupPrintValue( getPntrToArgument(i) );
+  for(unsigned i=0; i<nargs; ++i) ofile.setupPrintValue( getPntrToArgument(i) );
 }
 
-void Committor::calculate() {
-  std::vector<unsigned> inbasin;
-  inbasin.assign (nbasins,1);
+// ---------------------------------------------------------------------------
+//  Minimum-image signed displacement (x - c) for dimension dim
+// ---------------------------------------------------------------------------
+double Committor::periodicDiff(double x, double c, unsigned dim) const {
+  double dx = x - c;
+  if(argIsPeriodic[dim]) {
+    const double period = argPeriod[dim];
+    const double half   = 0.5 * period;
+    while(dx >  half) dx -= period;
+    while(dx < -half) dx += period;
+  }
+  return dx;
+}
 
-  // check if current configuration belongs to a basin
-  for(unsigned b=0; b<nbasins; ++b) {
-    for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-      if(getArgument(i)>lowerlimits[b][i]&&getArgument(i)<upperlimits[b][i]) {
-        inbasin[b]*=1;
+// ---------------------------------------------------------------------------
+//  Test whether args[] lies inside a given region
+// ---------------------------------------------------------------------------
+bool Committor::regionContains(const Region& reg, const std::vector<double>& args) const {
+  const unsigned nargs = args.size();
+
+  switch(reg.type) {
+
+  // ---- Rectangle ----
+  case Region::RECT:
+    for(unsigned i=0; i<nargs; ++i) {
+      if(argIsPeriodic[i]) {
+        if(reg.lower[i] <= reg.upper[i]) {
+          // Normal (non-wrapping) interval on a periodic CV.
+          // Recast as: distance from interval midpoint < half-width.
+          double mid  = 0.5 * (reg.lower[i] + reg.upper[i]);
+          double half = 0.5 * (reg.upper[i] - reg.lower[i]);
+          double dx   = std::abs(periodicDiff(args[i], mid, i));
+          if(dx >= half) return false;   // strict inequality (open interval)
+        } else {
+          // Wrap-around interval (lower > upper).
+          // The "gap" that is NOT in the region is (upper, lower).
+          double gap_mid  = 0.5 * (reg.upper[i] + reg.lower[i]);
+          double gap_half = 0.5 * (reg.lower[i] - reg.upper[i]);
+          double dx       = std::abs(periodicDiff(args[i], gap_mid, i));
+          if(dx < gap_half) return false;  // inside the gap → outside the region
+        }
       } else {
-        inbasin[b]*=0;
+        // Non-periodic: simple open-interval check (matches original behavior)
+        if(args[i] <= reg.lower[i] || args[i] >= reg.upper[i]) return false;
       }
     }
+    return true;
+
+  // ---- Sphere (all semi-axes equal) ----
+  case Region::SPHERE: {
+    double r2sum = 0.0;
+    const double R2 = reg.semi_axes[0] * reg.semi_axes[0];
+    for(unsigned i=0; i<nargs; ++i) {
+      double dx = periodicDiff(args[i], reg.center[i], i);
+      r2sum += dx * dx;
+      if(r2sum > R2) return false;  // early exit
+    }
+    return true;   // r2sum <= R2  (closed ball, boundary included)
   }
 
-  // check in which basin we are if any and if this is the same or a new one
+  // ---- Ellipse (axis-aligned, semi-axes may differ) ----
+  case Region::ELLIPSE: {
+    double sum = 0.0;
+    for(unsigned i=0; i<nargs; ++i) {
+      double dx = periodicDiff(args[i], reg.center[i], i);
+      double a  = reg.semi_axes[i];
+      sum += (dx * dx) / (a * a);
+      if(sum > 1.0) return false;  // early exit
+    }
+    return true;   // sum <= 1  (closed ellipsoid, boundary included)
+  }
+
+  } // end switch
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+//  Main calculation – called every STRIDE steps
+// ---------------------------------------------------------------------------
+void Committor::calculate() {
+  const unsigned nargs = getNumberOfArguments();
+
+  // Gather current CV values
+  std::vector<double> args(nargs);
+  for(unsigned i=0; i<nargs; ++i) args[i] = getArgument(i);
+
+  // For each basin, check if the point is in any of its constituent regions
   bool inonebasin = false;
   for(unsigned b=0; b<nbasins; ++b) {
-    if(inbasin[b]==1) {
-      if(basin!=(b+1)) {
+    bool inThisBasin = false;
+    for(unsigned k=0; k<basinRegions[b].size(); ++k) {
+      if( regionContains(regions[ basinRegions[b][k] ], args) ) {
+        inThisBasin = true;
+        break;   // union: one hit is enough
+      }
+    }
+
+    if(inThisBasin) {
+      // Log a transition only when the basin identity changes
+      if(basin != (b+1)) {
         basin = b+1;
         ofile.fmtField(" %f");
-        ofile.printField("time",getTime());
-        for(unsigned i=0; i<getNumberOfArguments(); i++) {
+        ofile.printField("time", getTime());
+        for(unsigned i=0; i<nargs; i++) {
           ofile.fmtField(fmt);
           ofile.printField( getPntrToArgument(i), getArgument(i) );
         }
-        ofile.printField("basin", static_cast<int> (b+1));
+        ofile.printField("basin", static_cast<int>(b+1));
         ofile.printField();
       }
       inonebasin = true;
@@ -176,9 +538,9 @@ void Committor::calculate() {
   }
   if(!inonebasin) basin = 0;
 
-  // then check if the simulation should be stopped
-  if(inonebasin&&(!doNotStop)) {
-    std::string num; Tools::convert( basin, num );
+  // Stop the simulation if requested
+  if(inonebasin && !doNotStop) {
+    std::string num; Tools::convert(basin, num);
     std::string str = "COMMITTED TO BASIN " + num;
     ofile.addConstantField(str);
     ofile.printField();
