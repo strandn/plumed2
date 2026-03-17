@@ -233,124 +233,75 @@ Committor::Committor(const ActionOptions& ao):
   }
 
   // =====================================================================
-  //  Detect input mode: legacy (BASIN_LL/UL) vs. region-based (REGION_*)
+  //  Try region mode first: parse all REGION_* entries directly.
+  //  Do NOT probe at index 1 first — parseNumberedVector consumes keywords
+  //  and would deplete REGION_CENTER1/REGION_AXES1 before the loop runs.
+  //  Mode is determined from whether any regions were successfully parsed.
   // =====================================================================
-  bool hasLegacy  = false;
-  bool hasRegions = false;
-  {
-    // Probe for the first legacy keyword
-    std::vector<double> probe;
-    parseNumberedVector("BASIN_LL", 1, probe);
-    if(!probe.empty()) hasLegacy = true;
-    // Probe for any region keyword
-    std::vector<double> p1, p2, p3, p4;
-    parseNumberedVector("REGION_LL",     1, p1);
-    parseNumberedVector("REGION_CENTER", 1, p2);
-    parseNumberedVector("REGION_RADIUS", 1, p3);
-    parseNumberedVector("REGION_AXES",   1, p4);
-    if(!p1.empty() || !p2.empty() || !p3.empty() || !p4.empty()) hasRegions = true;
-  }
+  for(unsigned r=1;; ++r) {
+    std::vector<double> rll, rul, rcenter, rradius, raxes;
+    parseNumberedVector("REGION_LL",     r, rll);
+    parseNumberedVector("REGION_UL",     r, rul);
+    parseNumberedVector("REGION_CENTER", r, rcenter);
+    parseNumberedVector("REGION_RADIUS", r, rradius);
+    parseNumberedVector("REGION_AXES",   r, raxes);
 
-  if(hasLegacy && hasRegions)
-    error("COMMITTOR: cannot mix legacy BASIN_LL/BASIN_UL syntax with REGION_* syntax.  Use one or the other.");
+    if(rll.empty() && rul.empty() && rcenter.empty() && rradius.empty() && raxes.empty()) break;
 
-  // =====================================================================
-  //  LEGACY MODE – each BASIN_LL/BASIN_UL pair is one rectangular basin
-  // =====================================================================
-  if(hasLegacy) {
-    for(unsigned b=1;; ++b) {
-      std::vector<double> tmpl, tmpu;
-      parseNumberedVector("BASIN_LL", b, tmpl);
-      parseNumberedVector("BASIN_UL", b, tmpu);
-      if(tmpl.empty() && tmpu.empty()) break;
-      if(tmpl.size()!=nargs) error("Wrong number of values for BASIN_LL: they should be equal to the number of arguments");
-      if(tmpu.size()!=nargs) error("Wrong number of values for BASIN_UL: they should be equal to the number of arguments");
+    Region reg;
 
-      // Validate bounds (non-periodic CVs require lower < upper)
+    // --- Rectangular ---
+    if(!rll.empty() || !rul.empty()) {
+      if(rll.empty() || rul.empty())
+        error("COMMITTOR: REGION_LL and REGION_UL must both be given for rectangular region " + std::to_string(r));
+      if(rll.size()!=nargs)
+        error("COMMITTOR: REGION_LL" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+      if(rul.size()!=nargs)
+        error("COMMITTOR: REGION_UL" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+      if(!rcenter.empty() || !rradius.empty() || !raxes.empty())
+        error("COMMITTOR: region " + std::to_string(r) + " mixes RECT keywords (LL/UL) with SPHERE/ELLIPSE keywords (CENTER/RADIUS/AXES)");
       for(unsigned i=0; i<nargs; ++i) {
-        if(tmpl[i] > tmpu[i] && !argIsPeriodic[i])
-          error("COMMITTOR: BASIN_UL must be >= BASIN_LL for non-periodic CVs");
+        if(rll[i] > rul[i] && !argIsPeriodic[i])
+          error("COMMITTOR: REGION_UL must be >= REGION_LL for non-periodic CV dimension " + std::to_string(i) + " in region " + std::to_string(r));
       }
-
-      Region reg;
       reg.type  = Region::RECT;
-      reg.lower = tmpl;
-      reg.upper = tmpu;
-      regions.push_back(reg);
-
-      // One region per basin in legacy mode
-      std::vector<unsigned> bvec(1, static_cast<unsigned>(regions.size()-1));
-      basinRegions.push_back(bvec);
-      nbasins = b;
+      reg.lower = rll;
+      reg.upper = rul;
     }
+    // --- Spherical ---
+    else if(!rcenter.empty() && !rradius.empty() && raxes.empty()) {
+      if(rcenter.size()!=nargs)
+        error("COMMITTOR: REGION_CENTER" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+      if(rradius.size()!=1)
+        error("COMMITTOR: REGION_RADIUS" + std::to_string(r) + " must be a single value");
+      reg.type      = Region::SPHERE;
+      reg.center    = rcenter;
+      reg.semi_axes.assign(nargs, rradius[0]);
+    }
+    // --- Elliptical ---
+    else if(!rcenter.empty() && !raxes.empty() && rradius.empty()) {
+      if(rcenter.size()!=nargs)
+        error("COMMITTOR: REGION_CENTER" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+      if(raxes.size()!=nargs)
+        error("COMMITTOR: REGION_AXES" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
+      for(unsigned i=0; i<nargs; ++i) {
+        if(raxes[i]<=0.0) error("COMMITTOR: REGION_AXES values must be positive in region " + std::to_string(r));
+      }
+      reg.type      = Region::ELLIPSE;
+      reg.center    = rcenter;
+      reg.semi_axes = raxes;
+    }
+    else {
+      error("COMMITTOR: could not determine region type for region " + std::to_string(r) +
+            ". Use REGION_LL+REGION_UL (rect), REGION_CENTER+REGION_RADIUS (sphere), "
+            "or REGION_CENTER+REGION_AXES (ellipse).");
+    }
+    regions.push_back(reg);
   }
 
-  // =====================================================================
-  //  REGION MODE – parse numbered REGION_* keywords, then BASIN keywords
-  // =====================================================================
+  bool hasRegions = !regions.empty();
+
   if(hasRegions) {
-    for(unsigned r=1;; ++r) {
-      std::vector<double> rll, rul, rcenter, rradius, raxes;
-      parseNumberedVector("REGION_LL",     r, rll);
-      parseNumberedVector("REGION_UL",     r, rul);
-      parseNumberedVector("REGION_CENTER", r, rcenter);
-      parseNumberedVector("REGION_RADIUS", r, rradius);
-      parseNumberedVector("REGION_AXES",   r, raxes);
-
-      // Stop when no keywords found for this index
-      if(rll.empty() && rul.empty() && rcenter.empty() && rradius.empty() && raxes.empty()) break;
-
-      Region reg;
-
-      // --- Rectangular ---
-      if(!rll.empty() || !rul.empty()) {
-        if(rll.empty() || rul.empty())
-          error("COMMITTOR: REGION_LL and REGION_UL must both be given for rectangular region " + std::to_string(r));
-        if(rll.size()!=nargs)
-          error("COMMITTOR: REGION_LL" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
-        if(rul.size()!=nargs)
-          error("COMMITTOR: REGION_UL" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
-        if(!rcenter.empty() || !rradius.empty() || !raxes.empty())
-          error("COMMITTOR: region " + std::to_string(r) + " mixes RECT keywords (LL/UL) with SPHERE/ELLIPSE keywords (CENTER/RADIUS/AXES)");
-        for(unsigned i=0; i<nargs; ++i) {
-          if(rll[i] > rul[i] && !argIsPeriodic[i])
-            error("COMMITTOR: REGION_UL must be >= REGION_LL for non-periodic CV dimension " + std::to_string(i) + " in region " + std::to_string(r));
-        }
-        reg.type  = Region::RECT;
-        reg.lower = rll;
-        reg.upper = rul;
-      }
-      // --- Spherical ---
-      else if(!rcenter.empty() && !rradius.empty() && raxes.empty()) {
-        if(rcenter.size()!=nargs)
-          error("COMMITTOR: REGION_CENTER" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
-        if(rradius.size()!=1)
-          error("COMMITTOR: REGION_RADIUS" + std::to_string(r) + " must be a single value");
-        reg.type      = Region::SPHERE;
-        reg.center    = rcenter;
-        reg.semi_axes.assign(nargs, rradius[0]);
-      }
-      // --- Elliptical ---
-      else if(!rcenter.empty() && !raxes.empty() && rradius.empty()) {
-        if(rcenter.size()!=nargs)
-          error("COMMITTOR: REGION_CENTER" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
-        if(raxes.size()!=nargs)
-          error("COMMITTOR: REGION_AXES" + std::to_string(r) + " has wrong number of values (expected " + std::to_string(nargs) + ")");
-        for(unsigned i=0; i<nargs; ++i) {
-          if(raxes[i]<=0.0) error("COMMITTOR: REGION_AXES values must be positive in region " + std::to_string(r));
-        }
-        reg.type      = Region::ELLIPSE;
-        reg.center    = rcenter;
-        reg.semi_axes = raxes;
-      }
-      else {
-        error("COMMITTOR: could not determine region type for region " + std::to_string(r) +
-              ". Use REGION_LL+REGION_UL (rect), REGION_CENTER+REGION_RADIUS (sphere), "
-              "or REGION_CENTER+REGION_AXES (ellipse).");
-      }
-      regions.push_back(reg);
-    }
-
     // --- Parse BASIN keywords (unions of regions) ---
     for(unsigned b=1;; ++b) {
       std::vector<double> bvec_d;
@@ -368,6 +319,38 @@ Committor::Committor(const ActionOptions& ao):
       nbasins = b;
     }
     if(nbasins==0) error("COMMITTOR: REGION_* keywords found but no BASIN keywords to assign regions to basins");
+  }
+
+  // =====================================================================
+  //  LEGACY MODE – fallback when no REGION_* keywords were present.
+  //  Each BASIN_LL/BASIN_UL pair defines one rectangular basin directly.
+  // =====================================================================
+  bool hasLegacy = false;
+  if(!hasRegions) {
+    for(unsigned b=1;; ++b) {
+      std::vector<double> tmpl, tmpu;
+      parseNumberedVector("BASIN_LL", b, tmpl);
+      parseNumberedVector("BASIN_UL", b, tmpu);
+      if(tmpl.empty() && tmpu.empty()) break;
+      if(tmpl.size()!=nargs) error("Wrong number of values for BASIN_LL: they should be equal to the number of arguments");
+      if(tmpu.size()!=nargs) error("Wrong number of values for BASIN_UL: they should be equal to the number of arguments");
+
+      for(unsigned i=0; i<nargs; ++i) {
+        if(tmpl[i] > tmpu[i] && !argIsPeriodic[i])
+          error("COMMITTOR: BASIN_UL must be >= BASIN_LL for non-periodic CVs");
+      }
+
+      Region reg;
+      reg.type  = Region::RECT;
+      reg.lower = tmpl;
+      reg.upper = tmpu;
+      regions.push_back(reg);
+
+      std::vector<unsigned> bvec(1, static_cast<unsigned>(regions.size()-1));
+      basinRegions.push_back(bvec);
+      nbasins = b;
+    }
+    hasLegacy = (nbasins > 0);
   }
 
   if(!hasLegacy && !hasRegions)
