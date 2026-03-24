@@ -26,3 +26,4 @@ makefile.dep
 /stamp-h
 __pycache__
 .vscode
+.claude/*

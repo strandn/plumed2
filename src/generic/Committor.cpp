@@ -103,9 +103,9 @@ COMMITTOR ...
 
 \par Wrap-around rectangle on a periodic CV
 
-For a torsion angle (period 2π on [−π, π]), a rectangle with
+For a torsion angle (period 2π on [−pi, pi]), a rectangle with
 REGION_LL = 2.5 and REGION_UL = −2.5 in that dimension covers
-the region near ±π, i.e. [2.5, π] ∪ [−π, −2.5].
+the region [2.5, pi] ∪ [−pi, −2.5].
 
 */
 //+ENDPLUMEDOC
@@ -293,8 +293,7 @@ Committor::Committor(const ActionOptions& ao):
     }
     else {
       error("COMMITTOR: could not determine region type for region " + std::to_string(r) +
-            ". Use REGION_LL+REGION_UL (rect), REGION_CENTER+REGION_RADIUS (sphere), "
-            "or REGION_CENTER+REGION_AXES (ellipse).");
+            ". Use REGION_LL+REGION_UL (rect), REGION_CENTER+REGION_RADIUS (sphere), or REGION_CENTER+REGION_AXES (ellipse).");
     }
     regions.push_back(reg);
   }
