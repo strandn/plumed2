@@ -28,7 +28,7 @@
  * and bias value are both zero.
  */
 
-#include "bias/Bias.h"
+#include "Bias.h"
 #include "core/ActionRegister.h"
 #include "core/PlumedMain.h"
 #include "tools/Exception.h"
