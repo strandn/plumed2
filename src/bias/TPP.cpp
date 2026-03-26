@@ -657,7 +657,7 @@ void TPP::calculate() {
   for(unsigned i = 0; i < d_; ++i)
     setOutputForce(i, 2.0 * kbt_ * grad_q[i] / q_eff);
 
-  setBias(-2.0 * kbt_ * log(q_eff));
+  setBias(-2.0 * kbt_ * std::log(q_eff));
 }
 
 } // namespace tpp
