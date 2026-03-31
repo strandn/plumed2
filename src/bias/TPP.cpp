@@ -618,8 +618,9 @@ void TPP::calculate() {
     for(unsigned i = 0; i < d_; ++i) setOutputForce(i, 0.0);
     setBias(0.0);
     if(basin == 0) {
-      // BASIN1 = source A: trajectory returned to A — abort with an error
-      error("TPP: trajectory returned to source basin A (BASIN1)");
+      // BASIN1 = source A: trajectory returned to A — stop gracefully
+      log.printf("TPP: trajectory returned to source basin A (BASIN1) — stopping\n");
+      plumed.stop();
     } else {
       // BASIN2+ = target B (or other targets): trajectory completed successfully
       log.printf("TPP: trajectory reached target basin %d (BASIN%d) — success\n",
