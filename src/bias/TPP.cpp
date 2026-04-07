@@ -652,7 +652,19 @@ void TPP::calculate() {
   // ---- Evaluate committor and gradient ----
   vector<double> grad_q(d_, 0.0);
   double q     = evalCommittor(x, grad_q);
-  double q_eff = max(q, q_floor_);
+
+  // Clamp q to [0, 1]: values outside this range are Fourier artifacts.
+  // Zero the gradient in both clamped cases so no spurious force is applied.
+  double q_eff;
+  if(q < 0.0) {
+    q_eff = q_floor_;
+    fill(grad_q.begin(), grad_q.end(), 0.0);
+  } else if(q > 1.0) {
+    q_eff = 1.0;
+    fill(grad_q.begin(), grad_q.end(), 0.0);
+  } else {
+    q_eff = max(q, q_floor_);
+  }
 
   // V_bias = -2*kBT*log(q_eff)  =>  F_i = +2*kBT * grad_q[i] / q_eff
   for(unsigned i = 0; i < d_; ++i)
