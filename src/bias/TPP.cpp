@@ -636,7 +636,7 @@ void TPP::calculate() {
     for(const auto& s : src_) {
       double d2 = 0.0;
       for(unsigned i = 0; i < d_; ++i) {
-        double dx = x[i] - s[i];
+        double dx = periodicDiff(x[i], s[i], i);
         d2 += dx * dx;
         if(d2 >= d2_min) break;
       }
