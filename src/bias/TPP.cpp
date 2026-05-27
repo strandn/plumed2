@@ -1,31 +1,38 @@
 /* Transition Path Process (TPP) bias.
  *
- * Implements the Doob h-transform of overdamped Langevin with h = q (the committor):
+ * Drives trajectories along reactive paths using one of four drift modes
+ * selected via MODE.  Symmetric xi regularization is used throughout:
  *
- *   dX = [-grad V(X) / gamma + 2D grad q(X) / q(X)] dt + sqrt(2D) dW
+ *   q_xi = xi + (1-2*xi)*q,   q_xi in [xi, 1-xi]  for xi in (0, 0.5).
  *
- * The extra drift 2D grad q / q corresponds to the bias potential V_bias = -2kT log q,
- * giving force  F_i = +2kT dq/d(CV_i) / q  on each collective variable.
+ * ---- NEG_LOG_Q* modes — COEFF_FILE stores q (the committor) ----
  *
- * The "bias" component output is -2kT log(q).  For importance-sampling reweighting,
- * the instantaneous log weight of a TPP frame relative to unbiased dynamics is
- *   log w = -bias / kT = 2 log q.
+ *   MODE=NEG_LOG_Q (default, full Doob drift):
+ *     force_i = 2*kBT * (1-2*xi) * dq/dCV_i / q_xi
+ *     V_bias  = -2*kBT * log q_xi
  *
- * The committor is represented as a cluster-product (rank-2) basis expansion:
- *   q(x) = sum_k c_k * phi_{n1_k}(x_1) * phi_{n2_k}(x_2) * ... * phi_{nd_k}(x_d)
- * where each phi_n is a 1-D Fourier basis function (from ttsketch::BasisFunc).
+ *   MODE=NEG_LOG_Q_HALF (Picard modified drift, soc.pdf eq. 19):
+ *     force_i = kBT * (1-2*xi) * dq/dCV_i / q_xi
+ *     V_bias  = -kBT * log q_xi
+ *
+ * ---- HJB_PHI* modes — COEFF_FILE stores Phi_xi1 = -log q_xi1 ----
+ *
+ *   On-the-fly xi1→xi2 conversion (soc.pdf Sec. 6.1–6.2):
+ *     q_xi2   = xi2 + [(1-2*xi2)/(1-2*xi1)] * (e^{-Phi_xi1} - xi1)
+ *     -∇log q_xi2 = [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1} * ∇Phi_xi1 / q_xi2
+ *
+ *   MODE=HJB_PHI (full Doob drift, with optional xi conversion):
+ *     force_i = -2*kBT * [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1}/q_xi2 * dPhi_xi1/dCV_i
+ *     V_bias  = -2*kBT * log q_xi2
+ *
+ *   MODE=HJB_PHI_HALF (Picard modified drift):
+ *     force_i = -kBT * [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1}/q_xi2 * dPhi_xi1/dCV_i
+ *     V_bias  = -kBT * log q_xi2
+ *
+ *   When XI2 is omitted xi2=xi1, reducing to force_i = -factor*kBT * dPhi_xi1/dCV_i.
+ *
+ * Both are represented as cluster-product (rank-2) Fourier basis expansions.
  * Coefficients and cluster indices are read from COEFF_FILE.
- *
- * By convention BASIN1 = source basin A and BASIN2 = target basin B, but any
- * number of basins can be defined and the simulation stops when any of them is
- * entered.  Region geometry and periodic-CV handling are identical to
- * src/generic/Committor.cpp.  The legacy BASIN_LL#/BASIN_UL# rectangular shorthand is also
- * supported.
- *
- * The committor is clipped to q_floor outside all basins to prevent division by
- * very small values near the boundary of A.  The bias force is only applied when the current
- * point is "covered" by the source sample cloud; outside that region the force
- * and bias value are both zero.
  */
 
 #include "Bias.h"
@@ -55,19 +62,20 @@ private:
   // ---- kBT ----
   double kbt_;
 
-  // ---- Committor basis expansion ----
+  // ---- Drift mode ----
+  enum class Mode { NEG_LOG_Q, NEG_LOG_Q_HALF, HJB_PHI, HJB_PHI_HALF };
+  Mode mode_;
+
+  // ---- Phi basis expansion ----
   unsigned d_;
   unsigned nbasis_;                             // Fourier basis functions per dimension
   vector<BasisFunc> basis_;
-  // Each cluster is a pair of 0-based CV dimension indices (k1, k2).
-  // The committor term for cluster ic and basis pair (nk1, nk2) is:
-  //   c[ic*nbasis_^2 + (nk1-1)*nbasis_ + (nk2-1)] * phi_{nk1}(x[k1]) * phi_{nk2}(x[k2])
-  // Nb = nclusters * (nbasis+1)^2.
   vector<pair<unsigned,unsigned>> clusters_;    // (k1, k2): 0-based CV dimension indices
   vector<double> coeffs_;                       // length = nclusters * nbasis_^2
 
   // ---- Coverage check ----
   bool hasSrc_;
+  bool doCoverageCheck_;
   vector<vector<double>> src_;
   double coverage_radius2_;
 
@@ -85,15 +93,17 @@ private:
   vector<bool>   argIsPeriodic_;
   vector<double> argPeriod_;
 
-  // ---- q clipping ----
-  double q_floor_;
+  // ---- xi regularization ----
+  double xi1_;   // level used to compute Phi = -log q_xi1 in COEFF_FILE
+  double xi2_;   // output level for NEG_LOG_Q* (on-the-fly conversion); default = xi1_
 
   // ---- helpers ----
   double periodicDiff(double x, double c, unsigned dim) const;
   bool   regionContains(const Region& reg, const vector<double>& x) const;
-  // Returns the 0-based index of the first basin containing x, or -1 if none.
   int    whichBasin(const vector<double>& x) const;
-  double evalCommittor(const vector<double>& x, vector<double>& grad_q) const;
+  // Evaluates the Fourier cluster-product basis expansion and its gradient.
+  // Returns the raw expansion value; interpretation (q or Phi) depends on MODE.
+  double evalExpansion(const vector<double>& x, vector<double>& grad) const;
 
 public:
   static void registerKeywords(Keywords& keys);
@@ -111,62 +121,72 @@ void TPP::registerKeywords(Keywords& keys) {
   keys.add("optional", "TEMP",
            "System temperature in energy units. Required if the MD engine does not pass temperature to PLUMED.");
 
+  keys.add("optional", "MODE",
+           "Drift mode. NEG_LOG_Q (default) and NEG_LOG_Q_HALF: COEFF_FILE holds the committor q; "
+           "symmetric xi regularization applied on-the-fly. "
+           "HJB_PHI and HJB_PHI_HALF: COEFF_FILE holds Phi_xi1 = -log q_xi1; "
+           "optional on-the-fly xi1→xi2 conversion via XI2. "
+           "Full-factor (NEG_LOG_Q, HJB_PHI) gives the Doob drift; "
+           "half-factor (NEG_LOG_Q_HALF, HJB_PHI_HALF) gives the Picard modified drift.");
+
   // Domain bounds and basis size
   keys.add("compulsory", "DOMAIN_LL",
-           "Lower bounds of the committor domain, one value per CV.");
+           "Lower bounds of the domain, one value per CV.");
   keys.add("compulsory", "DOMAIN_UL",
-           "Upper bounds of the committor domain, one value per CV.");
+           "Upper bounds of the domain, one value per CV.");
   keys.add("compulsory", "NBASIS",
            "Number of Fourier basis functions per CV dimension. COEFF_FILE must contain exactly nclusters * NBASIS^2 values.");
 
-  // Cluster dimension pairs — CLUSTER1 lists the first CV index of each cluster,
-  // CLUSTER2 lists the second.  Both must have length nclusters.
-  // E.g. for clusters [(1,1),(1,2),(2,2)]: CLUSTER1=1,1,2  CLUSTER2=1,2,2
   keys.add("compulsory", "CLUSTER1",
-           "First CV dimension index (1-based) for each cluster, one value per cluster. Length must equal the number of clusters and match CLUSTER2.");
+           "First CV dimension index (1-based) for each cluster. Length must equal the number of clusters and match CLUSTER2.");
   keys.add("compulsory", "CLUSTER2",
-           "Second CV dimension index (1-based) for each cluster, one value per cluster. k1 and k2 may be equal (same CV). Length must match CLUSTER1.");
+           "Second CV dimension index (1-based) for each cluster. k1 and k2 may be equal. Length must match CLUSTER1.");
 
-  // Coefficient file
-  keys.add("compulsory", "COEFF_FILE", "QCOEFFS",
-           "File containing the committor expansion coefficients, one value per line. Total lines must equal nclusters * NBASIS^2. Ordering: outer loop over clusters (in the order CLUSTER1, CLUSTER2, ...), inner loops over nk1 then nk2, each from 1 to NBASIS.");
+  keys.add("compulsory", "COEFF_FILE", "COEFFS",
+           "File containing basis expansion coefficients, one value per line. "
+           "For NEG_LOG_Q* modes these are coefficients for q (the committor). "
+           "For HJB_PHI* modes these are coefficients for Phi_xi1 = -log q_xi1. "
+           "Total lines must equal nclusters * NBASIS^2.");
 
   // Source states for coverage check
   keys.add("optional", "SOURCE_FILE",
-           "File containing source-state CV coordinates, one row per state. If omitted, the bias is applied everywhere without a coverage check.");
+           "File containing source-state CV coordinates, one row per state. If omitted, the bias is applied everywhere.");
   keys.add("optional", "COVERAGE_RADIUS",
            "Coverage radius for the nearest-source-state check. Defaults to 2 * sqrt(domain_volume / Nsrc).");
+  keys.addFlag("COVERAGE_CHECK", true,
+               "Enable nearest-source-state coverage check (default: on). Set to NO to apply the bias everywhere even when SOURCE_FILE is given.");
 
   // Region geometry — identical keywords to Committor.cpp
   keys.add("numbered", "REGION_LL",
            "Lower limits for rectangular region #. "
-           "For periodic CVs, setting REGION_LL > REGION_UL indicates a wrap-around interval.");
+           "For periodic CVs, REGION_LL > REGION_UL indicates a wrap-around interval.");
   keys.add("numbered", "REGION_UL",    "Upper limits for rectangular region #.");
   keys.add("numbered", "REGION_CENTER","Center of spherical or elliptical region #.");
   keys.add("numbered", "REGION_RADIUS","Radius of spherical region # (single value).");
   keys.add("numbered", "REGION_AXES",  "Semi-axis lengths of elliptical region # (one per CV).");
-  // keys.reset_style("REGION_LL",     "optional");
-  // keys.reset_style("REGION_UL",     "optional");
-  // keys.reset_style("REGION_CENTER", "optional");
-  // keys.reset_style("REGION_RADIUS", "optional");
-  // keys.reset_style("REGION_AXES",   "optional");
 
   // Basin keywords — identical to Committor.cpp
-  // By convention: BASIN1 = source basin A, BASIN2 = target basin B.
   keys.add("numbered", "BASIN",
-           "Comma-separated list of 1-based region indices forming basin #. By convention BASIN1 is the source basin (A) and BASIN2 is the target (B). The simulation stops when any basin is entered.");
-  // keys.reset_style("BASIN", "optional");
+           "Comma-separated list of 1-based region indices forming basin #. By convention BASIN1 is the source (A) and BASIN2 is the target (B).");
 
   // Legacy rectangular shorthand — identical to Committor.cpp
   keys.add("numbered", "BASIN_LL",
            "Lower limits for basin # (legacy rectangular shorthand, one value per CV).");
   keys.add("numbered", "BASIN_UL",
            "Upper limits for basin # (legacy rectangular shorthand, one value per CV).");
-  // keys.reset_style("BASIN_LL", "optional");
-  // keys.reset_style("BASIN_UL", "optional");
 
-  keys.add("compulsory", "Q_FLOOR", "1.0e-8",
-           "Minimum value to which q is clipped outside all basins, to avoid division by zero near basin boundaries.");
+  // xi regularization
+  keys.add("compulsory", "XI", "0.01",
+           "Regularization parameter xi for symmetric regularization q_xi = xi + (1-2*xi)*q, "
+           "so q_xi in [xi, 1-xi]. Must be in (0, 0.5). "
+           "For NEG_LOG_Q* modes: xi applied directly to q from COEFF_FILE. "
+           "For HJB_PHI* modes: xi1, the level at which Phi_xi1 in COEFF_FILE was computed.");
+  keys.add("optional", "XI2",
+           "Output regularization xi2 for HJB_PHI and HJB_PHI_HALF modes only: "
+           "on-the-fly conversion from xi1 to xi2 via "
+           "q_xi2 = xi2 + [(1-2*xi2)/(1-2*xi1)]*(exp(-Phi_xi1) - xi1). "
+           "Defaults to XI (no conversion, i.e. xi2=xi1). Must satisfy 0 < xi2 <= xi1. "
+           "Ignored for NEG_LOG_Q* modes.");
 }
 
 // ---------------------------------------------------------------------------
@@ -174,16 +194,29 @@ TPP::TPP(const ActionOptions& ao)
   : Action(ao),
     Bias(ao),
     kbt_(getkBT()),
+    mode_(Mode::NEG_LOG_Q),
     d_(getNumberOfArguments()),
     nbasis_(0),
     hasSrc_(false),
+    doCoverageCheck_(true),
     coverage_radius2_(-1.0),
     nbasins_(0),
-    q_floor_(1.0e-8)
+    xi1_(0.01),
+    xi2_(0.01)
 {
   if(d_ == 0) error("TPP: ARG must specify at least one CV");
   if(kbt_ == 0.0)
     error("TPP: temperature is required. Set TEMP or ensure the MD engine passes it to PLUMED.");
+
+  // ---- Mode ----
+  string mode_str = "NEG_LOG_Q";
+  parse("MODE", mode_str);
+  if     (mode_str == "NEG_LOG_Q")      mode_ = Mode::NEG_LOG_Q;
+  else if(mode_str == "NEG_LOG_Q_HALF") mode_ = Mode::NEG_LOG_Q_HALF;
+  else if(mode_str == "HJB_PHI")        mode_ = Mode::HJB_PHI;
+  else if(mode_str == "HJB_PHI_HALF")   mode_ = Mode::HJB_PHI_HALF;
+  else error("TPP: unknown MODE '" + mode_str +
+             "'. Valid: NEG_LOG_Q, NEG_LOG_Q_HALF, HJB_PHI, HJB_PHI_HALF");
 
   // ---- Periodicity cache — identical to Committor.cpp ----
   argIsPeriodic_.resize(d_, false);
@@ -247,7 +280,6 @@ TPP::TPP(const ActionOptions& ao)
                clusters_[ic].first + 1, clusters_[ic].second + 1);
 
   // ---- Load coefficient file ----
-  // Expected: nclusters * NBASIS^2 values, one per non-comment line.
   const unsigned expected_ncoeffs = static_cast<unsigned>(clusters_.size()) * nbasis_ * nbasis_;
   string coeff_file;
   parse("COEFF_FILE", coeff_file);
@@ -314,10 +346,27 @@ TPP::TPP(const ActionOptions& ao)
     log.printf("  No SOURCE_FILE given: bias gradient applied everywhere\n");
   }
 
-  // ---- q_floor ----
-  parse("Q_FLOOR", q_floor_);
-  if(q_floor_ <= 0.0) error("TPP: Q_FLOOR must be positive");
-  log.printf("  q_floor = %e\n", q_floor_);
+  parseFlag("COVERAGE_CHECK", doCoverageCheck_);
+  if(hasSrc_ && !doCoverageCheck_)
+    log.printf("  Coverage check disabled (COVERAGE_CHECK=NO): bias applied everywhere\n");
+
+  // ---- xi regularization ----
+  parse("XI", xi1_);
+  if(xi1_ <= 0.0 || xi1_ >= 0.5)
+    error("TPP: XI must be in (0, 0.5)");
+  xi2_ = xi1_;  // default: no conversion
+  parse("XI2", xi2_);
+  if(xi2_ <= 0.0 || xi2_ > xi1_)
+    error("TPP: XI2 must satisfy 0 < XI2 <= XI");
+  if(mode_ == Mode::NEG_LOG_Q || mode_ == Mode::NEG_LOG_Q_HALF) {
+    if(xi2_ != xi1_)
+      log.printf("  WARNING: XI2 is ignored in NEG_LOG_Q / NEG_LOG_Q_HALF modes\n");
+    log.printf("  xi = %e  (symmetric regularization applied to q)\n", xi1_);
+  } else {
+    log.printf("  xi1 (COEFF_FILE level) = %e\n", xi1_);
+    log.printf("  xi2 (output level)     = %e%s\n", xi2_,
+               (xi2_ < xi1_) ? "  (on-the-fly conversion active)" : "  (no conversion)");
+  }
 
   // =====================================================================
   //  Region/basin parsing — identical to Committor.cpp.
@@ -437,7 +486,7 @@ TPP::TPP(const ActionOptions& ao)
   if(!hasLegacy && !hasRegions)
     error("TPP: no basins defined. Use BASIN_LL/BASIN_UL (legacy) or REGION_*/BASIN# (region mode).");
 
-  // ---- Log region/basin configuration — mirrors Committor.cpp style ----
+  // ---- Log region/basin configuration ----
   log.printf("  Number of regions: %u\n", static_cast<unsigned>(regions_.size()));
   for(unsigned r = 0; r < regions_.size(); ++r) {
     const Region& reg = regions_[r];
@@ -475,7 +524,24 @@ TPP::TPP(const ActionOptions& ao)
   }
 
   log.printf("  kBT = %f\n", kbt_);
-  log.printf("  Bias potential: V_bias = -2*kBT*log(q)\n");
+  {
+    const char* names[] = {"NEG_LOG_Q", "NEG_LOG_Q_HALF", "HJB_PHI", "HJB_PHI_HALF"};
+    log.printf("  Mode: %s\n", names[static_cast<int>(mode_)]);
+  }
+  switch(mode_) {
+  case Mode::NEG_LOG_Q:
+    log.printf("  Drift: 2D*(1-2xi)*grad_q/q_xi  (Doob, q-expansion)\n");
+    break;
+  case Mode::NEG_LOG_Q_HALF:
+    log.printf("  Drift: D*(1-2xi)*grad_q/q_xi   (Picard, q-expansion)\n");
+    break;
+  case Mode::HJB_PHI:
+    log.printf("  Drift: -2D*fac*grad_Phi_xi1    (Doob, Phi-expansion)\n");
+    break;
+  case Mode::HJB_PHI_HALF:
+    log.printf("  Drift: -D*fac*grad_Phi_xi1     (Picard, Phi-expansion)\n");
+    break;
+  }
 
   checkRead();
 }
@@ -495,8 +561,7 @@ double TPP::periodicDiff(double x, double c, unsigned dim) const {
 }
 
 // ---------------------------------------------------------------------------
-// Test whether x lies inside a region — identical logic to Committor.cpp
-// regionContains (open-interval RECT; closed sphere/ellipse).
+// Test whether x lies inside a region — identical logic to Committor.cpp.
 // ---------------------------------------------------------------------------
 bool TPP::regionContains(const Region& reg, const vector<double>& x) const {
   switch(reg.type) {
@@ -547,7 +612,6 @@ bool TPP::regionContains(const Region& reg, const vector<double>& x) const {
 
 // ---------------------------------------------------------------------------
 // Returns the 0-based index of the first basin containing x, or -1 if none.
-// Basin 0 (BASIN1) = source A; basin 1+ (BASIN2, ...) = targets.
 // ---------------------------------------------------------------------------
 int TPP::whichBasin(const vector<double>& x) const {
   for(unsigned b = 0; b < nbasins_; ++b)
@@ -558,51 +622,48 @@ int TPP::whichBasin(const vector<double>& x) const {
 }
 
 // ---------------------------------------------------------------------------
-// Evaluate q(x) and grad_q(x) using the cluster-product expansion.
+// Evaluate the cluster-product Fourier basis expansion and its gradient.
 //
-// For cluster ic with dimension pair (k1, k2) and basis pair (nk1, nk2), the term is:
-//   c[j] * phi_{nk1}(x[k1]) * phi_{nk2}(x[k2])
-// where j = ic*nbasis_^2 + (nk1-1)*nbasis_ + (nk2-1).
+// f(x) = sum_{ic,nk1,nk2} c[j] * psi_{nk1}(x[k1]) * psi_{nk2}(x[k2])
 //
-// Gradient at dimension i (product rule, all cases):
-//   k1==i, k2!=i:  dphi_{nk1}(x[i]) * phi_{nk2}(x[k2])
-//   k1!=i, k2==i:  phi_{nk1}(x[k1]) * dphi_{nk2}(x[i])
-//   k1==i, k2==i:  dphi_{nk1}(x[i])*phi_{nk2}(x[i]) + phi_{nk1}(x[i])*dphi_{nk2}(x[i])
+// Gradient at dimension i (product rule):
+//   k1==i, k2!=i:  dpsi_{nk1}(x[i]) * psi_{nk2}(x[k2])
+//   k1!=i, k2==i:  psi_{nk1}(x[k1]) * dpsi_{nk2}(x[i])
+//   k1==i, k2==i:  dpsi_{nk1}(x[i])*psi_{nk2}(x[i]) + psi_{nk1}(x[i])*dpsi_{nk2}(x[i])
 //   otherwise:     0
 // ---------------------------------------------------------------------------
-double TPP::evalCommittor(const vector<double>& x, vector<double>& grad_q) const {
-  fill(grad_q.begin(), grad_q.end(), 0.0);
-  double q = 0.0;
+double TPP::evalExpansion(const vector<double>& x, vector<double>& grad) const {
+  fill(grad.begin(), grad.end(), 0.0);
+  double val = 0.0;
   const unsigned nclusters = static_cast<unsigned>(clusters_.size());
 
   for(unsigned ic = 0; ic < nclusters; ++ic) {
-    const unsigned k1 = clusters_[ic].first;   // 0-based CV dimension
+    const unsigned k1 = clusters_[ic].first;
     const unsigned k2 = clusters_[ic].second;
 
     for(unsigned nk1 = 1; nk1 <= nbasis_; ++nk1) {
-      const double phi1  = basis_[k1](x[k1],  static_cast<int>(nk1), /*conv=*/false);
-      const double dphi1 = basis_[k1].grad(x[k1], static_cast<int>(nk1), /*conv=*/false);
+      const double psi1  = basis_[k1](x[k1],  static_cast<int>(nk1), /*conv=*/false);
+      const double dpsi1 = basis_[k1].grad(x[k1], static_cast<int>(nk1), /*conv=*/false);
 
       for(unsigned nk2 = 1; nk2 <= nbasis_; ++nk2) {
         const unsigned j = ic * nbasis_ * nbasis_ + (nk1 - 1) * nbasis_ + (nk2 - 1);
         const double c = coeffs_[j];
 
-        const double phi2  = basis_[k2](x[k2],  static_cast<int>(nk2), /*conv=*/false);
-        const double dphi2 = basis_[k2].grad(x[k2], static_cast<int>(nk2), /*conv=*/false);
+        const double psi2  = basis_[k2](x[k2],  static_cast<int>(nk2), /*conv=*/false);
+        const double dpsi2 = basis_[k2].grad(x[k2], static_cast<int>(nk2), /*conv=*/false);
 
-        q += c * phi1 * phi2;
+        val += c * psi1 * psi2;
 
         if(k1 == k2) {
-          // Both functions act on the same CV — full product rule
-          grad_q[k1] += c * (dphi1 * phi2 + phi1 * dphi2);
+          grad[k1] += c * (dpsi1 * psi2 + psi1 * dpsi2);
         } else {
-          grad_q[k1] += c * dphi1 * phi2;
-          grad_q[k2] += c * phi1  * dphi2;
+          grad[k1] += c * dpsi1 * psi2;
+          grad[k2] += c * psi1  * dpsi2;
         }
       }
     }
   }
-  return q;
+  return val;
 }
 
 // ---------------------------------------------------------------------------
@@ -618,11 +679,9 @@ void TPP::calculate() {
     for(unsigned i = 0; i < d_; ++i) setOutputForce(i, 0.0);
     setBias(0.0);
     if(basin == 0) {
-      // BASIN1 = source A: trajectory returned to A — stop gracefully
       log.printf("TPP: trajectory returned to source basin A (BASIN1) — stopping\n");
       plumed.stop();
     } else {
-      // BASIN2+ = target B (or other targets): trajectory completed successfully
       log.printf("TPP: trajectory reached target basin %d (BASIN%d) — success\n",
                  basin + 1, basin + 1);
       plumed.stop();
@@ -631,46 +690,87 @@ void TPP::calculate() {
   }
 
   // ---- Coverage check ----
-  if(hasSrc_) {
-    double d2_min = numeric_limits<double>::max();
+  // We only need to know whether *any* source point is within coverage_radius2_,
+  // so we exit the outer loop as soon as one is found (O(1) in the covered case).
+  // The inner loop breaks early when the partial squared distance already exceeds
+  // coverage_radius2_ (safe because adding more dimensions can only increase d2).
+  if(hasSrc_ && doCoverageCheck_) {
+    bool covered = false;
     for(const auto& s : src_) {
       double d2 = 0.0;
       for(unsigned i = 0; i < d_; ++i) {
         double dx = periodicDiff(x[i], s[i], i);
         d2 += dx * dx;
-        if(d2 >= d2_min) break;
+        if(d2 >= coverage_radius2_) break;
       }
-      if(d2 < d2_min) d2_min = d2;
+      if(d2 < coverage_radius2_) { covered = true; break; }
     }
-    if(d2_min >= coverage_radius2_) {
+    if(!covered) {
       for(unsigned i = 0; i < d_; ++i) setOutputForce(i, 0.0);
       setBias(0.0);
       return;
     }
   }
 
-  // ---- Evaluate committor and gradient ----
-  vector<double> grad_q(d_, 0.0);
-  double q     = evalCommittor(x, grad_q);
+  // ---- Compute force and bias ----
+  vector<double> grad(d_, 0.0);
 
-  // Clamp q to [0, 1]: values outside this range are Fourier artifacts.
-  // Zero the gradient in both clamped cases so no spurious force is applied.
-  double q_eff;
-  if(q < 0.0) {
-    q_eff = q_floor_;
-    fill(grad_q.begin(), grad_q.end(), 0.0);
-  } else if(q > 1.0) {
-    q_eff = 1.0;
-    fill(grad_q.begin(), grad_q.end(), 0.0);
+  if(mode_ == Mode::NEG_LOG_Q || mode_ == Mode::NEG_LOG_Q_HALF) {
+    // COEFF_FILE stores q (the committor).
+    // Symmetric xi regularization: q_xi = xi + (1-2*xi)*q_raw, q_xi in [xi, 1-xi].
+    // grad log q_xi = (1-2*xi)*grad_q / q_xi
+    // force_i = factor * kBT * (1-2*xi) * dq/dCV_i / q_xi
+    double q_raw = evalExpansion(x, grad);
+
+    // Clip Fourier artifacts to [0, 1]; zero gradient at the boundary
+    if(q_raw <= 0.0) {
+      q_raw = 0.0;
+      fill(grad.begin(), grad.end(), 0.0);
+    } else if(q_raw >= 1.0) {
+      q_raw = 1.0;
+      fill(grad.begin(), grad.end(), 0.0);
+    }
+
+    const double alpha  = 1.0 - 2.0 * xi1_;          // q_xi = xi1 + alpha*q_raw
+    const double q_xi   = xi1_ + alpha * q_raw;        // in [xi1_, 1-xi1_] after clipping
+    const double factor = (mode_ == Mode::NEG_LOG_Q) ? 2.0 : 1.0;
+
+    for(unsigned i = 0; i < d_; ++i)
+      setOutputForce(i, factor * kbt_ * alpha * grad[i] / q_xi);
+    setBias(-factor * kbt_ * std::log(q_xi));
+
   } else {
-    q_eff = max(q, q_floor_);
+    // COEFF_FILE stores Phi_xi1 = -log q_xi1.
+    // On-the-fly conversion to xi2 (soc.pdf Sec. 6, symmetric regularization):
+    //   q_xi2 = xi2 + [(1-2*xi2)/(1-2*xi1)] * (e^{-Phi_xi1} - xi1)
+    //   -∇ log q_xi2 = [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1} * ∇Phi_xi1 / q_xi2
+    //   force_i = factor * kBT * ∇ log q_xi2
+    //           = -factor * kBT * [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1}/q_xi2 * dPhi_xi1/dCV_i
+    double phi = evalExpansion(x, grad);
+
+    // Clip phi to valid range [-log(1-xi1), -log(xi1)] (B = phi_lo, A = phi_hi)
+    const double phi_lo = -std::log(1.0 - xi1_);
+    const double phi_hi = -std::log(xi1_);
+    if(phi < phi_lo) {
+      phi = phi_lo;
+      fill(grad.begin(), grad.end(), 0.0);
+    } else if(phi > phi_hi) {
+      phi = phi_hi;
+      fill(grad.begin(), grad.end(), 0.0);
+    }
+
+    const double q_xi1  = std::exp(-phi);
+    const double scale  = (1.0 - 2.0*xi2_) / (1.0 - 2.0*xi1_);
+    double       q_xi2  = xi2_ + scale * (q_xi1 - xi1_);
+    if(q_xi2 < xi2_) q_xi2 = xi2_;   // guard against floating-point rounding below xi2
+
+    const double fac    = scale * q_xi1 / q_xi2;   // = (1-2*xi2)/(1-2*xi1) * e^{-phi} / q_xi2
+    const double factor = (mode_ == Mode::HJB_PHI) ? 2.0 : 1.0;
+
+    for(unsigned i = 0; i < d_; ++i)
+      setOutputForce(i, -factor * kbt_ * fac * grad[i]);
+    setBias(-factor * kbt_ * std::log(q_xi2));
   }
-
-  // V_bias = -2*kBT*log(q_eff)  =>  F_i = +2*kBT * grad_q[i] / q_eff
-  for(unsigned i = 0; i < d_; ++i)
-    setOutputForce(i, 2.0 * kbt_ * grad_q[i] / q_eff);
-
-  setBias(-2.0 * kbt_ * std::log(q_eff));
 }
 
 } // namespace tpp
