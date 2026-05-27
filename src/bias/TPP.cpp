@@ -153,8 +153,8 @@ void TPP::registerKeywords(Keywords& keys) {
            "File containing source-state CV coordinates, one row per state. If omitted, the bias is applied everywhere.");
   keys.add("optional", "COVERAGE_RADIUS",
            "Coverage radius for the nearest-source-state check. Defaults to 2 * sqrt(domain_volume / Nsrc).");
-  keys.addFlag("COVERAGE_CHECK", true,
-               "Enable nearest-source-state coverage check (default: on). Set to NO to apply the bias everywhere even when SOURCE_FILE is given.");
+  keys.addFlag("COVERAGE_CHECK", false,
+               "Enable nearest-source-state coverage check. When set, the bias is zeroed outside the region covered by SOURCE_FILE points.");
 
   // Region geometry — identical keywords to Committor.cpp
   keys.add("numbered", "REGION_LL",
@@ -198,7 +198,7 @@ TPP::TPP(const ActionOptions& ao)
     d_(getNumberOfArguments()),
     nbasis_(0),
     hasSrc_(false),
-    doCoverageCheck_(true),
+    doCoverageCheck_(false),
     coverage_radius2_(-1.0),
     nbasins_(0),
     xi1_(0.01),
@@ -347,8 +347,8 @@ TPP::TPP(const ActionOptions& ao)
   }
 
   parseFlag("COVERAGE_CHECK", doCoverageCheck_);
-  if(hasSrc_ && !doCoverageCheck_)
-    log.printf("  Coverage check disabled (COVERAGE_CHECK=NO): bias applied everywhere\n");
+  if(hasSrc_)
+    log.printf("  Coverage check: %s\n", doCoverageCheck_ ? "enabled" : "disabled (bias applied everywhere)");
 
   // ---- xi regularization ----
   parse("XI", xi1_);
