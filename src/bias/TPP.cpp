@@ -31,7 +31,8 @@
  *
  *   When XI2 is omitted xi2=xi1, reducing to force_i = -factor*kBT * dPhi_xi1/dCV_i.
  *
- * Both are represented as cluster-product (rank-2) Fourier basis expansions.
+ * Both are represented as cluster-product (rank-2) basis expansions using either
+ * Fourier functions (default) or localized periodic Gaussian kernels (KERNEL_BASIS).
  * Coefficients and cluster indices are read from COEFF_FILE.
  */
 
@@ -68,7 +69,8 @@ private:
 
   // ---- Phi basis expansion ----
   unsigned d_;
-  unsigned nbasis_;                             // Fourier basis functions per dimension
+  unsigned nbasis_;                             // basis functions per dimension
+  bool kernel_;                                 // true: Gaussian kernel basis; false: Fourier
   vector<BasisFunc> basis_;
   vector<pair<unsigned,unsigned>> clusters_;    // (k1, k2): 0-based CV dimension indices
   vector<double> coeffs_;                       // length = nclusters * nbasis_^2
@@ -121,6 +123,15 @@ void TPP::registerKeywords(Keywords& keys) {
   keys.add("optional", "TEMP",
            "System temperature in energy units. Required if the MD engine does not pass temperature to PLUMED.");
 
+  keys.addFlag("KERNEL_BASIS", false,
+               "Use a localized periodic Gaussian kernel basis instead of the Fourier basis. "
+               "Basis function 1 is the constant 1; functions 2..NBASIS are Gaussians centered on a "
+               "uniform grid over the domain, summed over periodic images k=-1,0,1.");
+  keys.add("optional", "KERNEL_DX",
+           "Bandwidth (sigma) of each Gaussian kernel, one value per CV dimension. "
+           "Defaults to the grid spacing (domain width / (NBASIS-1)) when not specified or set to 0. "
+           "Only used when KERNEL_BASIS is set.");
+
   keys.add("optional", "MODE",
            "Drift mode. NEG_LOG_Q (default) and NEG_LOG_Q_HALF: COEFF_FILE holds the committor q; "
            "symmetric xi regularization applied on-the-fly. "
@@ -135,7 +146,10 @@ void TPP::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "DOMAIN_UL",
            "Upper bounds of the domain, one value per CV.");
   keys.add("compulsory", "NBASIS",
-           "Number of Fourier basis functions per CV dimension. COEFF_FILE must contain exactly nclusters * NBASIS^2 values.");
+           "Number of basis functions per CV dimension. "
+           "For Fourier basis: NBASIS functions (1 constant + pairs of cos/sin). "
+           "For kernel basis (KERNEL_BASIS): NBASIS functions (1 constant + NBASIS-1 Gaussians). "
+           "COEFF_FILE must contain exactly nclusters * NBASIS^2 values.");
 
   keys.add("compulsory", "CLUSTER1",
            "First CV dimension index (1-based) for each cluster. Length must equal the number of clusters and match CLUSTER2.");
@@ -146,7 +160,9 @@ void TPP::registerKeywords(Keywords& keys) {
            "File containing basis expansion coefficients, one value per line. "
            "For NEG_LOG_Q* modes these are coefficients for q (the committor). "
            "For HJB_PHI* modes these are coefficients for Phi_xi1 = -log q_xi1. "
-           "Total lines must equal nclusters * NBASIS^2.");
+           "Total lines must equal nclusters * NBASIS^2. "
+           "Must be consistent with KERNEL_BASIS: Fourier coefficients are not interchangeable "
+           "with kernel basis coefficients.");
 
   // Source states for coverage check
   keys.add("optional", "SOURCE_FILE",
@@ -197,6 +213,7 @@ TPP::TPP(const ActionOptions& ao)
     mode_(Mode::NEG_LOG_Q),
     d_(getNumberOfArguments()),
     nbasis_(0),
+    kernel_(false),
     hasSrc_(false),
     doCoverageCheck_(false),
     coverage_radius2_(-1.0),
@@ -234,7 +251,22 @@ TPP::TPP(const ActionOptions& ao)
     }
   }
 
-  // ---- Domain and Fourier basis functions ----
+  // ---- Kernel basis flag and bandwidth ----
+  parseFlag("KERNEL_BASIS", kernel_);
+  vector<double> kernel_dx;
+  parseVector("KERNEL_DX", kernel_dx);
+  if(kernel_dx.empty()) {
+    kernel_dx.assign(d_, 0.0);   // 0 → BasisFunc uses grid spacing
+  }
+  if(kernel_dx.size() != d_)
+    error("TPP: KERNEL_DX must have one entry per ARG (or be omitted entirely)");
+  if(kernel_) {
+    for(unsigned i = 0; i < d_; ++i)
+      if(kernel_dx[i] < 0.0)
+        error("TPP: KERNEL_DX values must be non-negative (0 = use grid spacing)");
+  }
+
+  // ---- Domain and basis functions ----
   vector<double> domain_ll, domain_ul;
   parseVector("DOMAIN_LL", domain_ll);
   parseVector("DOMAIN_UL", domain_ul);
@@ -247,13 +279,24 @@ TPP::TPP(const ActionOptions& ao)
   int nbasis_in = 0;
   parse("NBASIS", nbasis_in);
   if(nbasis_in < 1) error("TPP: NBASIS must be >= 1");
+  if(kernel_ && nbasis_in < 2) error("TPP: NBASIS must be >= 2 for KERNEL_BASIS (need at least one Gaussian center)");
   nbasis_ = static_cast<unsigned>(nbasis_in);
-  log.printf("  NBASIS = %u Fourier basis functions per dimension\n", nbasis_);
+  log.printf("  NBASIS = %u %s basis functions per dimension\n",
+             nbasis_, kernel_ ? "Gaussian kernel" : "Fourier");
+  if(kernel_) {
+    for(unsigned i = 0; i < d_; ++i) {
+      double spacing = (domain_ul[i] - domain_ll[i]) / (nbasis_in - 1);
+      double last_center = domain_ll[i] + (nbasis_in - 2) * spacing;
+      double dx_used = (kernel_dx[i] > 0.0) ? kernel_dx[i] : spacing;
+      log.printf("    dim %u: %d centers in [%f, %f], sigma=%f\n",
+                 i, nbasis_in - 1, domain_ll[i], last_center, dx_used);
+    }
+  }
 
   basis_.reserve(d_);
   for(unsigned i = 0; i < d_; ++i)
     basis_.emplace_back(make_pair(domain_ll[i], domain_ul[i]),
-                        nbasis_in, /*w=*/0.0, /*kernel=*/false, /*dx=*/0.0);
+                        nbasis_in, /*w=*/0.0, kernel_, kernel_dx[i]);
 
   // ---- Cluster dimension pairs ----
   vector<double> c1vec, c2vec;
