@@ -118,7 +118,6 @@ PLUMED_REGISTER_ACTION(TPP, "TPP")
 // ---------------------------------------------------------------------------
 void TPP::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
-  keys.use("ARG");
 
   keys.add("optional", "TEMP",
            "System temperature in energy units. Required if the MD engine does not pass temperature to PLUMED.");

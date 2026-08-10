@@ -161,7 +161,7 @@ void Committor::registerKeywords( Keywords& keys ) {
   Action::registerKeywords(keys);
   ActionPilot::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
-  keys.use("ARG");
+  keys.addInputKeyword("compulsory","ARG","scalar","the labels of the scalars whose values are being used to define the basins/regions");
 
   // ---------- legacy rectangular-basin keywords (backward compatible) ----------
   keys.add("numbered", "BASIN_LL","List of lower limits for basin #. "
