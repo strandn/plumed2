@@ -26,7 +26,20 @@
 /*
 Calculate the number of atoms in the cluster of interest
 
-\par Examples
+An example input that determines the number of atoms in the second largest cluster that is identified by
+analysing the connected components of a [CONTACT_MATRIX](CONTACT_MATRIX.md) using [DFSCLUSTERING](DFSCLUSTERING.md) is shown below:
+
+```plumed
+# Calculate a contact matrix between the first 100 atoms in the configuration
+cm: CONTACT_MATRIX GROUP=1-100 SWITCH={CUBIC D_0=0.45  D_MAX=0.55}
+# Find the connected components from the contact matrix
+dfs: DFSCLUSTERING ARG=cm
+# And determine the size of the second largest cluster that was identified
+c1: CLUSTER_NATOMS CLUSTERS=dfs CLUSTER=2
+PRINT ARG=c1 FILE=colvar
+```
+
+__The output from this action is NOT differentiable__
 
 */
 //+ENDPLUMEDOC
@@ -46,14 +59,14 @@ void ClusterNatoms::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
   keys.add("compulsory","CLUSTERS","the label of the action that does the clustering");
   keys.add("compulsory","CLUSTER","1","which cluster would you like to look at 1 is the largest cluster, 2 is the second largest, 3 is the the third largest and so on.");
-  keys.setValueDescription("the number of atoms in the cluster");
-  keys.needsAction("CLUSTER_WEIGHTS"); keys.needsAction("SUM");
+  keys.setValueDescription("scalar","the number of atoms in the cluster");
+  keys.needsAction("CLUSTER_WEIGHTS");
+  keys.needsAction("SUM");
 }
 
 ClusterNatoms::ClusterNatoms(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
+  ActionShortcut(ao) {
   // Create a cluster weights object
   readInputLine( getShortcutLabel() + "_weights: CLUSTER_WEIGHTS " + convertInputLineToString() );
   // Add all the weights together (weights are 1 or 0)

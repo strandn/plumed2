@@ -27,6 +27,7 @@
 #include <vector>
 #include "tools/Exception.h"
 #include "tools/Tools.h"
+#include "tools/View.h"
 
 namespace PLMD {
 namespace gridtools {
@@ -59,7 +60,7 @@ private:
 /// The dimensionality of the grid
   unsigned dimension;
 /// Get the index of the closest point on the fibonacci sphere
-  unsigned getFibonacciIndex( const std::vector<double>& p ) const ;
+  unsigned getFibonacciIndex( View<const double> p ) const ;
 /// Get the flat grid coordinates
   void getFlatGridCoordinates( const unsigned& ipoint, std::vector<unsigned>& tindices, std::vector<double>& x ) const ;
 /// Get the coordinates on the Fibonacci grid
@@ -68,19 +69,22 @@ public:
 /// Setup the grid
   void setup( const std::string& geom, const std::vector<bool>& ipbc, const unsigned& np, const double& fib_cutoff );
 /// Set the minimum and maximum of the grid
-  void setBounds( const std::vector<std::string>& smin, const std::vector<std::string>& smax, const std::vector<unsigned>& nbins, std::vector<double>& spacing );
+  void setBounds( const std::vector<std::string>& smin, const std::vector<std::string>& smax, const std::vector<std::size_t>& nbins, std::vector<double>& spacing );
 /// Convert an index into indices
   void convertIndexToIndices( const unsigned& index, const std::vector<unsigned>& nnbin, std::vector<unsigned>& indices ) const ;
 /// Check if a point is within the grid boundaries
   bool inbounds( const std::vector<double>& point ) const ;
+  bool inbounds( View<const double> point ) const ;
 /// Convert a point in space the the correspoinding grid point
   unsigned getIndex( const std::vector<double>& p ) const ;
+  unsigned getIndex( View<const double> point ) const ;
 ///  Flatten the grid and get the grid index for a point
   unsigned getIndex( const std::vector<unsigned>& indices ) const ;
 /// Get the indices fof a point
   void getIndices( const unsigned& index, std::vector<unsigned>& indices ) const ;
 /// Get the indices of a particular point
   void getIndices( const std::vector<double>& point, std::vector<unsigned>& indices ) const ;
+  void getIndices( View<const double> point, std::vector<unsigned>& indices ) const ;
 /// Get the number of points in the grid
   unsigned getNumberOfPoints() const;
 /// Get the coordinates for a point in the grid
@@ -93,7 +97,7 @@ public:
 /// Is the grid periodic in the ith direction
   bool isPeriodic( const unsigned& i ) const ;
 /// Get the number of grid points for each dimension
-  std::vector<unsigned> getNbin( const bool& shape ) const ;
+  std::vector<std::size_t> getNbin( const bool& shape ) const ;
 /// Get the vector containing the minimum value of the grid in each dimension
   std::vector<std::string> getMin() const ;
 /// Get the vector containing the maximum value of the grid in each dimension
@@ -123,7 +127,9 @@ unsigned GridCoordinatesObject::getNumberOfPoints() const {
 
 inline
 const std::vector<double>& GridCoordinatesObject::getGridSpacing() const {
-  if( gtype==flat ) return dx;
+  if( gtype==flat ) {
+    return dx;
+  }
   plumed_merror("dont understand what spacing means for spherical grids");
   return dx;
 }
@@ -131,7 +137,10 @@ const std::vector<double>& GridCoordinatesObject::getGridSpacing() const {
 inline
 double GridCoordinatesObject::getCellVolume() const {
   if( gtype==flat ) {
-    double myvol=1.0; for(unsigned i=0; i<dimension; ++i) myvol *= dx[i];
+    double myvol=1.0;
+    for(unsigned i=0; i<dimension; ++i) {
+      myvol *= dx[i];
+    }
     return myvol;
   } else {
     return 4*pi / static_cast<double>( getNumberOfPoints() );
@@ -157,8 +166,11 @@ const std::vector<unsigned>& GridCoordinatesObject::getStride() const {
 
 inline
 std::string GridCoordinatesObject::getGridType() const {
-  if( gtype==flat ) return "flat";
-  else if( gtype==fibonacci ) return "fibonacci";
+  if( gtype==flat ) {
+    return "flat";
+  } else if( gtype==fibonacci ) {
+    return "fibonacci";
+  }
   return "";
 }
 

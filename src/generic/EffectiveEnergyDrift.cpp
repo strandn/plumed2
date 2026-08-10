@@ -38,8 +38,6 @@
 #include "tools/File.h"
 #include "tools/Pbc.h"
 
-#include <algorithm>
-
 namespace PLMD {
 namespace generic {
 
@@ -47,27 +45,28 @@ namespace generic {
 /*
 Print the effective energy drift
 
-The method used to calculate the effective energy drift is described in Ref \cite Ferrarotti2015
+The method that is used to calculate the effective energy drift here is described in the
+paper in the bibliography.
 
+## Examples
 
-\par Examples
-
-
-This is to monitor the effective energy drift for a metadynamics
+This input is to monitor the effective energy drift for a metadynamics
 simulation on the Debye-Huckel energy. Since this variable is very expensive,
 it could be conveniently computed every second step.
-\plumedfile
+
+```plumed
 dh: DHENERGY GROUPA=1-10 GROUPB=11-20 EPSILON=80.0 I=0.1 TEMP=300.0
 METAD ARG=dh HEIGHT=0.5 SIGMA=0.1 PACE=500 STRIDE=2
 EFFECTIVE_ENERGY_DRIFT PRINT_STRIDE=100 FILE=eff
-\endplumedfile
+```
 
-This is to monitor if a restraint is too stiff
-\plumedfile
+This exampls shows how to monitor if a restraint is too stiff
+
+```plumed
 d: DISTANCE ATOMS=10,20
 RESTRAINT ARG=d KAPPA=100000 AT=0.6
 EFFECTIVE_ENERGY_DRIFT PRINT_STRIDE=100 FILE=eff
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -84,8 +83,8 @@ class EffectiveEnergyDrift:
   std::vector<ActionWithValue*> biases;
 
   long long int pDdStep;
-  int nLocalAtoms;
-  int pNLocalAtoms;
+  unsigned nLocalAtoms;
+  unsigned pNLocalAtoms;
   std::vector<int> pGatindex;
   std::vector<double> xpositions;
   std::vector<double> ypositions;
@@ -142,6 +141,7 @@ void EffectiveEnergyDrift::registerKeywords( Keywords& keys ) {
   keys.use("RESTART");
   keys.use("UPDATE_FROM");
   keys.use("UPDATE_UNTIL");
+  keys.addDOI("10.1021/ct5007086");
 }
 
 EffectiveEnergyDrift::EffectiveEnergyDrift(const ActionOptions&ao):
@@ -157,15 +157,18 @@ EffectiveEnergyDrift::EffectiveEnergyDrift(const ActionOptions&ao):
   domains(NULL),
   posx(NULL),
   posy(NULL),
-  posz(NULL)
-{
+  posz(NULL) {
   //stride must be == 1
-  if(getStride()!=1) error("EFFECTIVE_ENERGY_DRIFT must have STRIDE=1 to work properly");
+  if(getStride()!=1) {
+    error("EFFECTIVE_ENERGY_DRIFT must have STRIDE=1 to work properly");
+  }
 
   //parse and open FILE
   std::string fileName;
   parse("FILE",fileName);
-  if(fileName.length()==0) error("name out output file was not specified\n");
+  if(fileName.length()==0) {
+    error("name out output file was not specified\n");
+  }
   output.link(*this);
   output.open(fileName);
 
@@ -182,14 +185,19 @@ EffectiveEnergyDrift::EffectiveEnergyDrift(const ActionOptions&ao):
   ensemble=false;
   parseFlag("ENSEMBLE",ensemble);
   if(ensemble&&comm.Get_rank()==0) {
-    if(multi_sim_comm.Get_size()<2) error("You CANNOT run Replica-Averaged simulations without running multiple replicas!\n");
+    if(multi_sim_comm.Get_size()<2) {
+      error("You CANNOT run Replica-Averaged simulations without running multiple replicas!\n");
+    }
   }
 
   log<<"Bibliography "<<cite("Ferrarotti, Bottaro, Perez-Villa, and Bussi, J. Chem. Theory Comput. 11, 139 (2015)")<<"\n";
 
   //construct biases from ActionWithValue with a component named bias
   std::vector<ActionWithValue*> tmpActions=plumed.getActionSet().select<ActionWithValue*>();
-  for(unsigned i=0; i<tmpActions.size(); i++) if(tmpActions[i]->exists(tmpActions[i]->getLabel()+".bias")) biases.push_back(tmpActions[i]);
+  for(unsigned i=0; i<tmpActions.size(); i++)
+    if(tmpActions[i]->exists(tmpActions[i]->getLabel()+".bias")) {
+      biases.push_back(tmpActions[i]);
+    }
 
   //resize counters and displacements useful to communicate with MPI_Allgatherv
   indexCnt.resize(nProc);
@@ -200,13 +208,21 @@ EffectiveEnergyDrift::EffectiveEnergyDrift(const ActionOptions&ao):
   pbc_action=plumed.getActionSet().selectWithLabel<PbcAction*>("Box");
   // Get the domain decomposition object
   std::vector<DomainDecomposition*> ddact=plumed.getActionSet().select<DomainDecomposition*>();
-  if( ddact.size()>1 ) warning("found more than one interface so don't know get gatindex");
+  if( ddact.size()>1 ) {
+    warning("found more than one interface so don't know get gatindex");
+  }
   domains = ddact[0];
   std::vector<ActionToPutData*> inputs=plumed.getActionSet().select<ActionToPutData*>();
   for(const auto & pp : inputs ) {
-    if( pp->getRole()=="x" ) posx = pp;
-    if( pp->getRole()=="y" ) posy = pp;
-    if( pp->getRole()=="z" ) posz = pp;
+    if( pp->getRole()=="x" ) {
+      posx = pp;
+    }
+    if( pp->getRole()=="y" ) {
+      posy = pp;
+    }
+    if( pp->getRole()=="z" ) {
+      posz = pp;
+    }
   }
   plumed_assert( posx && posy && posz );
   //resize the received buffers
@@ -220,15 +236,20 @@ EffectiveEnergyDrift::~EffectiveEnergyDrift() {
 }
 
 void EffectiveEnergyDrift::update() {
-  Pbc & tpbc(pbc_action->getPbc()); bool pbc=tpbc.isSet();
+  Pbc & tpbc(pbc_action->getPbc());
+  bool pbc=tpbc.isSet();
 
   //retrieve data of local atoms
   const std::vector<int>& gatindex = domains->getGatindex();
   nLocalAtoms = gatindex.size();
-  xpositions.resize( gatindex.size() ); posx->getLocalValues( xpositions );
-  ypositions.resize( gatindex.size() ); posy->getLocalValues( ypositions );
-  zpositions.resize( gatindex.size() ); posz->getLocalValues( zpositions );
-  positions.resize( gatindex.size() ); forces.resize( gatindex.size() );
+  xpositions.resize( gatindex.size() );
+  posx->getLocalValues( xpositions );
+  ypositions.resize( gatindex.size() );
+  posy->getLocalValues( ypositions );
+  zpositions.resize( gatindex.size() );
+  posz->getLocalValues( zpositions );
+  positions.resize( gatindex.size() );
+  forces.resize( gatindex.size() );
   for(unsigned i=0; i<gatindex.size(); ++i ) {
     positions[i][0] = xpositions[i];
     positions[i][1] = ypositions[i];
@@ -245,8 +266,13 @@ void EffectiveEnergyDrift::update() {
       positions[i]=matmul(positions[i],IB);
       forces[i]=matmul(B,forces[i]);
     }
-    box=B; Tensor virial; Value* boxValue = pbc_action->copyOutput(0);
-    for(unsigned i=0; i<3; ++i) for(unsigned j=0; j<3; ++j) virial[i][j]=boxValue->getForce(3*i+j);
+    box=B;
+    Tensor virial;
+    Value* boxValue = pbc_action->copyOutput(0);
+    for(unsigned i=0; i<3; ++i)
+      for(unsigned j=0; j<3; ++j) {
+        virial[i][j]=boxValue->getForce(3*i+j);
+      }
     fbox=matmul(transpose(inverse(box)),virial);
   }
 
@@ -270,7 +296,7 @@ void EffectiveEnergyDrift::update() {
     indexS.resize(pNLocalAtoms);
     dataS.resize(pNLocalAtoms*6);
 
-    for(int i=0; i<pNLocalAtoms; i++) {
+    for(unsigned i=0; i<pNLocalAtoms; i++) {
       indexS[i] = pGatindex[i];
       dataS[i*6] = pPositions[i][0];
       dataS[i*6+1] = pPositions[i][1];
@@ -286,7 +312,9 @@ void EffectiveEnergyDrift::update() {
     for(int i=0; i<nProc; i++) {
       dataCnt[i] = indexCnt[i]*6;
 
-      if(i+1<nProc) indexDsp[i+1] = indexDsp[i]+indexCnt[i];
+      if(i+1<nProc) {
+        indexDsp[i+1] = indexDsp[i]+indexCnt[i];
+      }
       dataDsp[i] = indexDsp[i]*6;
     }
 
@@ -300,10 +328,12 @@ void EffectiveEnergyDrift::update() {
     pForces.resize(nLocalAtoms);
 
     //compute backmap
-    for(unsigned j=0; j<indexR.size(); j++) backmap[indexR[j]]=j;
+    for(unsigned j=0; j<indexR.size(); j++) {
+      backmap[indexR[j]]=j;
+    }
 
     //fill the vectors pGatindex, pPositions and pForces
-    for(int i=0; i<nLocalAtoms; i++) {
+    for(unsigned i=0; i<nLocalAtoms; i++) {
       int glb=backmap[gatindex[i]];
       pGatindex[i] = indexR[glb];
       pPositions[i][0] = dataR[glb*6];
@@ -319,17 +349,22 @@ void EffectiveEnergyDrift::update() {
 
   double eed_tmp=eed;
   #pragma omp parallel for reduction(+:eed_tmp)
-  for(int i=0; i<nLocalAtoms; i++) {
+  for(unsigned i=0; i<nLocalAtoms; i++) {
     Vector dst=delta(pPositions[i],positions[i]);
-    if(pbc) for(unsigned k=0; k<3; k++) dst[k]=Tools::pbc(dst[k]);
+    if(pbc)
+      for(unsigned k=0; k<3; k++) {
+        dst[k]=Tools::pbc(dst[k]);
+      }
     eed_tmp += dotProduct(dst, forces[i]+pForces[i])*0.5;
   }
 
   eed=eed_tmp;
 
   if(plumed.comm.Get_rank()==0) {
-    for(unsigned i=0; i<3; i++) for(unsigned j=0; j<3; j++)
+    for(unsigned i=0; i<3; i++)
+      for(unsigned j=0; j<3; j++) {
         eed-=0.5*(pfbox(i,j)+fbox(i,j))*(box(i,j)-pbox(i,j));
+      }
   }
 
 
@@ -340,15 +375,20 @@ void EffectiveEnergyDrift::update() {
 
     //we cannot just use plumed.getBias() because it will be ==0.0 if PRINT_STRIDE
     //is not a multiple of the bias actions stride
-    for(unsigned i=0; i<biases.size(); i++) bias+=biases[i]->getOutputQuantity("bias");
+    for(unsigned i=0; i<biases.size(); i++) {
+      bias+=biases[i]->getOutputQuantity("bias");
+    }
 
     plumed.comm.Sum(&eedSum,1);
 
     double effective = eedSum+bias-initialBias-plumed.getWork();
     // this is to take into account ensemble averaging
     if(ensemble) {
-      if(plumed.comm.Get_rank()==0) plumed.multi_sim_comm.Sum(&effective,1);
-      else effective=0.;
+      if(plumed.comm.Get_rank()==0) {
+        plumed.multi_sim_comm.Sum(&effective,1);
+      } else {
+        effective=0.;
+      }
       plumed.comm.Sum(&effective,1);
     }
     output.fmtField(" %f");

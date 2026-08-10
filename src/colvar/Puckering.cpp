@@ -29,41 +29,39 @@ namespace colvar {
 
 //+PLUMEDOC COLVAR PUCKERING
 /*
- Calculate sugar pseudorotation coordinates.
+Calculate sugar pseudorotation coordinates.
 
- This command can be used to calculate ring's pseudorotations in sugars (puckers). It works for both
- 5-membered and 6-membered rings. Notice that there are two different implementations depending if
- one passes 5 or 6 atoms in the ATOMS keyword.
+This command can be used to calculate pseudorotations for the rings in sugars (puckers). It works for both
+5-membered and 6-membered rings. Notice that there are two different implementations depending if
+one passes 5 or 6 atoms in the ATOMS keyword. This input tells plumed to print the puckering phase angle of the
+ second nucleotide of a RNA molecule on file COLVAR.
 
- For 5-membered rings the implementation is the one discussed in \cite huang2014improvement .
- This implementation is simple and can be used in RNA to distinguish C2'-endo and C3'-endo conformations.
- Both the polar coordinates (phs and amp) and the Cartesian coordinates (Zx and Zy) are provided.
- C2'-endo conformations have negative Zx, whereas C3'-endo conformations have positive Zy.
- Notation is consistent with \cite huang2014improvement .
- The five atoms should be provided as C4',O4',C1',C2',C3'.
- Notice that this is the same order that can be obtained using the \ref MOLINFO syntax (see example below).
+```plumed
+#SETTINGS MOLFILE=regtest/basic/rt65/AA.pdb
+MOLINFO STRUCTURE=regtest/basic/rt65/AA.pdb MOLTYPE=rna
+puck: PUCKERING ATOMS=@sugar-2
+PRINT ARG=puck.phs FILE=COLVAR
+```
 
- For 6-membered rings the implementation is the general Cremer-Pople one \cite cremer1975general
- as also discussed in \cite biarnes2007conformational .
- This implementation provides both a triplet with Cartesian components (qx, qy, and qz)
- and a triplet of polar components (amplitude, phi, and theta).
- Applications of this particular implementation are to be published (paper in preparation).
+For 5-membered rings the implementation is the one discussed in the first of the papers in the bibliography below.
+This implementation is simple and can be used in RNA to distinguish C2'-endo and C3'-endo conformations.
+Both the polar coordinates (phs and amp) and the Cartesian coordinates (Zx and Zy) are provided.
+C2'-endo conformations have negative Zx, whereas C3'-endo conformations have positive Zy.
+The notation is consistent with the notation in that first paper.
+The five atoms should be provided as C4',O4',C1',C2',C3'.
+Notice that this is the same order that can be obtained using the [MOLINFO](MOLINFO.md) syntax (see example below).
 
- \note The 6-membered ring implementation distributed with previous versions of PLUMED lead to
- qx and qy values that had an opposite sign with respect to those originally defined in \cite cremer1975general.
- The bug is fixed in version 2.5.
+For 6-membered rings the implementation is the general Cremer-Pople one that is discussed in the second and third
+papers in the bibliography.
+This implementation provides both a triplet with Cartesian components (qx, qy, and qz)
+and a triplet of polar components (amplitude, phi, and theta).
+Applications of this particular implementation are yet to be published (paper in preparation).
 
- Components of this action are:
+!!! note "sign error in earlier versions"
 
- \par Examples
-
- This input tells plumed to print the puckering phase angle of the second nucleotide of a RNA molecule on file COLVAR.
- \plumedfile
- #SETTINGS MOLFILE=regtest/basic/rt65/AA.pdb
- MOLINFO STRUCTURE=rna.pdb MOLTYPE=rna
- PUCKERING ATOMS=@sugar-2 LABEL=puck
- PRINT ARG=puck.phs FILE=COLVAR
- \endplumedfile
+    The 6-membered ring implementation distributed with previous versions of PLUMED lead to
+    qx and qy values that had an opposite sign with respect to those originally defined in the
+    thid reference in the bibliograph below.  The bug was fixed in version 2.5.
 
 */
 //+ENDPLUMEDOC
@@ -84,49 +82,69 @@ void Puckering::registerKeywords(Keywords& keys) {
   Colvar::registerKeywords( keys );
   keys.remove("NOPBC");
   keys.add("atoms","ATOMS","the five or six atoms of the sugar ring in the proper order");
-  keys.addOutputComponent("phs","default","Pseudorotation phase (5 membered rings)");
-  keys.addOutputComponent("amp","default","Pseudorotation amplitude (5 membered rings)");
-  keys.addOutputComponent("Zx","default","Pseudorotation x Cartesian component (5 membered rings)");
-  keys.addOutputComponent("Zy","default","Pseudorotation y Cartesian component (5 membered rings)");
-  keys.addOutputComponent("phi","default","Pseudorotation phase (6 membered rings)");
-  keys.addOutputComponent("theta","default","Theta angle (6 membered rings)");
-  keys.addOutputComponent("amplitude","default","Pseudorotation amplitude (6 membered rings)");
-  keys.addOutputComponent("qx","default","Cartesian component x (6 membered rings)");
-  keys.addOutputComponent("qy","default","Cartesian component y (6 membered rings)");
-  keys.addOutputComponent("qz","default","Cartesian component z (6 membered rings)");
+  keys.addOutputComponent("phs","default","scalar","Pseudorotation phase (5 membered rings)");
+  keys.addOutputComponent("amp","default","scalar","Pseudorotation amplitude (5 membered rings)");
+  keys.addOutputComponent("Zx","default","scalar","Pseudorotation x Cartesian component (5 membered rings)");
+  keys.addOutputComponent("Zy","default","scalar","Pseudorotation y Cartesian component (5 membered rings)");
+  keys.addOutputComponent("phi","default","scalar","Pseudorotation phase (6 membered rings)");
+  keys.addOutputComponent("theta","default","scalar","Theta angle (6 membered rings)");
+  keys.addOutputComponent("amplitude","default","scalar","Pseudorotation amplitude (6 membered rings)");
+  keys.addOutputComponent("qx","default","scalar","Cartesian component x (6 membered rings)");
+  keys.addOutputComponent("qy","default","scalar","Cartesian component y (6 membered rings)");
+  keys.addOutputComponent("qz","default","scalar","Cartesian component z (6 membered rings)");
+  keys.addDOI("10.1021/ct401013s");
+  keys.addDOI("10.1021/ja00839a011");
+  keys.addDOI("10.1021/ja068411o");
 }
 
 Puckering::Puckering(const ActionOptions&ao):
-  PLUMED_COLVAR_INIT(ao)
-{
+  PLUMED_COLVAR_INIT(ao) {
   std::vector<AtomNumber> atoms;
   parseAtomList("ATOMS",atoms);
-  if(atoms.size()!=5 && atoms.size()!=6) error("only for 5 or 6-membered rings");
+  if(atoms.size()!=5 && atoms.size()!=6) {
+    error("only for 5 or 6-membered rings");
+  }
   checkRead();
 
   if(atoms.size()==5) {
     log.printf("  between atoms %d %d %d %d %d\n",atoms[0].serial(),atoms[1].serial(),atoms[2].serial(),atoms[3].serial(),atoms[4].serial());
   } else if(atoms.size()==6) {
     log.printf("  between atoms %d %d %d %d %d %d\n",atoms[0].serial(),atoms[1].serial(),atoms[2].serial(),atoms[3].serial(),atoms[4].serial(),atoms[5].serial());
-  } else error("ATOMS should specify 5 atoms");
+  } else {
+    error("ATOMS should specify 5 atoms");
+  }
 
   if(atoms.size()==5) {
-    addComponentWithDerivatives("phs"); componentIsPeriodic("phs","-pi","pi");
-    addComponentWithDerivatives("amp"); componentIsNotPeriodic("amp");
-    addComponentWithDerivatives("Zx"); componentIsNotPeriodic("Zx");
-    addComponentWithDerivatives("Zy"); componentIsNotPeriodic("Zy");
+    addComponentWithDerivatives("phs");
+    componentIsPeriodic("phs","-pi","pi");
+    addComponentWithDerivatives("amp");
+    componentIsNotPeriodic("amp");
+    addComponentWithDerivatives("Zx");
+    componentIsNotPeriodic("Zx");
+    addComponentWithDerivatives("Zy");
+    componentIsNotPeriodic("Zy");
   } else if(atoms.size()==6) {
-    addComponentWithDerivatives("qx"); componentIsNotPeriodic("qx");
-    addComponentWithDerivatives("qy"); componentIsNotPeriodic("qy");
-    addComponentWithDerivatives("qz"); componentIsNotPeriodic("qz");
-    addComponentWithDerivatives("phi"); componentIsPeriodic("phi","0","2pi");
-    addComponentWithDerivatives("theta"); componentIsNotPeriodic("theta");
-    addComponentWithDerivatives("amplitude"); componentIsNotPeriodic("amplitude");
+    addComponentWithDerivatives("qx");
+    componentIsNotPeriodic("qx");
+    addComponentWithDerivatives("qy");
+    componentIsNotPeriodic("qy");
+    addComponentWithDerivatives("qz");
+    componentIsNotPeriodic("qz");
+    addComponentWithDerivatives("phi");
+    componentIsPeriodic("phi","0","2pi");
+    addComponentWithDerivatives("theta");
+    componentIsNotPeriodic("theta");
+    addComponentWithDerivatives("amplitude");
+    componentIsNotPeriodic("amplitude");
   }
 
   log<<"  Bibliography ";
-  if(atoms.size()==5) log<<plumed.cite("Huang, Giese, Lee, York, J. Chem. Theory Comput. 10, 1538 (2014)");
-  if(atoms.size()==6) log<<plumed.cite("Cremer and Pople, J. Am. Chem. Soc. 97, 1354 (1975)");
+  if(atoms.size()==5) {
+    log<<plumed.cite("Huang, Giese, Lee, York, J. Chem. Theory Comput. 10, 1538 (2014)");
+  }
+  if(atoms.size()==6) {
+    log<<plumed.cite("Cremer and Pople, J. Am. Chem. Soc. 97, 1354 (1975)");
+  }
   log<<"\n";
 
   requestAtoms(atoms);
@@ -135,8 +153,11 @@ Puckering::Puckering(const ActionOptions&ao):
 // calculator
 void Puckering::calculate() {
   makeWhole();
-  if(getNumberOfAtoms()==5) calculate5m();
-  else calculate6m();
+  if(getNumberOfAtoms()==5) {
+    calculate5m();
+  } else {
+    calculate6m();
+  }
 }
 
 void Puckering::calculate5m() {
@@ -177,14 +198,22 @@ void Puckering::calculate5m() {
   dZy_dR[3]=(dd2-dd3-dd1);
   dZy_dR[4]=(dd3-dd4-dd2);
 
-  for(unsigned j=0; j<5; j++) dZx_dR[j]*=(1.0/(2.0*std::cos(4.0*pi/5.0)));
-  for(unsigned j=0; j<5; j++) dZy_dR[j]*=(1.0/(2.0*std::sin(4.0*pi/5.0)));
+  for(unsigned j=0; j<5; j++) {
+    dZx_dR[j]*=(1.0/(2.0*std::cos(4.0*pi/5.0)));
+  }
+  for(unsigned j=0; j<5; j++) {
+    dZy_dR[j]*=(1.0/(2.0*std::sin(4.0*pi/5.0)));
+  }
 
   Vector dphase_dR[5];
-  for(unsigned j=0; j<5; j++) dphase_dR[j]=(1.0/(Zx*Zx+Zy*Zy))*(-Zy*dZx_dR[j] + Zx*dZy_dR[j]);
+  for(unsigned j=0; j<5; j++) {
+    dphase_dR[j]=(1.0/(Zx*Zx+Zy*Zy))*(-Zy*dZx_dR[j] + Zx*dZy_dR[j]);
+  }
 
   Vector damplitude_dR[5];
-  for(unsigned j=0; j<5; j++) damplitude_dR[j]=(1.0/amplitude)*(Zx*dZx_dR[j] + Zy*dZy_dR[j]);
+  for(unsigned j=0; j<5; j++) {
+    damplitude_dR[j]=(1.0/amplitude)*(Zx*dZx_dR[j] + Zy*dZy_dR[j]);
+  }
 
   Value* vzx=getPntrToComponent("Zx");
   vzx->set(Zx);
@@ -229,16 +258,26 @@ void Puckering::calculate5m() {
 void Puckering::calculate6m() {
 
   std::vector<Vector> r(6);
-  for(unsigned i=0; i<6; i++) r[i]=getPosition(i);
+  for(unsigned i=0; i<6; i++) {
+    r[i]=getPosition(i);
+  }
 
   std::vector<Vector> R(6);
   Vector center;
-  for(unsigned j=0; j<6; j++) center+=r[j]/6.0;
-  for(unsigned j=0; j<6; j++) R[j]=(r[j]-center);
+  for(unsigned j=0; j<6; j++) {
+    center+=r[j]/6.0;
+  }
+  for(unsigned j=0; j<6; j++) {
+    R[j]=(r[j]-center);
+  }
 
   Vector Rp,Rpp;
-  for(unsigned j=0; j<6; j++) Rp +=R[j]*std::sin(2.0/6.0*pi*j);
-  for(unsigned j=0; j<6; j++) Rpp+=R[j]*std::cos(2.0/6.0*pi*j);
+  for(unsigned j=0; j<6; j++) {
+    Rp +=R[j]*std::sin(2.0/6.0*pi*j);
+  }
+  for(unsigned j=0; j<6; j++) {
+    Rpp+=R[j]*std::cos(2.0/6.0*pi*j);
+  }
 
   Vector n=crossProduct(Rp,Rpp);
   Vector nhat=n/modulo(n);
@@ -251,50 +290,78 @@ void Puckering::calculate6m() {
   Tensor dnhat_dRpp=matmul(dnhat_dn,dn_dRpp);
 
   std::vector<double> z(6);
-  for(unsigned j=0; j<6; j++) z[j]=dotProduct(R[j],nhat);
+  for(unsigned j=0; j<6; j++) {
+    z[j]=dotProduct(R[j],nhat);
+  }
 
   std::vector<std::vector<Vector> > dz_dR(6);
-  for(unsigned j=0; j<6; j++) dz_dR[j].resize(6);
+  for(unsigned j=0; j<6; j++) {
+    dz_dR[j].resize(6);
+  }
 
-  for(unsigned i=0; i<6; i++) for(unsigned j=0; j<6; j++) {
-      if(i==j) dz_dR[i][j]+=nhat;
+  for(unsigned i=0; i<6; i++)
+    for(unsigned j=0; j<6; j++) {
+      if(i==j) {
+        dz_dR[i][j]+=nhat;
+      }
       dz_dR[i][j]+=matmul(R[i],dnhat_dRp)*std::sin(2.0/6.0*pi*j);
       dz_dR[i][j]+=matmul(R[i],dnhat_dRpp)*std::cos(2.0/6.0*pi*j);
     }
 
   double B=0.0;
-  for(unsigned j=0; j<6; j++) B+=z[j]*std::cos(4.0/6.0*pi*j);
+  for(unsigned j=0; j<6; j++) {
+    B+=z[j]*std::cos(4.0/6.0*pi*j);
+  }
 
   std::vector<Vector> dB_dR(6);
-  for(unsigned i=0; i<6; i++) for(unsigned j=0; j<6; j++) {
+  for(unsigned i=0; i<6; i++)
+    for(unsigned j=0; j<6; j++) {
       dB_dR[i]+=dz_dR[j][i]*std::cos(4.0/6.0*pi*j);
     }
   Vector Bsum;
-  for(unsigned j=0; j<6; j++) Bsum+=dB_dR[j];
-  for(unsigned j=0; j<6; j++) dB_dR[j]-=Bsum/6.0;;
+  for(unsigned j=0; j<6; j++) {
+    Bsum+=dB_dR[j];
+  }
+  for(unsigned j=0; j<6; j++) {
+    dB_dR[j]-=Bsum/6.0;
+  };
 
   double A=0.0;
-  for(unsigned j=0; j<6; j++) A+=z[j]*std::sin(4.0/6.0*pi*j);
+  for(unsigned j=0; j<6; j++) {
+    A+=z[j]*std::sin(4.0/6.0*pi*j);
+  }
 
   std::vector<Vector> dA_dR(6);
-  for(unsigned i=0; i<6; i++) for(unsigned j=0; j<6; j++) {
+  for(unsigned i=0; i<6; i++)
+    for(unsigned j=0; j<6; j++) {
       dA_dR[i]+=dz_dR[j][i]*std::sin(4.0/6.0*pi*j);
     }
   Vector Asum;
-  for(unsigned j=0; j<6; j++) Asum+=dA_dR[j];
-  for(unsigned j=0; j<6; j++) dA_dR[j]-=Asum/6.0;;
+  for(unsigned j=0; j<6; j++) {
+    Asum+=dA_dR[j];
+  }
+  for(unsigned j=0; j<6; j++) {
+    dA_dR[j]-=Asum/6.0;
+  };
 
   double C=0.0;
-  for(unsigned j=0; j<6; j++) C+=z[j]*Tools::fastpow(-1.0,(j));
+  for(unsigned j=0; j<6; j++) {
+    C+=z[j]*Tools::fastpow(-1.0,(j));
+  }
 
   std::vector<Vector> dC_dR(6);
-  for(unsigned i=0; i<6; i++) for(unsigned j=0; j<6; j++) {
+  for(unsigned i=0; i<6; i++)
+    for(unsigned j=0; j<6; j++) {
       dC_dR[i]+=dz_dR[j][i]*Tools::fastpow(-1.0,(j));
     }
 
   Vector Csum;
-  for(unsigned j=0; j<6; j++) Csum+=dC_dR[j];
-  for(unsigned j=0; j<6; j++) dC_dR[j]-=Csum/6.0;;
+  for(unsigned j=0; j<6; j++) {
+    Csum+=dC_dR[j];
+  }
+  for(unsigned j=0; j<6; j++) {
+    dC_dR[j]-=Csum/6.0;
+  };
 
 
 // qx

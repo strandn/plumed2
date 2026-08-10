@@ -27,13 +27,13 @@ namespace colvar {
 
 //+PLUMEDOC COLVAR FAKE
 /*
-This is a fake colvar container used by cltools or various other actions that supports input and period definitions
+This is a fake colvar container that is used by cltools or various other actions that supports input and period definitions
 
-\par Examples
+This action is used in the code for sum_hills. The following example shows how a fake input can be setup
 
-\plumedfile
-FAKE ATOMS=1 PERIODIC=-3.14,3.14   LABEL=d2
-\endplumedfile
+```plumed
+d2: FAKE ATOMS=1 PERIODIC=-3.14,3.14
+```
 
 */
 //+ENDPLUMEDOC
@@ -43,7 +43,9 @@ class ColvarFake : public Colvar {
 public:
   static void registerKeywords( Keywords& keys );
   explicit ColvarFake(const ActionOptions&);
-  std::string getOutputComponentDescription( const std::string& cname, const Keywords& keys ) const override { plumed_error(); }
+  std::string getOutputComponentDescription( const std::string& cname, const Keywords& keys ) const override {
+    plumed_error();
+  }
 // active methods:
   void calculate() override;
 };
@@ -60,8 +62,7 @@ void ColvarFake::registerKeywords( Keywords& keys ) {
 }
 
 ColvarFake::ColvarFake(const ActionOptions&ao):
-  PLUMED_COLVAR_INIT(ao)
-{
+  PLUMED_COLVAR_INIT(ao) {
   std::vector<AtomNumber> atoms;
   parseAtomList("ATOMS",atoms);
 
@@ -82,7 +83,7 @@ ColvarFake::ColvarFake(const ActionOptions&ao):
   if(period.size()!=0) {
     plumed_massert(static_cast<unsigned>(getNumberOfComponents()*2)==period.size(),"the periodicty should coincide with the number of components");
     if(comps.size()!=0) {
-      for(int i=0; i<getNumberOfComponents(); i++) {
+      for(unsigned i=0; i<getNumberOfComponents(); i++) {
         std::string pp=comps[i];
         if(period[i*2]!="none" && period[i*2+1]!="none" ) {
           componentIsPeriodic(pp,period[i*2],period[i*2+1]);
@@ -99,7 +100,7 @@ ColvarFake::ColvarFake(const ActionOptions&ao):
     }
   } else {
     if(comps.size()!=0) {
-      for(int i=0; i<getNumberOfComponents(); i++) {
+      for(unsigned i=0; i<getNumberOfComponents(); i++) {
         componentIsNotPeriodic(getPntrToComponent(i)->getName());
       }
     } else {

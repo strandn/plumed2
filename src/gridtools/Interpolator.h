@@ -37,6 +37,7 @@ public:
   Interpolator( Value* myval, const GridCoordinatesObject& mygrid ) : values(myval), gridobject(mygrid) {}
   /// Interpolate the function using splines
   double splineInterpolation( const std::vector<double>& x, std::vector<double>& der ) const ;
+  double splineInterpolation( View<const double> x, std::vector<double>& der ) const ;
 };
 
 }

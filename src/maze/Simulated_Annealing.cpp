@@ -36,19 +36,19 @@ namespace maze {
 /*
 
 Calculates the biasing direction along which the ligand unbinds by minimizing
-the \ref MAZE_LOSS function. The optimal biasing direction is determined by
+the [MAZE_LOSS](MAZE_LOSS.md) function. The optimal biasing direction is determined by
 performing simulated annealing.
 
-\par Examples
+## Examples
 
 Every optimizer implemented in the maze module needs a loss function as an
-argument, and it should be passed using the \ref MAZE_LOSS keyword.
+argument, and it should be passed using the [MAZE_LOSS](MAZE_LOSS.md) keyword.
 
 In the following example simulated annealing is launched for 1000 iterations
 as the optimizer for the loss function every 200 ps. The geometric cooling
 scheme is used.
 
-\plumedfile
+```plumed
 UNITS LENGTH=A TIME=ps ENERGY=kcal/mol
 
 MAZE_SIMULATED_ANNEALING ...
@@ -66,7 +66,7 @@ MAZE_SIMULATED_ANNEALING ...
   LIGAND=2635-2646
   PROTEIN=1-2634
 ... MAZE_SIMULATED_ANNEALING
-\endplumedfile
+```
 
 As shown above, each optimizer should be provided with the LIGAND and
 the PROTEIN keywords.
@@ -143,8 +143,7 @@ void Simulated_Annealing::registerKeywords(Keywords& keys) {
 }
 
 Simulated_Annealing::Simulated_Annealing(const ActionOptions& ao)
-  : PLUMED_OPT_INIT(ao)
-{
+  : PLUMED_OPT_INIT(ao) {
   log.printf("maze> Simulated annealing optimizer.\n");
 
   if(keywords.exists("COOLING")) {
@@ -184,17 +183,13 @@ Simulated_Annealing::Simulated_Annealing(const ActionOptions& ao)
 void Simulated_Annealing::decrease_probability(unsigned int time) {
   if (cooling_scheme_ == "linear") {
     probability_decreaser_ -= time * cooling_factor_;
-  }
-  else if (cooling_scheme_ == "exponential") {
+  } else if (cooling_scheme_ == "exponential") {
     probability_decreaser_ *= pow(cooling_factor_, time);
-  }
-  else if (cooling_scheme_ == "geometric") {
+  } else if (cooling_scheme_ == "geometric") {
     probability_decreaser_ *= cooling_factor_;
-  }
-  else if (cooling_scheme_ == "logarithmic") {
+  } else if (cooling_scheme_ == "logarithmic") {
     probability_decreaser_ = cooling_factor_ / std::log(time + 1);
-  }
-  else if (cooling_scheme_ == "hoffman") {
+  } else if (cooling_scheme_ == "hoffman") {
     probability_decreaser_ = (cooling_factor_ - 1) / std::log(time);
   }
 }
@@ -234,8 +229,7 @@ void Simulated_Annealing::optimize() {
                             getPosition(i0) + dev,
                             getPosition(i1)
                           );
-        }
-        else {
+        } else {
           distance = delta(
                        getPosition(i0) + get_opt(),
                        getPosition(i1)

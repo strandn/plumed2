@@ -20,7 +20,7 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "core/ActionRegister.h"
-#include "FunctionTemplateBase.h"
+#include "FunctionSetup.h"
 #include "FunctionShortcut.h"
 #include "FunctionOfScalar.h"
 
@@ -31,57 +31,70 @@ namespace function {
 /*
 Compute a piece wise straight line through its arguments that passes through a set of ordered control points.
 
+This action can be used to calculate a piecewise linear function of an input argument such as the one given below:
+
+$$
+f(x) = \begin{cases}
+10 & \textrm{if} \quad x<1 \\
+10 + \frac{\pi - 10}{2-1}(x-1) & \textrm{if} \quad 1 \le x < 2 \\
+\pi + \frac{10 - \pi}{3-2}(x-2) & \textrm{if} \quad 2 \le x \le 3 \\
+10 & \textrm{otherwise}
+\end{cases}
+$$
+
+The example shown below illustrates how one can use PLUMED to evaluate the function described above for the distance
+between atom 1 and atom 2.
+
+```plumed
+dist1: DISTANCE ATOMS=1,10
+pw: PIECEWISE POINT0=1,10 POINT1=2,PI POINT2=3,10 ARG=dist1
+PRINT ARG=pw FILE=colvar
+```
+
+As you can see from the example above, the control points for the picewise function are passed using the `POINT0=...` `POINT1=...` syntax.
+You can specify as many of these control points as you want.  These control points then serce as the $x_i$ and $y_i$ values in the following expression.
+
 For variables less than the first
 (greater than the last) point, the value of the first (last) point is used.
 
-\f[
+$$
 \frac{y_{i+1}-y_i}{x_{i+1}-x_i}(s-x_i)+y_i ;  if x_i<s<x_{i+1}
-\f]
-\f[
-y_N ; if x>x_{N-1}
-\f]
-\f[
-y_1 ; if x<x_0
-\f]
+$$
 
-Control points are passed using the POINT0=... POINT1=... syntax as in the example below
+If the input value of $s$ is smaller than the lowest specified $x_i$ value then this action outputs the $y_i$ value that corresponds to the smallest of the input $x_i$ values.
+Similarly, if the input value of $s$ is larger than the highest specified $x_i$ value the $y_i$ value that corresponds to the largest of the input $x_i$ values is output.
 
-If one argument is supplied, it results in a scalar quantity.
-If multiple arguments are supplied, it results
-in a vector of values. Each value will be named as the name of the original
-argument with suffix _pfunc.
+## Using multiple scalars in input
 
-\par Examples
+The following example illustrates what happens when multiple scalar arguments are passed to this action:
 
-\plumedfile
+```plumed
 dist1: DISTANCE ATOMS=1,10
 dist2: DISTANCE ATOMS=2,11
 
-pw: PIECEWISE POINT0=1,10 POINT1=2,PI POINT2=3,10 ARG=dist1
 ppww: PIECEWISE POINT0=1,10 POINT1=2,PI POINT2=3,10 ARG=dist1,dist2
-PRINT ARG=pw,ppww.dist1_pfunc,ppww.dist2_pfunc
-\endplumedfile
+PRINT ARG=ppww.dist1_pfunc,ppww.dist2_pfunc
+```
 
+In essence the piecewise function is applied to each of the input arguments in turn.  Hence, in the example above the PIECEWISE command outputs two values.  The first of
+these `ppww.dist1_pfunc` is the result that is obtained when the piecewise function is applied to the argument `dist1`.  The second is then the result that is obtained when the
+piecewise function is applied to the argument `dist2`.
+
+## Non rank zero arguments
+
+This argument currently cannot accept non-rank zero arguments.  However, it would be extremely straightforward to add functionality to ensure that if a PIECEWISE command receives
+a vector, matrix or function on grid in input it will output a vector, matrix or function on grid that is obtained by applying the piecewise function elementwise to each of the
+elements of the input vector, matrix or function.
 
 */
 //+ENDPLUMEDOC
 
-//+PLUMEDOC FUNCTION PIECEWISE_SCALAR
-/*
-Compute a piece wise straight line through its arguments that passes through a set of ordered control points.
-
-\par Examples
-
-*/
-//+ENDPLUMEDOC
-
-class Piecewise : public FunctionTemplateBase {
-  std::vector<std::pair<double,double> > points;
+class Piecewise {
 public:
-  void registerKeywords(Keywords& keys) override;
-  void read( ActionWithArguments* action ) override;
-  void setPeriodicityForOutputs( ActionWithValue* action ) override;
-  void calc( const ActionWithArguments* action, const std::vector<double>& args, std::vector<double>& vals, Matrix<double>& derivatives ) const override;
+  std::vector<std::pair<double,double> > points;
+  static void registerKeywords(Keywords& keys);
+  static void read( Piecewise& func, ActionWithArguments* action, FunctionOptions& options );
+  static void calc( const Piecewise& func, bool noderiv, View<const double> args, FunctionOutput& funcout );
 };
 
 
@@ -93,49 +106,63 @@ PLUMED_REGISTER_ACTION(ScalarPiecewise,"PIECEWISE_SCALAR")
 void Piecewise::registerKeywords(Keywords& keys) {
   keys.add("numbered","POINT","This keyword is used to specify the various points in the function above.");
   keys.reset_style("POINT","compulsory");
-  keys.addOutputComponent("_pfunc","default","one or multiple instances of this quantity can be referenced elsewhere "
+  keys.addOutputComponent("_pfunc","default","scalar","one or multiple instances of this quantity can be referenced elsewhere "
                           "in the input file.  These quantities will be named with the arguments of the "
                           "function followed by the character string _pfunc.  These quantities tell the "
                           "user the values of the piece wise functions of each of the arguments.");
 }
 
-void Piecewise::read( ActionWithArguments* action ) {
+void Piecewise::read( Piecewise& func, ActionWithArguments* action, FunctionOptions& options ) {
   for(int i=0;; i++) {
     std::vector<double> pp;
-    if(!action->parseNumberedVector("POINT",i,pp) ) break;
-    if(pp.size()!=2) action->error("points should be in x,y format");
-    points.push_back(std::pair<double,double>(pp[0],pp[1]));
-    if(i>0 && points[i].first<=points[i-1].first) action->error("points abscissas should be monotonously increasing");
+    if(!action->parseNumberedVector("POINT",i,pp) ) {
+      break;
+    }
+    if(pp.size()!=2) {
+      action->error("points should be in x,y format");
+    }
+    func.points.push_back(std::pair<double,double>(pp[0],pp[1]));
+    if(i>0 && func.points[i].first<=func.points[i-1].first) {
+      action->error("points abscissas should be monotonously increasing");
+    }
   }
 
   for(unsigned i=0; i<action->getNumberOfArguments(); i++) {
-    if(action->getPntrToArgument(i)->isPeriodic()) action->error("Cannot use PIECEWISE on periodic arguments");
+    if(action->getPntrToArgument(i)->isPeriodic()) {
+      action->error("Cannot use PIECEWISE on periodic arguments");
+    }
   }
   action->log.printf("  on points:");
-  for(unsigned i=0; i<points.size(); i++) action->log.printf("   (%f,%f)",points[i].first,points[i].second);
+  for(unsigned i=0; i<func.points.size(); i++) {
+    action->log.printf("   (%f,%f)",func.points[i].first,func.points[i].second);
+  }
   action->log.printf("\n");
 }
 
-void Piecewise::setPeriodicityForOutputs( ActionWithValue* action ) {
-  for(unsigned i=0; i<action->getNumberOfComponents(); ++i) action->copyOutput(i)->setNotPeriodic();
-}
-
-void Piecewise::calc( const ActionWithArguments* action, const std::vector<double>& args, std::vector<double>& vals, Matrix<double>& derivatives ) const {
+void Piecewise::calc( const Piecewise& func, bool noderiv, const View<const double> args, FunctionOutput& funcout ) {
   for(unsigned i=0; i<args.size(); i++) {
     unsigned p=0;
-    for(; p<points.size(); p++) {
-      if(args[i]<points[p].first) break;
+    for(; p<func.points.size(); p++) {
+      if(args[i]<func.points[p].first) {
+        break;
+      }
     }
     if(p==0) {
-      vals[i]=points[0].second;
-      derivatives(i,i)=0.0;
-    } else if(p==points.size()) {
-      vals[i]=points[points.size()-1].second;
-      derivatives(i,i)=0.0;
+      funcout.values[i]=func.points[0].second;
+      if( !noderiv ) {
+        funcout.derivs[i][i]=0.0;
+      }
+    } else if(p==func.points.size()) {
+      funcout.values[i]=func.points[func.points.size()-1].second;
+      if( !noderiv ) {
+        funcout.derivs[i][i]=0.0;
+      }
     } else {
-      double m=(points[p].second-points[p-1].second) / (points[p].first-points[p-1].first);
-      vals[i]=m*(args[i]-points[p-1].first)+points[p-1].second;
-      derivatives(i,i)=m;
+      double m=(func.points[p].second-func.points[p-1].second) / (func.points[p].first-func.points[p-1].first);
+      funcout.values[i]=m*(args[i]-func.points[p-1].first)+func.points[p-1].second;
+      if( !noderiv ) {
+        funcout.derivs[i][i]=m;
+      }
     }
   }
 }

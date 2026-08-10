@@ -36,37 +36,52 @@ public:
 
 template <class T>
 void ColvarShortcut<T>::registerKeywords(Keywords& keys ) {
-  T::registerKeywords( keys ); keys.remove("NO_ACTION_LOG");
-  unsigned nkeys = keys.size();
-  for(unsigned i=0; i<nkeys; ++i) {
-    if( keys.style( keys.get(i), "atoms" ) ) keys.reset_style( keys.get(i), "numbered" );
+  T::registerKeywords( keys );
+  keys.remove("NO_ACTION_LOG");
+  for (auto& key : keys.getKeys()) {
+    if( keys.style( key, "atoms" ) ) {
+      keys.reset_style( key, "numbered" );
+    }
   }
-  keys.addActionNameSuffix("_SCALAR"); keys.addActionNameSuffix("_VECTOR");
+  keys.addActionNameSuffix("_SCALAR");
+  keys.addActionNameSuffix("_VECTOR");
+  //GPU related settings
+  keys.addFlag("USEGPU",false,"run this calculation on the GPU");
+  keys.addLinkInDocForFlag("USEGPU","gpu.md");
+  keys.addActionNameSuffix("_VECTORACC");
 }
 
 template <class T>
 ColvarShortcut<T>::ColvarShortcut(const ActionOptions&ao):
   Action(ao),
-  ActionShortcut(ao)
-{
-  bool scalar=true; unsigned nkeys = keywords.size();
+  ActionShortcut(ao) {
+  bool scalar=true;
   if( getName()=="MASS" || getName()=="CHARGE" || getName()=="POSITION" ) {
-    std::string inpt; parse("ATOMS",inpt);
+    std::string inpt;
+    parse("ATOMS",inpt);
     if( inpt.length()>0 ) {
       readInputLine( getShortcutLabel() + ": " + getName() + "_VECTOR ATOMS=" + inpt + " " + convertInputLineToString() );
       scalar=false;
     }
   }
-  for(unsigned i=0; i<nkeys; ++i) {
-    if( keywords.style( keywords.get(i), "atoms" ) ) {
-      std::string inpt; parseNumbered( keywords.get(i), 1, inpt );
+  for (auto& key : keywords.getKeys()) {
+    if( keywords.style( key, "atoms" ) ) {
+      std::string inpt;
+      parseNumbered( key, 1, inpt );
+      bool usegpuFLAG=false;
+      parseFlag("USEGPU",usegpuFLAG);
       if( inpt.length()>0 ) {
-        readInputLine( getShortcutLabel() + ": " + getName() + "_VECTOR " + keywords.get(i) + "1=" + inpt + " " + convertInputLineToString() );
-        scalar=false; break;
+        readInputLine( getShortcutLabel() + ": "
+                       + getName()  + "_VECTOR" + (usegpuFLAG ? "ACC ":" ")
+                       + key + "1=" + inpt + " " + convertInputLineToString() );
+        scalar=false;
+        break;
       }
     }
   }
-  if( scalar ) readInputLine( getShortcutLabel() + ": " + getName() + "_SCALAR " + convertInputLineToString() );
+  if( scalar ) {
+    readInputLine( getShortcutLabel() + ": " + getName() + "_SCALAR " + convertInputLineToString() );
+  }
 }
 
 }

@@ -43,7 +43,7 @@ namespace isdb {
 /*
 Calculate the fit of a structure or ensemble of structures with a cryo-EM density map.
 
-This action implements the multi-scale Bayesian approach to cryo-EM data fitting introduced in  Ref. \cite Hanot113951 .
+This action implements the multi-scale Bayesian approach to cryo-EM data fitting introduced in the first paper cited below.
 This method allows efficient and accurate structural modeling of cryo-electron microscopy density maps at multiple scales, from coarse-grained to atomistic resolution, by addressing the presence of random and systematic errors in the data, sample heterogeneity, data correlation, and noise correlation.
 
 The experimental density map is fit by a Gaussian Mixture Model (GMM), which is provided as an external file specified by the keyword
@@ -52,33 +52,37 @@ this operation. In the meantime, the user can request a stand-alone version of t
 
 When run in single-replica mode, this action allows atomistic, flexible refinement of an individual structure into a density map.
 Combined with a multi-replica framework (such as the -multi option in GROMACS), the user can model an ensemble of structures using
-the Metainference approach \cite Bonomi:2016ip .
+the Metainference approach that is discussed in the second paper cited below.
 
-\warning
-To use \ref EMMI, the user should always add a \ref MOLINFO line and specify a pdb file of the system.
+!!! warning ""
 
-\note
-To enhance sampling in single-structure refinement, one can use a Replica Exchange Method, such as Parallel Tempering.
-In this case, the user should add the NO_AVER flag to the input line. To use a replica-based enhanced sampling scheme such as
-Parallel-Bias Metadynamics (\ref PBMETAD), one should use the REWEIGHT flag and pass the Metadynamics bias using the ARG keyword.
+    To use [EMMI](EMMI.md), the user should always add a [MOLINFO](MOLINFO.md) line and specify a pdb file of the system.
 
-\note
-\ref EMMI can be used in combination with periodic and non-periodic systems. In the latter case, one should
-add the NOPBC flag to the input line
+!!! note ""
 
-\par Examples
+    To enhance sampling in single-structure refinement, one can use a Replica Exchange Method, such as Parallel Tempering.
+    In this case, the user should add the NO_AVER flag to the input line. To use a replica-based enhanced sampling scheme such as
+    Parallel-Bias Metadynamics ([PBMETAD](PBMETAD.md)), one should use the REWEIGHT flag and pass the Metadynamics bias using the ARG keyword.
+
+!!! note ""
+
+    [EMMI](EMMI.md) can be used in combination with periodic and non-periodic systems. In the latter case, one should
+    add the NOPBC flag to the input line
+
+## Examples
 
 In this example, we perform a single-structure refinement based on an experimental cryo-EM map. The map is fit with a GMM, whose
 parameters are listed in the file GMM_fit.dat. This file contains one line per GMM component in the following format:
 
-\plumedfile
+````
 #! FIELDS Id Weight Mean_0 Mean_1 Mean_2 Cov_00 Cov_01 Cov_02 Cov_11 Cov_12 Cov_22 Beta
      0  2.9993805e+01   6.54628 10.37820 -0.92988  2.078920e-02 1.216254e-03 5.990827e-04 2.556246e-02 8.411835e-03 2.486254e-02  1
      1  2.3468312e+01   6.56095 10.34790 -0.87808  1.879859e-02 6.636049e-03 3.682865e-04 3.194490e-02 1.750524e-03 3.017100e-02  1
      ...
-\endplumedfile
+````
 
 To accelerate the computation of the Bayesian score, one can:
+
 - use neighbor lists, specified by the keywords NL_CUTOFF and NL_STRIDE;
 - calculate the restraint every other step (or more).
 
@@ -87,7 +91,7 @@ using a GROMACS index file.
 
 The input file looks as follows:
 
-\plumedfile
+```plumed
 # include pdb info
 MOLINFO STRUCTURE=prot.pdb
 
@@ -101,8 +105,7 @@ gmm: EMMI NOPBC SIGMA_MIN=0.01 TEMP=300.0 NL_STRIDE=100 NL_CUTOFF=0.01 GMM_FILE=
 emr: BIASVALUE ARG=gmm.scoreb STRIDE=2
 
 PRINT ARG=emr.* FILE=COLVAR STRIDE=500 FMT=%20.10f
-\endplumedfile
-
+```
 
 */
 //+ENDPLUMEDOC
@@ -110,8 +113,7 @@ PRINT ARG=emr.* FILE=COLVAR STRIDE=500 FMT=%20.10f
 class EMMI :
   public ActionAtomistic,
   public ActionWithArguments,
-  public ActionWithValue
-{
+  public ActionWithValue {
 private:
 
 // temperature in kbt
@@ -293,8 +295,11 @@ void EMMI::setDerivatives() {
   }
 
   // Resize all derivative arrays
-  forces.resize( nder ); forcesToApply.resize( nder );
-  for(int i=0; i<getNumberOfComponents(); ++i) getPntrToComponent(i)->resizeDerivatives(nder);
+  forces.resize( nder );
+  forcesToApply.resize( nder );
+  for(unsigned i=0; i<getNumberOfComponents(); ++i) {
+    getPntrToComponent(i)->resizeDerivatives(nder);
+  }
 }
 
 inline
@@ -329,28 +334,42 @@ void EMMI::calculateNumericalDerivatives( ActionWithValue* a=NULL ) {
   }
   if( getNumberOfAtoms()>0 ) {
     Matrix<double> save_derivatives( getNumberOfComponents(), getNumberOfArguments() );
-    for(int j=0; j<getNumberOfComponents(); ++j) {
-      for(unsigned i=0; i<getNumberOfArguments(); ++i) if(getPntrToComponent(j)->hasDerivatives()) save_derivatives(j,i)=getPntrToComponent(j)->getDerivative(i);
+    for(unsigned j=0; j<getNumberOfComponents(); ++j) {
+      for(unsigned i=0; i<getNumberOfArguments(); ++i) {
+        if(getPntrToComponent(j)->hasDerivatives()) {
+          save_derivatives(j,i)=getPntrToComponent(j)->getDerivative(i);
+        }
+      }
     }
     calculateAtomicNumericalDerivatives( a, getNumberOfArguments() );
-    for(int j=0; j<getNumberOfComponents(); ++j) {
-      for(unsigned i=0; i<getNumberOfArguments(); ++i) if(getPntrToComponent(j)->hasDerivatives()) getPntrToComponent(j)->addDerivative( i, save_derivatives(j,i) );
+    for(unsigned j=0; j<getNumberOfComponents(); ++j) {
+      for(unsigned i=0; i<getNumberOfArguments(); ++i) {
+        if(getPntrToComponent(j)->hasDerivatives()) {
+          getPntrToComponent(j)->addDerivative( i, save_derivatives(j,i) );
+        }
+      }
     }
   }
 }
 
 inline
 void EMMI::apply() {
-  bool wasforced=false; forcesToApply.assign(forcesToApply.size(),0.0);
-  for(int i=0; i<getNumberOfComponents(); ++i) {
+  bool wasforced=false;
+  forcesToApply.assign(forcesToApply.size(),0.0);
+  for(unsigned i=0; i<getNumberOfComponents(); ++i) {
     if( getPntrToComponent(i)->applyForce( forces ) ) {
       wasforced=true;
-      for(unsigned i=0; i<forces.size(); ++i) forcesToApply[i]+=forces[i];
+      for(unsigned ii=0; ii<forces.size(); ++ii) {
+        forcesToApply[ii]+=forces[ii];
+      }
     }
   }
   if( wasforced ) {
-    unsigned ind=0; addForcesOnArguments( 0, forcesToApply, ind, getLabel() );
-    if( getNumberOfAtoms()>0 ) setForcesOnAtoms( forcesToApply, ind );
+    unsigned ind=0;
+    addForcesOnArguments( 0, forcesToApply, ind );
+    if( getNumberOfAtoms()>0 ) {
+      setForcesOnAtoms( forcesToApply, ind );
+    }
   }
 }
 
@@ -389,7 +408,7 @@ void EMMI::registerKeywords( Keywords& keys ) {
   ActionAtomistic::registerKeywords( keys );
   ActionWithValue::registerKeywords( keys );
   ActionWithArguments::registerKeywords( keys );
-  keys.use("ARG");
+  keys.addInputKeyword("optional","ARG","scalar","the labels of the values from which the function is calculated");
   keys.add("atoms","ATOMS","atoms for which we calculate the density map, typically all heavy atoms");
   keys.addFlag("NOPBC",false,"ignore the periodic boundary conditions when calculating distances");
   keys.add("compulsory","GMM_FILE","file with the parameters of the GMM components");
@@ -420,16 +439,18 @@ void EMMI::registerKeywords( Keywords& keys ) {
   keys.add("optional","AVERAGING", "Averaging window for weights");
   keys.addFlag("NO_AVER",false,"don't do ensemble averaging in multi-replica mode");
   keys.addFlag("REWEIGHT",false,"simple REWEIGHT using the ARG as energy");
-  keys.addOutputComponent("scoreb","default","Bayesian score");
-  keys.addOutputComponent("acc",   "NOISETYPE","MC acceptance for uncertainty");
-  keys.addOutputComponent("scale", "REGRESSION","scale factor");
-  keys.addOutputComponent("accscale", "REGRESSION","MC acceptance for scale regression");
-  keys.addOutputComponent("enescale", "REGRESSION","MC energy for scale regression");
-  keys.addOutputComponent("anneal","ANNEAL","annealing factor");
-  keys.addOutputComponent("weight",       "REWEIGHT",     "weights of the weighted average");
-  keys.addOutputComponent("biasDer",      "REWEIGHT",     "derivatives with respect to the bias");
-  keys.addOutputComponent("sigma",      "NOISETYPE",     "uncertainty in the forward models and experiment");
-  keys.addOutputComponent("neff",         "default",      "effective number of replicas");
+  keys.addOutputComponent("scoreb","default","scalar","Bayesian score");
+  keys.addOutputComponent("acc",   "NOISETYPE","scalar","MC acceptance for uncertainty");
+  keys.addOutputComponent("scale", "REGRESSION","scalar","scale factor");
+  keys.addOutputComponent("accscale", "REGRESSION","scalar","MC acceptance for scale regression");
+  keys.addOutputComponent("enescale", "REGRESSION","scalar","MC energy for scale regression");
+  keys.addOutputComponent("anneal","ANNEAL","scalar","annealing factor");
+  keys.addOutputComponent("weight",       "REWEIGHT","scalar",     "weights of the weighted average");
+  keys.addOutputComponent("biasDer",      "REWEIGHT","scalar",     "derivatives with respect to the bias");
+  keys.addOutputComponent("sigma",      "NOISETYPE","scalar",     "uncertainty in the forward models and experiment");
+  keys.addOutputComponent("neff",         "default","scalar",      "effective number of replicas");
+  keys.addDOI("10.1101/113951");
+  keys.addDOI("10.1126/sciadv.1501177");
 }
 
 EMMI::EMMI(const ActionOptions&ao):
@@ -445,8 +466,7 @@ EMMI::EMMI(const ActionOptions&ao):
   nregres_(0), scale_(1.),
   dpcutoff_(15.0), nexp_(1000000), nanneal_(0),
   kanneal_(0.), anneal_(1.), prior_(1.), ovstride_(0),
-  do_reweight_(false), first_time_w_(true), decay_w_(1.)
-{
+  do_reweight_(false), first_time_w_(true), decay_w_(1.) {
   // periodic boundary conditions
   bool nopbc=!pbc_;
   parseFlag("NOPBC",nopbc);
@@ -463,33 +483,51 @@ EMMI::EMMI(const ActionOptions&ao):
   // type of data noise
   std::string noise;
   parse("NOISETYPE",noise);
-  if      (noise=="GAUSS")   noise_ = 0;
-  else if(noise=="OUTLIERS") noise_ = 1;
-  else if(noise=="MARGINAL") noise_ = 2;
-  else error("Unknown noise type!");
+  if      (noise=="GAUSS") {
+    noise_ = 0;
+  } else if(noise=="OUTLIERS") {
+    noise_ = 1;
+  } else if(noise=="MARGINAL") {
+    noise_ = 2;
+  } else {
+    error("Unknown noise type!");
+  }
 
   // minimum value for error
   double sigma_min;
   parse("SIGMA_MIN", sigma_min);
-  if(sigma_min<0) error("SIGMA_MIN should be greater or equal to zero");
+  if(sigma_min<0) {
+    error("SIGMA_MIN should be greater or equal to zero");
+  }
 
   // the following parameters must be specified with noise type 0 and 1
   double sigma_ini, dsigma;
   if(noise_!=2) {
     // initial value of the uncertainty
     parse("SIGMA0", sigma_ini);
-    if(sigma_ini<=0) error("you must specify a positive SIGMA0");
+    if(sigma_ini<=0) {
+      error("you must specify a positive SIGMA0");
+    }
     // MC parameters
     parse("DSIGMA", dsigma);
-    if(dsigma<0) error("you must specify a positive DSIGMA");
+    if(dsigma<0) {
+      error("you must specify a positive DSIGMA");
+    }
     parse("MC_STRIDE", MCstride_);
-    if(dsigma>0 && MCstride_<=0) error("you must specify a positive MC_STRIDE");
+    if(dsigma>0 && MCstride_<=0) {
+      error("you must specify a positive MC_STRIDE");
+    }
     // status file parameters
     parse("WRITE_STRIDE", statusstride_);
-    if(statusstride_==0) error("you must specify a positive WRITE_STRIDE");
+    if(statusstride_==0) {
+      error("you must specify a positive WRITE_STRIDE");
+    }
     parse("STATUS_FILE",  statusfilename_);
-    if(statusfilename_=="") statusfilename_ = "MISTATUS"+getLabel();
-    else                    statusfilename_ = statusfilename_+getLabel();
+    if(statusfilename_=="") {
+      statusfilename_ = "MISTATUS"+getLabel();
+    } else {
+      statusfilename_ = statusfilename_+getLabel();
+    }
   }
 
   // error file
@@ -513,7 +551,9 @@ EMMI::EMMI(const ActionOptions&ao):
   // simulated annealing stuff
   parse("ANNEAL", nanneal_);
   parse("ANNEAL_FACT", kanneal_);
-  if(nanneal_>0 && kanneal_<=1.0) error("with ANNEAL, ANNEAL_FACT must be greater than 1");
+  if(nanneal_>0 && kanneal_<=1.0) {
+    error("with ANNEAL, ANNEAL_FACT must be greater than 1");
+  }
 
   // regression stride
   parse("REGRESSION",nregres_);
@@ -523,8 +563,12 @@ EMMI::EMMI(const ActionOptions&ao):
     parse("REG_SCALE_MAX",scale_max_);
     parse("REG_DSCALE",dscale_);
     // checks
-    if(scale_max_<=scale_min_) error("with REGRESSION, REG_SCALE_MAX must be greater than REG_SCALE_MIN");
-    if(dscale_<=0.) error("with REGRESSION, REG_DSCALE must be positive");
+    if(scale_max_<=scale_min_) {
+      error("with REGRESSION, REG_SCALE_MAX must be greater than REG_SCALE_MIN");
+    }
+    if(dscale_<=0.) {
+      error("with REGRESSION, REG_DSCALE must be positive");
+    }
   }
 
   // scale factor
@@ -533,13 +577,19 @@ EMMI::EMMI(const ActionOptions&ao):
   // read map resolution
   double reso;
   parse("RESOLUTION", reso);
-  if(reso<=0.) error("RESOLUTION should be strictly positive");
+  if(reso<=0.) {
+    error("RESOLUTION should be strictly positive");
+  }
 
   // neighbor list stuff
   parse("NL_CUTOFF",nl_cutoff_);
-  if(nl_cutoff_<=0.0) error("NL_CUTOFF should be explicitly specified and positive");
+  if(nl_cutoff_<=0.0) {
+    error("NL_CUTOFF should be explicitly specified and positive");
+  }
   parse("NL_STRIDE",nl_stride_);
-  if(nl_stride_==0) error("NL_STRIDE should be explicitly specified and positive");
+  if(nl_stride_==0) {
+    error("NL_STRIDE should be explicitly specified and positive");
+  }
 
   // averaging or not
   parseFlag("NO_AVER",no_aver_);
@@ -547,7 +597,9 @@ EMMI::EMMI(const ActionOptions&ao):
   // write overlap file
   parse("WRITE_OV_STRIDE", ovstride_);
   parse("WRITE_OV", ovfilename_);
-  if(ovstride_>0 && ovfilename_=="") error("With WRITE_OV_STRIDE you must specify WRITE_OV");
+  if(ovstride_>0 && ovfilename_=="") {
+    error("With WRITE_OV_STRIDE you must specify WRITE_OV");
+  }
 
   // set parallel stuff
   size_=comm.Get_size();
@@ -570,11 +622,20 @@ EMMI::EMMI(const ActionOptions&ao):
 
   // Reweighting flag
   parseFlag("REWEIGHT", do_reweight_);
-  if(do_reweight_&&getNumberOfArguments()!=1) error("To REWEIGHT one must provide one single bias as an argument");
-  if(do_reweight_&&no_aver_) error("REWEIGHT cannot be used with NO_AVER");
-  if(do_reweight_&&nrep_<2) error("REWEIGHT can only be used in parallel with 2 or more replicas");
-  if(!getRestart()) average_weights_.resize(nrep_, 1./static_cast<double>(nrep_));
-  else average_weights_.resize(nrep_, 0.);
+  if(do_reweight_&&getNumberOfArguments()!=1) {
+    error("To REWEIGHT one must provide one single bias as an argument");
+  }
+  if(do_reweight_&&no_aver_) {
+    error("REWEIGHT cannot be used with NO_AVER");
+  }
+  if(do_reweight_&&nrep_<2) {
+    error("REWEIGHT can only be used in parallel with 2 or more replicas");
+  }
+  if(!getRestart()) {
+    average_weights_.resize(nrep_, 1./static_cast<double>(nrep_));
+  } else {
+    average_weights_.resize(nrep_, 0.);
+  }
 
   unsigned averaging=0;
   parse("AVERAGING", averaging);
@@ -585,10 +646,14 @@ EMMI::EMMI(const ActionOptions&ao):
   checkRead();
 
   log.printf("  atoms involved : ");
-  for(unsigned i=0; i<atoms.size(); ++i) log.printf("%d ",atoms[i].serial());
+  for(unsigned i=0; i<atoms.size(); ++i) {
+    log.printf("%d ",atoms[i].serial());
+  }
   log.printf("\n");
   log.printf("  GMM data file : %s\n", GMM_file.c_str());
-  if(no_aver_) log.printf("  without ensemble averaging\n");
+  if(no_aver_) {
+    log.printf("  without ensemble averaging\n");
+  }
   log.printf("  type of data noise : %s\n", noise.c_str());
   log.printf("  neighbor list cutoff : %lf\n", nl_cutoff_);
   log.printf("  neighbor list stride : %u\n",  nl_stride_);
@@ -607,8 +672,12 @@ EMMI::EMMI(const ActionOptions&ao):
     log.printf("  reading/writing to status file : %s\n",statusfilename_.c_str());
     log.printf("  with stride : %u\n",statusstride_);
   }
-  if(errfile.size()>0) log.printf("  reading experimental errors from file : %s\n", errfile.c_str());
-  if(ovfile.size()>0)  log.printf("  reading experimental overlaps from file : %s\n", ovfile.c_str());
+  if(errfile.size()>0) {
+    log.printf("  reading experimental errors from file : %s\n", errfile.c_str());
+  }
+  if(ovfile.size()>0) {
+    log.printf("  reading experimental overlaps from file : %s\n", ovfile.c_str());
+  }
   log.printf("  temperature of the system in energy unit : %f\n",kbt_);
   log.printf("  prior exponent : %f\n",prior_);
   log.printf("  number of replicas for averaging: %u\n",nrep_);
@@ -633,14 +702,20 @@ EMMI::EMMI(const ActionOptions&ao):
   log.printf("  number of GMM components : %u\n", static_cast<unsigned>(GMM_d_m_.size()));
 
   // normalize atom weight map
-  if(norm_d <= 0.0) norm_d = accumulate(GMM_d_w_.begin(), GMM_d_w_.end(), 0.0);
+  if(norm_d <= 0.0) {
+    norm_d = accumulate(GMM_d_w_.begin(), GMM_d_w_.end(), 0.0);
+  }
   double norm_m = accumulate(GMM_m_w.begin(),  GMM_m_w.end(),  0.0);
   // renormalization
-  for(unsigned i=0; i<GMM_m_w_.size(); ++i) GMM_m_w_[i] *= norm_d / norm_m;
+  for(unsigned i=0; i<GMM_m_w_.size(); ++i) {
+    GMM_m_w_[i] *= norm_d / norm_m;
+  }
 
   // read experimental errors
   std::vector<double> exp_err;
-  if(errfile.size()>0) exp_err = read_exp_errors(errfile);
+  if(errfile.size()>0) {
+    exp_err = read_exp_errors(errfile);
+  }
 
   // get self overlaps between data GMM components
   if(ovfile.size()>0) {
@@ -664,8 +739,11 @@ EMMI::EMMI(const ActionOptions&ao):
       // GMM id
       int GMMid = GMM_d_grps_[Gid][i];
       // add to experimental error
-      if(errfile.size()>0) err.push_back(exp_err[GMMid]);
-      else                 err.push_back(0.);
+      if(errfile.size()>0) {
+        err.push_back(exp_err[GMMid]);
+      } else {
+        err.push_back(0.);
+      }
       // add to GMM overlap
       ovdd.push_back(ovdd_[GMMid]);
     }
@@ -690,7 +768,9 @@ EMMI::EMMI(const ActionOptions&ao):
   }
 
   // read status file if restarting
-  if(getRestart() && noise_!=2) read_status();
+  if(getRestart() && noise_!=2) {
+    read_status();
+  }
 
   // calculate auxiliary stuff
   calculate_useful_stuff(reso);
@@ -705,17 +785,27 @@ EMMI::EMMI(const ActionOptions&ao):
   GMM_d_cov_.clear();
 
   // add components
-  addComponentWithDerivatives("scoreb"); componentIsNotPeriodic("scoreb");
+  addComponentWithDerivatives("scoreb");
+  componentIsNotPeriodic("scoreb");
 
-  if(noise_!=2) {addComponent("acc"); componentIsNotPeriodic("acc");}
-
-  if(nregres_>0) {
-    addComponent("scale");     componentIsNotPeriodic("scale");
-    addComponent("accscale");  componentIsNotPeriodic("accscale");
-    addComponent("enescale");  componentIsNotPeriodic("enescale");
+  if(noise_!=2) {
+    addComponent("acc");
+    componentIsNotPeriodic("acc");
   }
 
-  if(nanneal_>0) {addComponent("anneal"); componentIsNotPeriodic("anneal");}
+  if(nregres_>0) {
+    addComponent("scale");
+    componentIsNotPeriodic("scale");
+    addComponent("accscale");
+    componentIsNotPeriodic("accscale");
+    addComponent("enescale");
+    componentIsNotPeriodic("enescale");
+  }
+
+  if(nanneal_>0) {
+    addComponent("anneal");
+    componentIsNotPeriodic("anneal");
+  }
 
   if(do_reweight_) {
     addComponent("biasDer");
@@ -728,15 +818,20 @@ EMMI::EMMI(const ActionOptions&ao):
   componentIsNotPeriodic("neff");
 
   for(unsigned i=0; i<sigma_.size(); ++i) {
-    std::string num; Tools::convert(i, num);
-    addComponent("sigma-"+num); componentIsNotPeriodic("sigma-"+num);
+    std::string num;
+    Tools::convert(i, num);
+    addComponent("sigma-"+num);
+    componentIsNotPeriodic("sigma-"+num);
     getPntrToComponent("sigma-"+num)->set(sigma_[i]);
   }
 
   // initialize random seed
   unsigned iseed;
-  if(rank_==0) iseed = time(NULL)+replica_;
-  else iseed = 0;
+  if(rank_==0) {
+    iseed = time(NULL)+replica_;
+  } else {
+    iseed = 0;
+  }
   comm.Sum(&iseed, 1);
   random_.setSeed(-iseed);
 
@@ -748,22 +843,26 @@ EMMI::EMMI(const ActionOptions&ao):
   log<<"  Bibliography "<<plumed.cite("Bonomi, Camilloni, Bioinformatics, 33, 3999 (2017)");
   log<<plumed.cite("Hanot, Bonomi, Greenberg, Sali, Nilges, Vendruscolo, Pellarin, bioRxiv doi: 10.1101/113951 (2017)");
   log<<plumed.cite("Bonomi, Pellarin, Vendruscolo, Biophys. J. 114, 1604 (2018)");
-  if(do_reweight_) log<<plumed.cite("Bonomi, Camilloni, Vendruscolo, Sci. Rep. 6, 31232 (2016)");
-  if(!no_aver_ && nrep_>1)log<<plumed.cite("Bonomi, Camilloni, Cavalli, Vendruscolo, Sci. Adv. 2, e150117 (2016)");
+  if(do_reweight_) {
+    log<<plumed.cite("Bonomi, Camilloni, Vendruscolo, Sci. Rep. 6, 31232 (2016)");
+  }
+  if(!no_aver_ && nrep_>1) {
+    log<<plumed.cite("Bonomi, Camilloni, Cavalli, Vendruscolo, Sci. Adv. 2, e150117 (2016)");
+  }
   log<<"\n";
 }
 
-void EMMI::write_model_overlap(long long int step)
-{
+void EMMI::write_model_overlap(long long int step) {
   OFile ovfile;
   ovfile.link(*this);
-  std::string num; Tools::convert(step,num);
+  std::string num;
+  Tools::convert(step,num);
   std::string name = ovfilename_+"-"+num;
   ovfile.open(name);
   ovfile.setHeavyFlush();
   ovfile.fmtField("%10.7e ");
 // write overlaps
-  for(int i=0; i<ovmd_.size(); ++i) {
+  for(unsigned i=0; i<ovmd_.size(); ++i) {
     ovfile.printField("Model", ovmd_[i]);
     ovfile.printField("ModelScaled", scale_ * ovmd_[i]);
     ovfile.printField("Data", ovdd_[i]);
@@ -772,8 +871,7 @@ void EMMI::write_model_overlap(long long int step)
   ovfile.close();
 }
 
-double EMMI::get_median(std::vector<double> &v)
-{
+double EMMI::get_median(std::vector<double> &v) {
 // dimension of std::vector
   unsigned size = v.size();
 // in case of only one entry
@@ -791,8 +889,7 @@ double EMMI::get_median(std::vector<double> &v)
   }
 }
 
-void EMMI::read_status()
-{
+void EMMI::read_status() {
   double MDtime;
 // open file
   auto ifile = Tools::make_unique<IFile>();
@@ -802,7 +899,8 @@ void EMMI::read_status()
     while(ifile->scanField("MD_time", MDtime)) {
       for(unsigned i=0; i<sigma_.size(); ++i) {
         // convert i to std::string
-        std::string num; Tools::convert(i,num);
+        std::string num;
+        Tools::convert(i,num);
         // read entries
         ifile->scanField("s"+num, sigma_[i]);
       }
@@ -815,8 +913,7 @@ void EMMI::read_status()
   }
 }
 
-void EMMI::print_status(long long int step)
-{
+void EMMI::print_status(long long int step) {
 // if first time open the file
   if(first_status_) {
     first_status_ = false;
@@ -830,7 +927,8 @@ void EMMI::print_status(long long int step)
   statusfile_.printField("MD_time", MDtime);
   for(unsigned i=0; i<sigma_.size(); ++i) {
     // convert i to std::string
-    std::string num; Tools::convert(i,num);
+    std::string num;
+    Tools::convert(i,num);
     // print entry
     statusfile_.printField("s"+num, sigma_[i]);
   }
@@ -847,24 +945,31 @@ bool EMMI::doAccept(double oldE, double newE, double kbt) {
   } else {
     // otherwise extract random number
     double s = random_.RandU01();
-    if( s < std::exp(-delta) ) { accept = true; }
+    if( s < std::exp(-delta) ) {
+      accept = true;
+    }
   }
   return accept;
 }
 
-void EMMI::doMonteCarlo()
-{
+void EMMI::doMonteCarlo() {
   // extract random GMM group
   unsigned nGMM = static_cast<unsigned>(std::floor(random_.RandU01()*static_cast<double>(GMM_d_grps_.size())));
-  if(nGMM==GMM_d_grps_.size()) nGMM -= 1;
+  if(nGMM==GMM_d_grps_.size()) {
+    nGMM -= 1;
+  }
 
   // generate random move
   double shift = dsigma_[nGMM] * ( 2.0 * random_.RandU01() - 1.0 );
   // new sigma
   double new_s = sigma_[nGMM] + shift;
   // check boundaries
-  if(new_s > sigma_max_[nGMM]) {new_s = 2.0 * sigma_max_[nGMM] - new_s;}
-  if(new_s < sigma_min_[nGMM]) {new_s = 2.0 * sigma_min_[nGMM] - new_s;}
+  if(new_s > sigma_max_[nGMM]) {
+    new_s = 2.0 * sigma_max_[nGMM] - new_s;
+  }
+  if(new_s < sigma_min_[nGMM]) {
+    new_s = 2.0 * sigma_min_[nGMM] - new_s;
+  }
   // old s2
   double old_inv_s2 = 1.0 / sigma_[nGMM] / sigma_[nGMM];
   // new s2
@@ -918,7 +1023,9 @@ void EMMI::doMonteCarlo()
   }
   // local communication
   if(rank_!=0) {
-    for(unsigned i=0; i<sigma_.size(); ++i) sigma_[i] = 0.0;
+    for(unsigned i=0; i<sigma_.size(); ++i) {
+      sigma_[i] = 0.0;
+    }
     MCaccept_ = 0.0;
   }
   if(size_>1) {
@@ -927,12 +1034,12 @@ void EMMI::doMonteCarlo()
   }
 
   // update sigma output
-  std::string num; Tools::convert(nGMM, num);
+  std::string num;
+  Tools::convert(nGMM, num);
   getPntrToComponent("sigma-"+num)->set(sigma_[nGMM]);
 }
 
-std::vector<double> EMMI::read_exp_errors(const std::string & errfile)
-{
+std::vector<double> EMMI::read_exp_errors(const std::string & errfile) {
   int nexp, idcomp;
   double err;
   std::vector<double> exp_err;
@@ -947,8 +1054,9 @@ std::vector<double> EMMI::read_exp_errors(const std::string & errfile)
       // total experimental error
       double err_tot = 0.0;
       // cycle on number of experimental overlaps
-      for(unsigned i=0; i<nexp; ++i) {
-        std::string ss; Tools::convert(i,ss);
+      for(int i=0; i<nexp; ++i) {
+        std::string ss;
+        Tools::convert(i,ss);
         ifile->scanField("Err"+ss, err);
         // add to total error
         err_tot += err*err;
@@ -967,8 +1075,7 @@ std::vector<double> EMMI::read_exp_errors(const std::string & errfile)
   return exp_err;
 }
 
-std::vector<double> EMMI::read_exp_overlaps(const std::string & ovfile)
-{
+std::vector<double> EMMI::read_exp_overlaps(const std::string & ovfile) {
   int idcomp;
   double ov;
   std::vector<double> ovdd;
@@ -992,8 +1099,7 @@ std::vector<double> EMMI::read_exp_overlaps(const std::string & ovfile)
   return ovdd;
 }
 
-std::vector<double> EMMI::get_GMM_m(std::vector<AtomNumber> &atoms)
-{
+std::vector<double> EMMI::get_GMM_m(std::vector<AtomNumber> &atoms) {
   // list of weights - one per atom
   std::vector<double> GMM_m_w;
 
@@ -1051,24 +1157,25 @@ std::vector<double> EMMI::get_GMM_m(std::vector<AtomNumber> &atoms)
   return GMM_m_w;
 }
 
-void EMMI::check_GMM_d(const VectorGeneric<6> &cov, double w)
-{
+void EMMI::check_GMM_d(const VectorGeneric<6> &cov, double w) {
 
 // check if positive defined, by calculating the 3 leading principal minors
-  double pm1 = cov[0];
-  double pm2 = cov[0]*cov[3]-cov[1]*cov[1];
-  double pm3 = cov[0]*(cov[3]*cov[5]-cov[4]*cov[4])-cov[1]*(cov[1]*cov[5]-cov[4]*cov[2])+cov[2]*(cov[1]*cov[4]-cov[3]*cov[2]);
+  const double pm1 = cov[0];
+  const double pm2 = cov[0]*cov[3]-cov[1]*cov[1];
+  const double pm3 = cov[0]*(cov[3]*cov[5]-cov[4]*cov[4])-cov[1]*(cov[1]*cov[5]-cov[4]*cov[2])+cov[2]*(cov[1]*cov[4]-cov[3]*cov[2]);
 // apply Sylvester’s criterion
-  if(pm1<=0.0 || pm2<=0.0 || pm3<=0.0)
+  if(pm1<=0.0 || pm2<=0.0 || pm3<=0.0) {
     error("check data GMM: covariance matrix is not positive defined");
+  }
 
 // check if weight is positive
-  if(w<=0) error("check data GMM: weight must be positive");
+  if(w<=0) {
+    error("check data GMM: weight must be positive");
+  }
 }
 
 // read GMM data file in PLUMED format:
-void EMMI::get_GMM_d(const std::string & GMM_file)
-{
+void EMMI::get_GMM_d(const std::string & GMM_file) {
   VectorGeneric<6> cov;
 
 // open file
@@ -1093,7 +1200,9 @@ void EMMI::get_GMM_d(const std::string & GMM_file)
       // check input
       check_GMM_d(cov, w);
       // check beta
-      if(beta<0) error("Beta must be positive!");
+      if(beta<0) {
+        error("Beta must be positive!");
+      }
       // center of the Gaussian
       GMM_d_m_.push_back(Vector(m0,m1,m2));
       // covariance matrix
@@ -1114,13 +1223,16 @@ void EMMI::get_GMM_d(const std::string & GMM_file)
   GMM_d_grps_.resize(bu.size());
   // and fill it in
   for(unsigned i=0; i<GMM_d_beta_.size(); ++i) {
-    if(GMM_d_beta_[i]>=GMM_d_grps_.size()) error("Check Beta values");
+//I do not know if GMM_d_beta is always >0, if I can assumo that GMM_d_beta is >=0, i can skip the signedness check
+    if((GMM_d_beta_[i]>=0) &&
+        (static_cast<unsigned>(GMM_d_beta_[i])>=GMM_d_grps_.size())) {
+      error("Check Beta values");
+    }
     GMM_d_grps_[GMM_d_beta_[i]].push_back(i);
   }
 }
 
-void EMMI::calculate_useful_stuff(double reso)
-{
+void EMMI::calculate_useful_stuff(double reso) {
   // We use the following definition for resolution:
   // the Fourier transform of the density distribution in real space
   // f(s) falls to 1/e of its maximum value at wavenumber 1/resolution
@@ -1133,10 +1245,15 @@ void EMMI::calculate_useful_stuff(double reso)
   Bave /= static_cast<double>(GMM_m_type_.size());
   // calculate blur factor
   double blur = 0.0;
-  if(reso*reso>Bave) blur = reso*reso-Bave;
-  else warning("PLUMED should not be used with maps at resolution better than 0.3 nm");
+  if(reso*reso>Bave) {
+    blur = reso*reso-Bave;
+  } else {
+    warning("PLUMED should not be used with maps at resolution better than 0.3 nm");
+  }
   // add blur to B
-  for(unsigned i=0; i<GMM_m_s_.size(); ++i) GMM_m_s_[i] += blur;
+  for(unsigned i=0; i<GMM_m_s_.size(); ++i) {
+    GMM_m_s_[i] += blur;
+  }
   // calculate average resolution
   double ave_res = 0.0;
   for(unsigned i=0; i<GMM_m_type_.size(); ++i) {
@@ -1154,13 +1271,18 @@ void EMMI::calculate_useful_stuff(double reso)
     // f(r) = A * (pi/B)**1.5 * exp(-pi**2/B*r**2)
     double s = std::sqrt ( 0.5 * GMM_m_s_[i] ) / pi;
     // covariance matrix for spherical Gaussian
-    cov[0]=s*s; cov[1]=0.0; cov[2]=0.0;
-    cov[3]=s*s; cov[4]=0.0;
+    cov[0]=s*s;
+    cov[1]=0.0;
+    cov[2]=0.0;
+    cov[3]=s*s;
+    cov[4]=0.0;
     cov[5]=s*s;
     // cycle on all data GMM
     for(unsigned j=0; j<GMM_d_m_.size(); ++j) {
       // we need the sum of the covariance matrices
-      for(unsigned k=0; k<6; ++k) sum[k] = cov[k] + GMM_d_cov_[j][k];
+      for(unsigned k=0; k<6; ++k) {
+        sum[k] = cov[k] + GMM_d_cov_[j][k];
+      }
       // and to calculate its determinant
       double det = sum[0]*(sum[3]*sum[5]-sum[4]*sum[4]);
       det -= sum[1]*(sum[1]*sum[5]-sum[4]*sum[2]);
@@ -1191,10 +1313,11 @@ void EMMI::calculate_useful_stuff(double reso)
 double EMMI::get_prefactor_inverse
 (const VectorGeneric<6> &GMM_cov_0, const VectorGeneric<6> &GMM_cov_1,
  double GMM_w_0, double GMM_w_1,
- VectorGeneric<6> &sum, VectorGeneric<6> &inv_sum)
-{
+ VectorGeneric<6> &sum, VectorGeneric<6> &inv_sum) {
 // we need the sum of the covariance matrices
-  for(unsigned k=0; k<6; ++k) sum[k] = GMM_cov_0[k] + GMM_cov_1[k];
+  for(unsigned k=0; k<6; ++k) {
+    sum[k] = GMM_cov_0[k] + GMM_cov_1[k];
+  }
 
 // and to calculate its determinant
   double det = sum[0]*(sum[3]*sum[5]-sum[4]*sum[4]);
@@ -1216,8 +1339,7 @@ double EMMI::get_prefactor_inverse
   return pre_fact;
 }
 
-double EMMI::get_self_overlap(unsigned id)
-{
+double EMMI::get_self_overlap(unsigned id) {
   double ov_tot = 0.0;
   VectorGeneric<6> sum, inv_sum;
   Vector ov_der;
@@ -1235,12 +1357,14 @@ double EMMI::get_self_overlap(unsigned id)
 
 // get overlap and derivatives
 double EMMI::get_overlap(const Vector &m_m, const Vector &d_m, double pre_fact,
-                         const VectorGeneric<6> &inv_cov_md, Vector &ov_der)
-{
+                         const VectorGeneric<6> &inv_cov_md, Vector &ov_der) {
   Vector md;
   // calculate std::vector difference m_m-d_m with/without pbc
-  if(pbc_) md = pbcDistance(d_m, m_m);
-  else     md = delta(d_m, m_m);
+  if(pbc_) {
+    md = pbcDistance(d_m, m_m);
+  } else {
+    md = delta(d_m, m_m);
+  }
   // calculate product of transpose of md and inv_cov_md
   double p_x = md[0]*inv_cov_md[0]+md[1]*inv_cov_md[1]+md[2]*inv_cov_md[2];
   double p_y = md[0]*inv_cov_md[1]+md[1]*inv_cov_md[3]+md[2]*inv_cov_md[4];
@@ -1256,12 +1380,14 @@ double EMMI::get_overlap(const Vector &m_m, const Vector &d_m, double pre_fact,
 
 // get the exponent of the overlap
 double EMMI::get_exp_overlap(const Vector &m_m, const Vector &d_m,
-                             const VectorGeneric<6> &inv_cov_md)
-{
+                             const VectorGeneric<6> &inv_cov_md) {
   Vector md;
   // calculate std::vector difference m_m-d_m with/without pbc
-  if(pbc_) md = pbcDistance(d_m, m_m);
-  else     md = delta(d_m, m_m);
+  if(pbc_) {
+    md = pbcDistance(d_m, m_m);
+  } else {
+    md = delta(d_m, m_m);
+  }
   // calculate product of transpose of md and inv_cov_md
   double p_x = md[0]*inv_cov_md[0]+md[1]*inv_cov_md[1]+md[2]*inv_cov_md[2];
   double p_y = md[0]*inv_cov_md[1]+md[1]*inv_cov_md[3]+md[2]*inv_cov_md[4];
@@ -1271,8 +1397,7 @@ double EMMI::get_exp_overlap(const Vector &m_m, const Vector &d_m,
   return ov;
 }
 
-void EMMI::update_neighbor_list()
-{
+void EMMI::update_neighbor_list() {
   // dimension of GMM and atom std::vectors
   unsigned GMM_d_size = GMM_d_m_.size();
   unsigned GMM_m_size = GMM_m_type_.size();
@@ -1297,7 +1422,9 @@ void EMMI::update_neighbor_list()
       // get index of 0.5*expov in tabulated exponential
       unsigned itab = static_cast<unsigned> (round( 0.5*expov/dexp_ ));
       // check boundaries and skip atom in case
-      if(itab >= tab_exp_.size()) continue;
+      if(itab >= tab_exp_.size()) {
+        continue;
+      }
       // in case calculate overlap
       double ov = pre_fact_[kaux] * tab_exp_[itab];
       // add to list
@@ -1308,7 +1435,9 @@ void EMMI::update_neighbor_list()
       ov_tot += ov;
     }
     // check if zero size -> ov_tot = 0
-    if(ov_l.size()==0) continue;
+    if(ov_l.size()==0) {
+      continue;
+    }
     // define cutoff
     double ov_cut = ov_tot * nl_cutoff_;
     // sort ov_l in ascending order
@@ -1318,12 +1447,16 @@ void EMMI::update_neighbor_list()
     for(unsigned i=0; i<ov_l.size(); ++i) {
       res += ov_l[i];
       // if exceeding the cutoff for overlap, stop
-      if(res >= ov_cut) break;
-      else ov_m.erase(ov_l[i]);
+      if(res >= ov_cut) {
+        break;
+      } else {
+        ov_m.erase(ov_l[i]);
+      }
     }
     // now add atoms to neighborlist
-    for(std::map<double, unsigned>::iterator it=ov_m.begin(); it!=ov_m.end(); ++it)
+    for(std::map<double, unsigned>::iterator it=ov_m.begin(); it!=ov_m.end(); ++it) {
       nl_l.push_back(id*GMM_m_size+it->second);
+    }
     // end cycle on GMM components in parallel
   }
   // find total dimension of neighborlist
@@ -1347,9 +1480,10 @@ void EMMI::update_neighbor_list()
   ovmd_der_.resize(tot_size);
 }
 
-void EMMI::prepare()
-{
-  if(getExchangeStep()) first_time_=true;
+void EMMI::prepare() {
+  if(getExchangeStep()) {
+    first_time_=true;
+  }
 }
 
 // overlap calculator
@@ -1361,8 +1495,12 @@ void EMMI::calculate_overlap() {
   }
 
   // clean temporary std::vectors
-  for(unsigned i=0; i<ovmd_.size(); ++i)     ovmd_[i] = 0.0;
-  for(unsigned i=0; i<ovmd_der_.size(); ++i) ovmd_der_[i] = Vector(0,0,0);
+  for(unsigned i=0; i<ovmd_.size(); ++i) {
+    ovmd_[i] = 0.0;
+  }
+  for(unsigned i=0; i<ovmd_der_.size(); ++i) {
+    ovmd_der_[i] = Vector(0,0,0);
+  }
 
   // we have to cycle over all model and data GMM components in the neighbor list
   unsigned GMM_d_size = GMM_d_m_.size();
@@ -1384,17 +1522,15 @@ void EMMI::calculate_overlap() {
   }
 }
 
-double EMMI::scaleEnergy(double s)
-{
+double EMMI::scaleEnergy(double s) {
   double ene = 0.0;
   for(unsigned i=0; i<ovdd_.size(); ++i) {
-    ene += std::log( abs ( s * ovmd_ave_[i] - ovdd_[i] ) );
+    ene += std::log( std::fabs ( s * ovmd_ave_[i] - ovdd_[i] ) );
   }
   return ene;
 }
 
-double EMMI::doRegression()
-{
+double EMMI::doRegression() {
 // standard MC parameters
   unsigned MCsteps = 100000;
   double kbtmin = 1.0;
@@ -1413,14 +1549,21 @@ double EMMI::doRegression()
 // MC loop
   for(unsigned istep=0; istep<MCsteps; ++istep) {
     // get temperature
-    if(istep%(ncold+nhot)<ncold) kbt = kbtmin;
-    else kbt = kbtmax;
+    if(istep%(ncold+nhot)<ncold) {
+      kbt = kbtmin;
+    } else {
+      kbt = kbtmax;
+    }
     // propose move in scale
     double ds = dscale_ * ( 2.0 * random_.RandU01() - 1.0 );
     double new_scale = scale + ds;
     // check boundaries
-    if(new_scale > scale_max_) {new_scale = 2.0 * scale_max_ - new_scale;}
-    if(new_scale < scale_min_) {new_scale = 2.0 * scale_min_ - new_scale;}
+    if(new_scale > scale_max_) {
+      new_scale = 2.0 * scale_max_ - new_scale;
+    }
+    if(new_scale < scale_min_) {
+      new_scale = 2.0 * scale_min_ - new_scale;
+    }
     // new energy
     double new_ene = scaleEnergy(new_scale);
     // accept or reject
@@ -1470,8 +1613,7 @@ double EMMI::doRegression()
   return scale_best;
 }
 
-double EMMI::get_annealing(long long int step)
-{
+double EMMI::get_annealing(long long int step) {
 // default no annealing
   double fact = 1.0;
 // position in annealing cycle
@@ -1480,21 +1622,28 @@ double EMMI::get_annealing(long long int step)
   double ncd = static_cast<double>(nc);
   double nn  = static_cast<double>(nanneal_);
 // set fact
-  if(nc>=nanneal_   && nc<2*nanneal_) fact = (kanneal_-1.0) / nn * ( ncd - nn ) + 1.0;
-  if(nc>=2*nanneal_ && nc<3*nanneal_) fact = kanneal_;
-  if(nc>=3*nanneal_)                  fact = (1.0-kanneal_) / nn * ( ncd - 3.0*nn) + kanneal_;
+  if(nc>=nanneal_   && nc<2*nanneal_) {
+    fact = (kanneal_-1.0) / nn * ( ncd - nn ) + 1.0;
+  }
+  if(nc>=2*nanneal_ && nc<3*nanneal_) {
+    fact = kanneal_;
+  }
+  if(nc>=3*nanneal_) {
+    fact = (1.0-kanneal_) / nn * ( ncd - 3.0*nn) + kanneal_;
+  }
   return fact;
 }
 
-void EMMI::get_weights(double &weight, double &norm, double &neff)
-{
+void EMMI::get_weights(double &weight, double &norm, double &neff) {
   const double dnrep = static_cast<double>(nrep_);
   // calculate the weights either from BIAS
   if(do_reweight_) {
     std::vector<double> bias(nrep_,0);
     if(rank_==0) {
       bias[replica_] = getArgument(0);
-      if(nrep_>1) multi_sim_comm.Sum(&bias[0], nrep_);
+      if(nrep_>1) {
+        multi_sim_comm.Sum(&bias[0], nrep_);
+      }
     }
     comm.Sum(&bias[0], nrep_);
 
@@ -1509,12 +1658,16 @@ void EMMI::get_weights(double &weight, double &norm, double &neff)
       }
     } else {
       first_time_w_ = false;
-      for(unsigned i=0; i<nrep_; ++i) average_weights_[i] = bias[i];
+      for(unsigned i=0; i<nrep_; ++i) {
+        average_weights_[i] = bias[i];
+      }
     }
 
     // set average back into bias and set norm to one
     const double maxbias = *(std::max_element(average_weights_.begin(), average_weights_.end()));
-    for(unsigned i=0; i<nrep_; ++i) bias[i] = std::exp((average_weights_[i]-maxbias)/kbt_);
+    for(unsigned i=0; i<nrep_; ++i) {
+      bias[i] = std::exp((average_weights_[i]-maxbias)/kbt_);
+    }
     // set local weight, norm and weight variance
     weight = bias[replica_];
     double w2=0.;
@@ -1533,8 +1686,7 @@ void EMMI::get_weights(double &weight, double &norm, double &neff)
   getPntrToComponent("neff")->set(neff);
 }
 
-void EMMI::calculate()
-{
+void EMMI::calculate() {
 
 // calculate CV
   calculate_overlap();
@@ -1549,15 +1701,23 @@ void EMMI::calculate()
   if(!no_aver_ && nrep_>1) {
     // if master node, calculate average across replicas
     if(rank_==0) {
-      for(unsigned i=0; i<ovmd_.size(); ++i) ovmd_ave_[i] = weight / norm * ovmd_[i];
+      for(unsigned i=0; i<ovmd_.size(); ++i) {
+        ovmd_ave_[i] = weight / norm * ovmd_[i];
+      }
       multi_sim_comm.Sum(&ovmd_ave_[0], ovmd_ave_.size());
     } else {
-      for(unsigned i=0; i<ovmd_ave_.size(); ++i) ovmd_ave_[i] = 0.0;
+      for(unsigned i=0; i<ovmd_ave_.size(); ++i) {
+        ovmd_ave_[i] = 0.0;
+      }
     }
     // local communication
-    if(size_>1) comm.Sum(&ovmd_ave_[0], ovmd_ave_.size());
+    if(size_>1) {
+      comm.Sum(&ovmd_ave_[0], ovmd_ave_.size());
+    }
   } else {
-    for(unsigned i=0; i<ovmd_.size(); ++i) ovmd_ave_[i] = ovmd_[i];
+    for(unsigned i=0; i<ovmd_.size(); ++i) {
+      ovmd_ave_[i] = ovmd_[i];
+    }
   }
 
   // get time step
@@ -1565,26 +1725,36 @@ void EMMI::calculate()
 
   // do regression
   if(nregres_>0) {
-    if(step%nregres_==0 && !getExchangeStep()) scale_ = doRegression();
+    if(step%nregres_==0 && !getExchangeStep()) {
+      scale_ = doRegression();
+    }
     // set scale component
     getPntrToComponent("scale")->set(scale_);
   }
 
   // write model overlap to file
-  if(ovstride_>0 && step%ovstride_==0) write_model_overlap(step);
+  if(ovstride_>0 && step%ovstride_==0) {
+    write_model_overlap(step);
+  }
 
   // clear energy and virial
   ene_ = 0.0;
   virial_.zero();
 
   // Gaussian noise
-  if(noise_==0) calculate_Gauss();
+  if(noise_==0) {
+    calculate_Gauss();
+  }
 
   // Outliers noise
-  if(noise_==1) calculate_Outliers();
+  if(noise_==1) {
+    calculate_Outliers();
+  }
 
   // Marginal noise
-  if(noise_==2) calculate_Marginal();
+  if(noise_==2) {
+    calculate_Marginal();
+  }
 
   // get annealing rescale factor
   if(nanneal_>0) {
@@ -1607,7 +1777,9 @@ void EMMI::calculate()
       multi_sim_comm.Sum(&ene_, 1);
     } else {
       // set der_GMMid derivatives and energy to zero
-      for(unsigned i=0; i<GMMid_der_av_.size(); ++i) GMMid_der_av_[i]=0.0;
+      for(unsigned i=0; i<GMMid_der_av_.size(); ++i) {
+        GMMid_der_av_[i]=0.0;
+      }
       ene_ = 0.0;
     }
     // local communication
@@ -1622,7 +1794,9 @@ void EMMI::calculate()
   }
 
   // clean temporary std::vector
-  for(unsigned i=0; i<atom_der_.size(); ++i) atom_der_[i] = Vector(0,0,0);
+  for(unsigned i=0; i<atom_der_.size(); ++i) {
+    atom_der_[i] = Vector(0,0,0);
+  }
 
   // get derivatives of bias with respect to atoms
   for(unsigned i=rank_; i<nl_.size(); i=i+size_) {
@@ -1632,8 +1806,11 @@ void EMMI::calculate()
     // chain rule + replica normalization
     Vector tot_der = GMMid_der_av_[id] * ovmd_der_[i] * scale_ / anneal_;
     Vector pos;
-    if(pbc_) pos = pbcDistance(GMM_d_m_[id], getPosition(im)) + GMM_d_m_[id];
-    else     pos = getPosition(im);
+    if(pbc_) {
+      pos = pbcDistance(GMM_d_m_[id], getPosition(im)) + GMM_d_m_[id];
+    } else {
+      pos = getPosition(im);
+    }
     // increment derivatives and virial
     atom_der_[im] += tot_der;
     virial_ += Tensor(pos, -tot_der);
@@ -1646,7 +1823,9 @@ void EMMI::calculate()
   }
 
   // set derivatives, virial, and score
-  for(unsigned i=0; i<atom_der_.size(); ++i) setAtomsDerivatives(getPntrToComponent("scoreb"), i, atom_der_[i]);
+  for(unsigned i=0; i<atom_der_.size(); ++i) {
+    setAtomsDerivatives(getPntrToComponent("scoreb"), i, atom_der_[i]);
+  }
   setBoxDerivatives(getPntrToComponent("scoreb"), virial_);
   getPntrToComponent("scoreb")->set(ene_);
 
@@ -1665,10 +1844,14 @@ void EMMI::calculate()
   if(noise_!=2) {
 
     // do Montecarlo
-    if(dsigma_[0]>0 && step%MCstride_==0 && !getExchangeStep()) doMonteCarlo();
+    if(dsigma_[0]>0 && step%MCstride_==0 && !getExchangeStep()) {
+      doMonteCarlo();
+    }
 
     // print status
-    if(step%statusstride_==0) print_status(step);
+    if(step%statusstride_==0) {
+      print_status(step);
+    }
 
     // calculate acceptance ratio
     double acc = MCaccept_ / MCtrials_;
@@ -1680,8 +1863,7 @@ void EMMI::calculate()
 
 }
 
-void EMMI::calculate_Gauss()
-{
+void EMMI::calculate_Gauss() {
   // cycle on all the GMM groups
   for(unsigned i=0; i<GMM_d_grps_.size(); ++i) {
     double eneg = 0.0;
@@ -1701,8 +1883,7 @@ void EMMI::calculate_Gauss()
   }
 }
 
-void EMMI::calculate_Outliers()
-{
+void EMMI::calculate_Outliers() {
   // cycle on all the GMM groups
   for(unsigned i=0; i<GMM_d_grps_.size(); ++i) {
     // cycle on all the members of the group
@@ -1722,8 +1903,7 @@ void EMMI::calculate_Outliers()
   }
 }
 
-void EMMI::calculate_Marginal()
-{
+void EMMI::calculate_Marginal() {
   // cycle on all the GMM groups
   for(unsigned i=0; i<GMM_d_grps_.size(); ++i) {
     // cycle on all the members of the group

@@ -24,6 +24,7 @@
 
 #include "ActionAtomistic.h"
 #include "ActionWithValue.h"
+#include "tools/Matrix.h"
 #include <vector>
 
 #define PLUMED_COLVAR_INIT(ao) Action(ao),Colvar(ao)
@@ -35,11 +36,12 @@ namespace PLMD {
 This is the abstract base class to use for implementing new collective variables, within it there is
 \ref AddingAColvar "information" as to how to go about implementing a new CV.
 */
-
+class NeighborList;
 class Colvar :
   public ActionAtomistic,
-  public ActionWithValue
-{
+  public ActionWithValue {
+
+  friend class NeighborList;
 private:
 protected:
   void requestAtoms(const std::vector<AtomNumber> & a);
@@ -66,7 +68,6 @@ public:
   ~Colvar() {}
   static void registerKeywords( Keywords& keys );
   unsigned getNumberOfDerivatives() override;
-  static void setBoxDerivativesNoPbc( const std::vector<Vector>& pos, std::vector<std::vector<Vector> >& derivs, std::vector<Tensor>& virial );
 };
 
 inline
@@ -110,7 +111,6 @@ inline
 unsigned Colvar::getNumberOfDerivatives() {
   return 3*getNumberOfAtoms() + 9;
 }
-
 
 }
 

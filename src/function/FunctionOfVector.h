@@ -23,336 +23,317 @@
 #define __PLUMED_function_FunctionOfVector_h
 
 #include "core/ActionWithVector.h"
-//#include "core/CollectFrames.h"
+#include "core/ParallelTaskManager.h"
 #include "core/ActionSetup.h"
-#include "tools/Matrix.h"
-#include "Sum.h"
+#include "FunctionSetup.h"
+#include "Custom.h"
 
 namespace PLMD {
 namespace function {
 
-template <class T>
+template <class CV, typename myPTM=defaultPTM>
 class FunctionOfVector : public ActionWithVector {
+public:
+  using input_type = FunctionData<CV>;
+  using mytype= FunctionOfVector<CV,myPTM>;
+  using PTM = typename myPTM::template PTM<mytype>;
+  typedef typename PTM::ParallelActionsInput ParallelActionsInput;
+  typedef typename PTM::ParallelActionsOutput ParallelActionsOutput;
 private:
-/// Do the calculation at the end of the run
-  bool doAtEnd;
-/// Is this the first time we are doing the calc
-  bool firststep;
-/// The function that is being computed
-  T myfunc;
-/// The number of derivatives for this action
-  unsigned nderivatives;
-/// A vector that tells us if we have stored the input value
-  std::vector<bool> stored_arguments;
+/// The parallel task manager
+  PTM taskmanager;
+/// Set equal to one if we are doing EvaluateGridFunction
+  unsigned argstart;
 public:
   static void registerKeywords(Keywords&);
-/// This method is used to run the calculation with functions such as highest/lowest and sort.
-/// It is static so we can reuse the functionality in FunctionOfMatrix
-  static void runSingleTaskCalculation( const Value* arg, ActionWithValue* action, T& f );
   explicit FunctionOfVector(const ActionOptions&);
   ~FunctionOfVector() {}
-  std::string getOutputComponentDescription( const std::string& cname, const Keywords& keys ) const override ;
-/// Get the size of the task list at the end of the run
-  unsigned getNumberOfFinalTasks();
-/// Check if derivatives are available
-  void turnOnDerivatives() override;
+  std::string getOutputComponentDescription( const std::string& cname,
+      const Keywords& keys ) const override ;
 /// Get the number of derivatives for this action
   unsigned getNumberOfDerivatives() override ;
 /// Resize vectors that are the wrong size
   void prepare() override ;
-/// Check if all he actions are required
-  void areAllTasksRequired( std::vector<ActionWithVector*>& task_reducing_actions );
 /// Get the label to write in the graph
-  std::string writeInGraph() const override { return myfunc.getGraphInfo( getName() ); }
+  std::string writeInGraph() const override ;
 /// This builds the task list for the action
   void calculate() override;
-/// This ensures that we create some bookeeping stuff during the first step
-  void setupStreamedComponents( const std::string& headstr, unsigned& nquants, unsigned& nmat, unsigned& maxcol, unsigned& nbookeeping ) override ;
+/// Add some forces
+  void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
+/// Get the input data
+  void getInputData( std::vector<double>& inputdata ) const override ;
+  void getInputData( std::vector<float>& inputdata ) const override ;
 /// Calculate the function
-  void performTask( const unsigned& current, MultiValue& myvals ) const override ;
+  static void performTask( std::size_t task_index,
+                           const FunctionData<CV>& actiondata,
+                           ParallelActionsInput& input,
+                           ParallelActionsOutput& output );
+/// Get the indices of the forces
+  static int getNumberOfValuesPerTask( std::size_t task_index, const FunctionData<CV>& actiondata );
+  static void getForceIndices( std::size_t task_index,
+                               std::size_t colno,
+                               std::size_t ntotal_force,
+                               const FunctionData<CV>& actiondata,
+                               const ParallelActionsInput& input,
+                               ForceIndexHolder force_indices );
 };
 
-template <class T>
-void FunctionOfVector<T>::registerKeywords(Keywords& keys ) {
-  Action::registerKeywords(keys); ActionWithValue::registerKeywords(keys); ActionWithArguments::registerKeywords(keys); keys.use("ARG");
-  std::string name = keys.getDisplayName(); std::size_t und=name.find("_VECTOR"); keys.setDisplayName( name.substr(0,und) );
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::registerKeywords(Keywords& keys ) {
+  Action::registerKeywords(keys);
+  ActionWithValue::registerKeywords(keys);
+  ActionWithArguments::registerKeywords(keys);
+  std::string name = keys.getDisplayName();
+  std::size_t und=name.find("_VECTOR");
+  keys.setDisplayName( name.substr(0,und) );
+  keys.addInputKeyword("compulsory","ARG","scalar/vector","the labels of the scalar and vector that on which the function is being calculated elementwise");
   keys.reserve("compulsory","PERIODIC","if the output of your function is periodic then you should specify the periodicity of the function.  If the output is not periodic you must state this using PERIODIC=NO");
   keys.add("hidden","NO_ACTION_LOG","suppresses printing from action on the log");
-  T tfunc; tfunc.registerKeywords( keys );
+  CV::registerKeywords( keys );
   if( keys.getDisplayName()=="SUM" ) {
-    keys.setValueDescription("the sum of all the elements in the input vector");
+    keys.setValueDescription("scalar","the sum of all the elements in the input vector");
   } else if( keys.getDisplayName()=="MEAN" ) {
-    keys.setValueDescription("the mean of all the elements in the input vector");
+    keys.setValueDescription("scalar","the mean of all the elements in the input vector");
   } else if( keys.getDisplayName()=="HIGHEST" ) {
-    keys.setValueDescription("the largest element of the input vector");
+    keys.setValueDescription("scalar/vector","the largest element of the input vector if one vector specified.  If multiple vectors of the same size specified the largest elements of these vector computed elementwise.");
+    keys.addInputKeyword("optional","MASK","vector","the label for a sparse vector that should be used to determine which elements of the vector should be computed");
   } else if( keys.getDisplayName()=="LOWEST" ) {
-    keys.setValueDescription("the smallest element in the input vector");
+    keys.setValueDescription("scalar/vector","the smallest element in the input vector if one vector specified.  If multiple vectors of the same size specified the largest elements of these vector computed elementwise.");
+    keys.addInputKeyword("optional","MASK","vector","the label for a sparse vector that should be used to determine which elements of the vector should be computed");
   } else if( keys.getDisplayName()=="SORT" ) {
-    keys.setValueDescription("a vector that has been sorted into ascending order");
+    keys.setValueDescription("vector","a vector that has been sorted into ascending order");
+    keys.addInputKeyword("optional","MASK","vector","the label for a sparse vector that should be used to determine which elements of the vector should be computed");
   } else if( keys.outputComponentExists(".#!value") ) {
-    keys.setValueDescription("the vector obtained by doing an element-wise application of " + keys.getOutputComponentDescription(".#!value") + " to the input vectors");
+    keys.addInputKeyword("optional","MASK","vector","the label for a sparse vector that should be used to determine which elements of the vector should be computed");
+    keys.setValueDescription("vector","the vector obtained by doing an element-wise application of " + keys.getOutputComponentDescription(".#!value") + " to the input vectors");
   }
+  PTM::registerKeywords( keys );
 }
 
-template <class T>
-FunctionOfVector<T>::FunctionOfVector(const ActionOptions&ao):
+template <class CV, typename myPTM>
+FunctionOfVector<CV, myPTM>::FunctionOfVector(const ActionOptions&ao):
   Action(ao),
   ActionWithVector(ao),
-  doAtEnd(true),
-  firststep(true),
-  nderivatives(0)
-{
+  taskmanager(this),
+  argstart(0) {
+  // Check if first argument is grid
+  if( getPntrToArgument(0)->getRank()>0 && getPntrToArgument(0)->hasDerivatives() ) {
+    argstart=1;
+  }
+  if( getNumberOfArguments()==argstart ) {
+    error("no arguments specified");
+  }
+
+  if( getPntrToArgument(argstart)->getRank()!=1 ) {
+    error("first argument to this action must be a vector");
+  }
+
+  // Get the number of arguments
+  unsigned nargs = getNumberOfArguments();
+  int nmasks = getNumberOfMasks();
+  if( nargs>=static_cast<unsigned>(nmasks) && nmasks>0 ) {
+    nargs = nargs - nmasks;
+  }
+
   // Get the shape of the output
-  std::vector<unsigned> shape(1); shape[0]=getNumberOfFinalTasks();
-  // Read the input and do some checks
-  myfunc.read( this );
-  // Create the task list
-  if( myfunc.doWithTasks() ) {
-    doAtEnd=false; if( shape[0]>0 ) done_in_chain=true;
-  } else { plumed_assert( getNumberOfArguments()==1 ); done_in_chain=false; getPntrToArgument(0)->buildDataStore(); }
-  // Get the names of the components
-  std::vector<std::string> components( keywords.getOutputComponents() );
-  // Create the values to hold the output
-  std::vector<std::string> str_ind( myfunc.getComponentsPerLabel() );
-  for(unsigned i=0; i<components.size(); ++i) {
-    if( str_ind.size()>0 ) {
-      std::string strcompn = components[i]; if( components[i]==".#!value" ) strcompn = "";
-      for(unsigned j=0; j<str_ind.size(); ++j) {
-        if( myfunc.zeroRank() ) addComponentWithDerivatives( strcompn + str_ind[j] );
-        else addComponent( strcompn + str_ind[j], shape );
-      }
-    } else if( components[i].find_first_of("_")!=std::string::npos ) {
-      if( getNumberOfArguments()==1 && myfunc.zeroRank() ) addValueWithDerivatives();
-      else if( getNumberOfArguments()==1 ) addValue( shape );
-      else {
-        unsigned argstart=myfunc.getArgStart();
-        for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
-          if( myfunc.zeroRank() ) addComponentWithDerivatives( getPntrToArgument(i)->getName() + components[i] );
-          else addComponent( getPntrToArgument(i)->getName() + components[i], shape );
-        }
-      }
-    } else if( components[i]==".#!value" && myfunc.zeroRank() ) addValueWithDerivatives();
-    else if( components[i]==".#!value" ) addValue(shape);
-    else if( myfunc.zeroRank() ) addComponentWithDerivatives( components[i] );
-    else addComponent( components[i], shape );
-  }
-  // Check if we can turn off the derivatives when they are zero
-  if( myfunc.getDerivativeZeroIfValueIsZero() )  {
-    for(int i=0; i<getNumberOfComponents(); ++i) getPntrToComponent(i)->setDerivativeIsZeroWhenValueIsZero();
-  }
-  // Check if this is a timeseries
-  unsigned argstart=myfunc.getArgStart();
-  // for(unsigned i=argstart; i<getNumberOfArguments();++i) {
-  //   if( getPntrToArgument(i)->isTimeSeries() ) {
-  //       for(unsigned i=0; i<getNumberOfComponents(); ++i) getPntrToOutput(i)->makeHistoryDependent();
-  //       break;
-  //   }
-  // }
-  // Set the periodicities of the output components
-  myfunc.setPeriodicityForOutputs( this );
-  // Check if we can put the function in a chain
-  for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
-    // CollectFrames* ab=dynamic_cast<CollectFrames*>( getPntrToArgument(i)->getPntrToAction() );
-    // if( ab && ab->hasClear() ) { doNotChain=true; getPntrToArgument(i)->buildDataStore( getLabel() ); }
-    // No chains if we are using a sum or a mean
+  std::size_t nscalars = 0;
+  std::vector<std::size_t> shape(1);
+  shape[0]=getPntrToArgument(argstart)->getShape()[0];
+  for(unsigned i=argstart+1; i<nargs; ++i) {
     if( getPntrToArgument(i)->getRank()==0 ) {
-      FunctionOfVector<Sum>* as = dynamic_cast<FunctionOfVector<Sum>*>( getPntrToArgument(i)->getPntrToAction() );
-      if(as) done_in_chain=false;
+      nscalars++;
+    } else if( getPntrToArgument(i)->getRank()==1 ) {
+      if( getPntrToArgument(i)->getShape()[0]!=shape[0] ) {
+        error("mismatch between sizes of input arguments");
+      } else if( nscalars>0 ) {
+        error("scalars should be specified in argument list after all vectors");
+      }
     } else {
-      ActionWithVector* av=dynamic_cast<ActionWithVector*>( getPntrToArgument(i)->getPntrToAction() );
-      if( !av ) done_in_chain=false;
+      error("input arguments should be vectors or scalars");
     }
   }
-  // Don't need to do the calculation in a chain if the input is constant
-  bool allconstant=true;
-  for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
-    if( !getPntrToArgument(i)->isConstant() ) { allconstant=false; break; }
+  if( nmasks>0 && getPntrToArgument(getNumberOfArguments()-nmasks)->getShape()[0]!=shape[0] ) {
+    error("input mask has wrong size");
   }
-  if( allconstant ) done_in_chain=false;
-  nderivatives = buildArgumentStore(myfunc.getArgStart());
+
+  // Setup the function and the values
+  // Get the function data from the parallel task manager, to avoid copies
+  auto & myfunc = taskmanager.getActionInput();
+  myfunc.argstart = argstart;
+  myfunc.nscalars = nscalars;
+  FunctionData<CV>::setup( myfunc.f, keywords.getOutputComponents(), shape, false, this );
+  // Setup the parallel task manager
+  taskmanager.setupParallelTaskManager( nargs-argstart, nscalars );
 }
 
-template <class T>
-std::string FunctionOfVector<T>::getOutputComponentDescription( const std::string& cname, const Keywords& keys ) const {
-  if( getName().find("SORT")==std::string::npos ) return ActionWithValue::getOutputComponentDescription( cname, keys );
-  if( getNumberOfArguments()==1 ) return "the " + cname + "th largest element of the vector " + getPntrToArgument(0)->getName();
+template <class CV, typename myPTM>
+std::string FunctionOfVector<CV,
+    myPTM>::getOutputComponentDescription( const std::string& cname,
+const Keywords& keys ) const {
+  if( getName().find("SORT")==std::string::npos ) {
+    return ActionWithValue::getOutputComponentDescription( cname, keys );
+  }
   return "the " + cname + "th largest element in the input vectors";
 }
 
-template <class T>
-void FunctionOfVector<T>::turnOnDerivatives() {
-  if( !getPntrToComponent(0)->isConstant() && !myfunc.derivativesImplemented() ) error("derivatives have not been implemended for " + getName() );
-  ActionWithValue::turnOnDerivatives(); myfunc.setup(this );
+template <class CV, typename myPTM>
+std::string FunctionOfVector<CV, myPTM>::writeInGraph() const {
+  std::size_t und = getName().find_last_of("_");
+  return getName().substr(0,und);
 }
 
-template <class T>
-unsigned FunctionOfVector<T>::getNumberOfDerivatives() {
-  return nderivatives;
+template <class CV, typename myPTM>
+unsigned FunctionOfVector<CV, myPTM>::getNumberOfDerivatives() {
+  unsigned nder = 0;
+  for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
+    nder += getPntrToArgument(i)->getNumberOfStoredValues();
+  }
+  return nder;
 }
 
-template <class T>
-void FunctionOfVector<T>::prepare() {
-  unsigned argstart = myfunc.getArgStart(); std::vector<unsigned> shape(1);
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::prepare() {
+  std::vector<std::size_t> shape(1);
   for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
     if( getPntrToArgument(i)->getRank()==1 ) {
-      shape[0] = getPntrToArgument(i)->getShape()[0]; break;
+      shape[0] = getPntrToArgument(i)->getShape()[0];
+      break;
     }
   }
   for(unsigned i=0; i<getNumberOfComponents(); ++i) {
     Value* myval = getPntrToComponent(i);
-    if( myval->getRank()==1 && myval->getShape()[0]!=shape[0] ) { myval->setShape(shape); }
+    if( myval->getRank()==1 && myval->getShape()[0]!=shape[0] ) {
+      myval->setShape(shape);
+    }
   }
   ActionWithVector::prepare();
 }
 
-template <class T>
-void FunctionOfVector<T>::setupStreamedComponents( const std::string& headstr, unsigned& nquants, unsigned& nmat, unsigned& maxcol, unsigned& nbookeeping ) {
-  if( firststep ) {
-    stored_arguments.resize( getNumberOfArguments() );
-    std::string control = getFirstActionInChain()->getLabel();
-    for(unsigned i=0; i<stored_arguments.size(); ++i) {
-      if( getPntrToArgument(i)->isConstant() ) stored_arguments[i]=false;
-      else stored_arguments[i] = !getPntrToArgument(i)->ignoreStoredValue( control );
-    }
-    firststep=false;
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::getInputData( std::vector<double>& inputdata ) const {
+  unsigned nargs = getNumberOfArguments();
+  int nmasks = getNumberOfMasks();
+  if( nargs>=static_cast<unsigned>(nmasks) && nmasks>0 ) {
+    nargs = nargs - nmasks;
   }
-  ActionWithVector::setupStreamedComponents( headstr, nquants, nmat, maxcol, nbookeeping );
-}
 
-template <class T>
-void FunctionOfVector<T>::performTask( const unsigned& current, MultiValue& myvals ) const {
-  unsigned argstart=myfunc.getArgStart(); std::vector<double> args( getNumberOfArguments()-argstart);
-  if( actionInChain() ) {
-    for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
-      if(  getPntrToArgument(i)->getRank()==0 ) args[i-argstart] = getPntrToArgument(i)->get();
-      else if( !getPntrToArgument(i)->valueHasBeenSet() ) args[i-argstart] = myvals.get( getPntrToArgument(i)->getPositionInStream() );
-      else args[i-argstart] = getPntrToArgument(i)->get( myvals.getTaskIndex() );
-    }
-  } else {
-    for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
-      if( getPntrToArgument(i)->getRank()==1 ) args[i-argstart]=getPntrToArgument(i)->get(current);
-      else args[i-argstart] = getPntrToArgument(i)->get();
-    }
-  }
-  // Calculate the function and its derivatives
-  std::vector<double> vals( getNumberOfComponents() ); Matrix<double> derivatives( getNumberOfComponents(), args.size() );
-  myfunc.calc( this, args, vals, derivatives );
-  // And set the values
-  for(unsigned i=0; i<vals.size(); ++i) myvals.addValue( getConstPntrToComponent(i)->getPositionInStream(), vals[i] );
-  // Return if we are not computing derivatives
-  if( doNotCalculateDerivatives() ) return;
-  // And now compute the derivatives
-  // Second condition here is only not true if actionInChain()==True if
-  // input arguments the only non-constant objects in input are scalars.
-  // In that case we can use the non chain version to calculate the derivatives
-  // with respect to the scalar.
-  if( actionInChain() ) {
-    for(unsigned j=0; j<args.size(); ++j) {
-      unsigned istrn = getPntrToArgument(argstart+j)->getPositionInStream();
-      if( stored_arguments[argstart+j] ) {
-        unsigned task_index = myvals.getTaskIndex(); if( getPntrToArgument(argstart+j)->getRank()==0 ) task_index=0;
-        myvals.addDerivative( istrn, task_index, 1.0 ); myvals.updateIndex( istrn, task_index );
-      }
-      unsigned arg_deriv_s = arg_deriv_starts[argstart+j];
-      for(unsigned k=0; k<myvals.getNumberActive(istrn); ++k) {
-        unsigned kind=myvals.getActiveIndex(istrn,k);
-        for(int i=0; i<getNumberOfComponents(); ++i) {
-          unsigned ostrn=getConstPntrToComponent(i)->getPositionInStream();
-          myvals.addDerivative( ostrn, arg_deriv_s + kind, derivatives(i,j)*myvals.getDerivative( istrn, kind ) );
-        }
-      }
-      // Ensure we only store one lot of derivative indices
-      bool found=false; ActionWithValue* aav=getPntrToArgument(argstart+j)->getPntrToAction();
-      for(unsigned k=0; k<j; ++k) {
-        if( arg_deriv_starts[argstart+k]==arg_deriv_s ) {
-          if( getPntrToArgument(argstart+k)->getPntrToAction()!=aav ) {
-            ActionWithVector* av = dynamic_cast<ActionWithVector*>( getPntrToArgument(argstart+j)->getPntrToAction() );
-            if( av ) {
-              for(int i=0; i<getNumberOfComponents(); ++i) av->updateAdditionalIndices( getConstPntrToComponent(i)->getPositionInStream(), myvals );
-            }
-          }
-          found=true; break;
-        }
-      }
-      if( found ) continue;
-      for(unsigned k=0; k<myvals.getNumberActive(istrn); ++k) {
-        unsigned kind=myvals.getActiveIndex(istrn,k);
-        for(int i=0; i<getNumberOfComponents(); ++i) {
-          unsigned ostrn=getConstPntrToComponent(i)->getPositionInStream();
-          myvals.updateIndex( ostrn, arg_deriv_s + kind );
-        }
-      }
-    }
-  } else {
-    unsigned base=0;
-    for(unsigned j=0; j<args.size(); ++j) {
-      if( getPntrToArgument(argstart+j)->getRank()==1 ) {
-        for(int i=0; i<getNumberOfComponents(); ++i) {
-          unsigned ostrn=getConstPntrToComponent(i)->getPositionInStream();
-          myvals.addDerivative( ostrn, base+current, derivatives(i,j) );
-          myvals.updateIndex( ostrn, base+current );
-        }
-      } else {
-        for(int i=0; i<getNumberOfComponents(); ++i) {
-          unsigned ostrn=getConstPntrToComponent(i)->getPositionInStream();
-          myvals.addDerivative( ostrn, base, derivatives(i,j) );
-          myvals.updateIndex( ostrn, base );
-        }
-      }
-      base += getPntrToArgument(argstart+j)->getNumberOfValues();
-    }
-  }
-}
-
-template <class T>
-unsigned FunctionOfVector<T>::getNumberOfFinalTasks() {
-  unsigned nelements=0, argstart=myfunc.getArgStart();
-  for(unsigned i=argstart; i<getNumberOfArguments(); ++i) {
-    plumed_assert( getPntrToArgument(i)->getRank()<2 );
+  std::size_t ntasks = 0;
+  for(unsigned i=argstart; i<nargs; ++i) {
     if( getPntrToArgument(i)->getRank()==1 ) {
-      if( nelements>0 ) {
-        // if( getPntrToArgument(i)->isTimeSeries() && getPntrToArgument(i)->getShape()[0]<nelements ) nelements=getPntrToArgument(i)->isTimeSeries();
-        // else
-        if(getPntrToArgument(i)->getShape()[0]!=nelements ) error("all vectors input should have the same length");
-      } else if( nelements==0 ) nelements=getPntrToArgument(i)->getShape()[0];
-      plumed_assert( !getPntrToArgument(i)->hasDerivatives() );
+      ntasks = getPntrToArgument(i)->getShape()[0];
+      break;
     }
   }
-  // The prefactor for average and sum is set here so the number of input scalars is guaranteed to be correct
-  myfunc.setPrefactor( this, 1.0 );
-  return nelements;
-}
 
-template <class T>
-void FunctionOfVector<T>::areAllTasksRequired( std::vector<ActionWithVector*>& task_reducing_actions ) {
-  if( task_reducing_actions.size()==0 ) return;
-  if( !myfunc.allComponentsRequired( getArguments(), task_reducing_actions ) ) task_reducing_actions.push_back(this);
-}
+  std::size_t ndata = static_cast<std::size_t>(nargs-argstart)*ntasks;
+  if( inputdata.size()!=ndata ) {
+    inputdata.resize( ndata );
+  }
 
-template <class T>
-void FunctionOfVector<T>::runSingleTaskCalculation( const Value* arg, ActionWithValue* action, T& f ) {
-  // This is used if we are doing sorting actions on a single vector
-  unsigned nv = arg->getNumberOfValues(); std::vector<double> args( nv );
-  for(unsigned i=0; i<nv; ++i) args[i] = arg->get(i);
-  std::vector<double> vals( action->getNumberOfComponents() ); Matrix<double> derivatives( action->getNumberOfComponents(), nv );
-  ActionWithArguments* aa=dynamic_cast<ActionWithArguments*>(action); plumed_assert( aa ); f.calc( aa, args, vals, derivatives );
-  for(unsigned i=0; i<vals.size(); ++i) action->copyOutput(i)->set( vals[i] );
-  // Return if we are not computing derivatives
-  if( action->doNotCalculateDerivatives() ) return;
-  // Now set the derivatives
-  for(unsigned j=0; j<nv; ++j) {
-    for(unsigned i=0; i<vals.size(); ++i) action->copyOutput(i)->setDerivative( j, derivatives(i,j) );
+  for(unsigned j=argstart; j<nargs; ++j) {
+    const Value* myarg =  getPntrToArgument(j);
+    if( myarg->getRank()==0 ) {
+      double val = myarg->get();
+      for(unsigned i=0; i<ntasks; ++i) {
+        inputdata[(nargs-argstart)*i + j-argstart] = val;
+      }
+    } else {
+      for(unsigned i=0; i<ntasks; ++i) {
+        inputdata[(nargs-argstart)*i + j-argstart] = myarg->get(i);
+      }
+    }
   }
 }
 
-template <class T>
-void FunctionOfVector<T>::calculate() {
-  // Everything is done elsewhere
-  if( actionInChain() ) return;
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::getInputData( std::vector<float>& inputdata ) const {
+  unsigned nargs = getNumberOfArguments();
+  int nmasks = getNumberOfMasks();
+  if( nargs>=static_cast<unsigned>(nmasks) && nmasks>0 ) {
+    nargs = nargs - nmasks;
+  }
+
+  std::size_t ntasks = 0;
+  for(unsigned i=argstart; i<nargs; ++i) {
+    if( getPntrToArgument(i)->getRank()==1 ) {
+      ntasks = getPntrToArgument(i)->getShape()[0];
+      break;
+    }
+  }
+
+  std::size_t ndata = static_cast<std::size_t>(nargs-argstart)*ntasks;
+  if( inputdata.size()!=ndata ) {
+    inputdata.resize( ndata );
+  }
+
+  for(unsigned j=argstart; j<nargs; ++j) {
+    const Value* myarg =  getPntrToArgument(j);
+    if( myarg->getRank()==0 ) {
+      double val = myarg->get();
+      for(unsigned i=0; i<ntasks; ++i) {
+        inputdata[(nargs-argstart)*i + j-argstart] = val;
+      }
+    } else {
+      for(unsigned i=0; i<ntasks; ++i) {
+        inputdata[(nargs-argstart)*i + j-argstart] = myarg->get(i);
+      }
+    }
+  }
+}
+
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::calculate() {
   // This is done if we are calculating a function of multiple cvs
-  if( !doAtEnd ) runAllTasks();
-  // This is used if we are doing sorting actions on a single vector
-  else if( !myfunc.doWithTasks() ) runSingleTaskCalculation( getPntrToArgument(0), this, myfunc );
+  taskmanager.runAllTasks();
+}
+
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::performTask( std::size_t task_index,
+    const FunctionData<CV>& actiondata,
+    ParallelActionsInput& input,
+    ParallelActionsOutput& output ) {
+  auto funcout = FunctionOutput::create( input.ncomponents,
+                                         output.values.data(),
+                                         input.nderivatives_per_scalar,
+                                         output.derivatives.data() );
+  CV::calc( actiondata.f,
+            input.noderiv,
+            View<const double>( input.inputdata + task_index*input.nderivatives_per_scalar,
+                                input.nderivatives_per_scalar ),
+            funcout );
+}
+
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::applyNonZeroRankForces( std::vector<double>& outforces ) {
+  taskmanager.applyForces( outforces );
+}
+
+template <class CV, typename myPTM>
+int FunctionOfVector<CV,
+    myPTM>::getNumberOfValuesPerTask( std::size_t task_index,
+const FunctionData<CV>& actiondata ) {
+  return 1;
+}
+
+template <class CV, typename myPTM>
+void FunctionOfVector<CV, myPTM>::getForceIndices( std::size_t task_index,
+    std::size_t colno,
+    std::size_t ntotal_force,
+    const FunctionData<CV>& actiondata,
+    const ParallelActionsInput& input,
+    ForceIndexHolder force_indices ) {
+
+  unsigned vector_end = actiondata.argstart + input.nderivatives_per_scalar - actiondata.nscalars;
+  for(unsigned j=0; j<input.ncomponents; ++j) {
+    for(unsigned k=actiondata.argstart; k<vector_end; ++k) {
+      force_indices.indices[j][k-actiondata.argstart] = input.argstarts[k] + task_index;
+    }
+    for(unsigned k=vector_end; k<vector_end+actiondata.nscalars; ++k) {
+      force_indices.indices[j][k-actiondata.argstart] = input.argstarts[k];
+    }
+    force_indices.threadsafe_derivatives_end[j] = input.nderivatives_per_scalar-actiondata.nscalars;
+    force_indices.tot_indices[j] = input.nderivatives_per_scalar;
+  }
 }
 
 }

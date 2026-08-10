@@ -34,8 +34,7 @@ namespace contour {
 class DistanceFromContourBase :
   public ActionWithValue,
   public ActionAtomistic,
-  public ActionWithArguments
-{
+  public ActionWithArguments {
 private:
   double contour, gvol;
   RootFindingBase<DistanceFromContourBase> mymin;
@@ -56,16 +55,20 @@ public:
   static void registerKeywords( Keywords& keys );
   explicit DistanceFromContourBase( const ActionOptions& );
   unsigned getNumberOfDerivatives() override ;
-  void lockRequests();
-  void unlockRequests();
-  void calculateNumericalDerivatives( ActionWithValue* a ) { plumed_merror("numerical derivatives are not implemented for this action"); }
+  void lockRequests() override;
+  void unlockRequests() override;
+  void calculateNumericalDerivatives( ActionWithValue* a ) override {
+    plumed_merror("numerical derivatives are not implemented for this action");
+  }
   double getDifferenceFromContour( const std::vector<double>& x, std::vector<double>& der );
-  void apply();
+  void apply() override;
 };
 
 inline
 unsigned DistanceFromContourBase::getNumberOfDerivatives() {
-  if( getNumberOfArguments()==1 ) return 4*getNumberOfAtoms() + 8;  // One derivative for each weight hence four times the number of atoms - 1
+  if( getNumberOfArguments()==1 ) {
+    return 4*getNumberOfAtoms() + 8;  // One derivative for each weight hence four times the number of atoms - 1
+  }
   return 3*getNumberOfAtoms() + 9;
 }
 

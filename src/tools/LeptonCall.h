@@ -24,6 +24,7 @@
 
 #include "core/Action.h"
 #include "lepton/Lepton.h"
+#include "View.h"
 
 namespace PLMD {
 
@@ -41,10 +42,15 @@ private:
   std::vector<double*> lepton_ref;
   std::vector<double*> lepton_ref_deriv;
 public:
-  void set(const std::string & func, const std::vector<std::string>& var, Action* action=NULL, const bool& a=false );
+  void set(const std::string & func,
+           const std::vector<std::string>& var,
+           Action* action=nullptr,
+           bool extraArgs=false );
   unsigned getNumberOfArguments() const ;
   double evaluate( const std::vector<double>& args ) const ;
-  double evaluateDeriv( const unsigned& ider, const std::vector<double>& args ) const ;
+  double evaluate( View<const double> args ) const ;
+  double evaluateDeriv( unsigned ider, View<const double> args ) const ;
+  double evaluateDeriv( unsigned ider, const std::vector<double>& args ) const ;
 };
 
 inline

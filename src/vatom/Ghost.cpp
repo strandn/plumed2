@@ -32,38 +32,46 @@ namespace vatom {
 /*
 Calculate the absolute position of a ghost atom with fixed coordinates in the local reference frame formed by three atoms.
 
-The computed ghost atom is stored as a virtual atom that can be accessed in
- an atom list through the the label for the GHOST action that creates it.
+This action allows you to create a virtual atom that has a fixed set of coordinates in a local reference
+frame that is formed by three atoms.  The way that this action is used is illustrated below:
 
-When running with periodic boundary conditions, the atoms should be
-in the proper periodic image. This is done automatically since PLUMED 2.10,
-by considering the ordered list of atoms and rebuilding the molecule using a procedure
-that is equivalent to that done in \ref WHOLEMOLECULES . Notice that
-rebuilding is local to this action. This is different from \ref WHOLEMOLECULES
-which actually modifies the coordinates stored in PLUMED.
-
-In case you want to recover the old behavior you should use the NOPBC flag.
-In that case you need to take care that atoms are in the correct
-periodic image.
-
-\par Examples
-
-The following input instructs plumed to print the distance between the
-ghost atom and the center of mass for atoms 15,20:
-\plumedfile
+```plumed
 c1: GHOST ATOMS=1,5,10 COORDINATES=10.0,10.0,10.0
 c2: COM ATOMS=15,20
 d1: DISTANCE ATOMS=c1,c2
 PRINT ARG=d1
-\endplumedfile
+```
+
+Notice that ghost atom's position is stored as [a virtual atom](specifying_atoms.md). The position of this atom can thus be
+used in the DISTANCE command by using the label for the GHOST action.
+
+The position of the ghost atom `c1` for the input above is:
+
+$$
+r_{c1} = r_1 + 10\hat{a} + 10c + 10 \hat{b} 10\hat{c}
+$$
+
+where unit vectors, $\hat{a}$, $\hat{b}$ and $\hat{c}$ in the expression above are obtained by dividing each
+of the three (orthogonal) vectors below by their magnitudes:
+
+$$
+a = (r_5-r_1) \quad b = (r_5-r_1) \time (r_{10}-r_1) \quad (r_5-r_1)\times b
+$$
+
+In all these expressions $r_i$ is used to indicate the position of atom $i$. If you run with periodic boundary conditions
+these are taken into account automatically when computing the differences between position vectors above.  The way this is
+handled is akin to the way molecules are rebuilt in the [WHOLEMOLECULES](WHOLEMOLECULES.md) command.  For the example above
+this would ensure that atom 5 is shifted to the periodic image where it is closest to atom 1 and atom 10 is shifted to the
+periodic image where it is closest to atom 10.  If you wish to
+turn off this behaviour and you wish to disregard the periodic boundaries when computing these differences you should use
+the NOPBC flag.
 
 */
 //+ENDPLUMEDOC
 
 
 class Ghost:
-  public ActionWithVirtualAtom
-{
+  public ActionWithVirtualAtom {
   std::vector<double> coord;
   std::vector<Tensor> deriv;
   bool nopbc=false;
@@ -83,20 +91,25 @@ void Ghost::registerKeywords(Keywords& keys) {
 
 Ghost::Ghost(const ActionOptions&ao):
   Action(ao),
-  ActionWithVirtualAtom(ao)
-{
+  ActionWithVirtualAtom(ao) {
   std::vector<AtomNumber> atoms;
   parseAtomList("ATOMS",atoms);
-  if(atoms.size()!=3) error("ATOMS should contain a list of three atoms");
+  if(atoms.size()!=3) {
+    error("ATOMS should contain a list of three atoms");
+  }
 
   parseVector("COORDINATES",coord);
-  if(coord.size()!=3) error("COORDINATES should be a list of three real numbers");
+  if(coord.size()!=3) {
+    error("COORDINATES should be a list of three real numbers");
+  }
 
   parseFlag("NOPBC",nopbc);
 
   checkRead();
   log.printf("  of atoms");
-  for(unsigned i=0; i<atoms.size(); ++i) log.printf(" %d",atoms[i].serial());
+  for(unsigned i=0; i<atoms.size(); ++i) {
+    log.printf(" %d",atoms[i].serial());
+  }
   log.printf("\n");
 
   if(nopbc) {
@@ -109,7 +122,9 @@ Ghost::Ghost(const ActionOptions&ao):
 
 void Ghost::calculate() {
 
-  if(!nopbc) makeWhole();
+  if(!nopbc) {
+    makeWhole();
+  }
 
   Vector pos;
   deriv.resize(getNumberOfAtoms());

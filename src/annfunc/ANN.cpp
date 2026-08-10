@@ -50,7 +50,7 @@ with specified neural network weights and generates corresponding outputs.
 The ANN outputs can be used as collective variables, inputs for other collective variables,
 or inputs for data analysis tools.
 
-\par Examples
+## Examples
 
 Assume we have an ANN with numbers of nodes being [2, 3, 1], and weights connecting layer 0 and 1 are
 
@@ -67,9 +67,8 @@ All activation functions are Tanh.
 Then if input variables are l_0_out_0, l_0_out_1, the corresponding ANN function object can be defined using
 following plumed script:
 
-\plumedfile
-ANN ...
-LABEL=ann
+```plumed
+ann: ANN ...
 ARG=l_0_out_0,l_0_out_1
 NUM_LAYERS=3
 NUM_NODES=2,3,1
@@ -78,8 +77,8 @@ WEIGHTS0=1,2,3,4,5,6
 WEIGHTS1=7,8,9
 BIASES0=10,11,12
 BIASES1=13
-... ANN
-\endplumedfile
+...
+```
 
 To access its components, we use "ann.node-0", "ann.node-1", ..., which represents the components of neural network outputs.
 
@@ -87,8 +86,7 @@ To access its components, we use "ann.node-0", "ann.node-1", ..., which represen
 */
 //+ENDPLUMEDOC
 
-class ANN : public Function
-{
+class ANN : public Function {
 private:
   int num_layers;
   vector<int> num_nodes;
@@ -111,7 +109,7 @@ PLUMED_REGISTER_ACTION(ANN,"ANN")
 
 void ANN::registerKeywords( Keywords& keys ) {
   Function::registerKeywords(keys);
-  keys.use("ARG"); keys.use("PERIODIC");
+  keys.use("PERIODIC");
   keys.add("compulsory", "NUM_LAYERS", "number of layers of the neural network");
   keys.add("compulsory", "NUM_NODES", "numbers of nodes in each layer of the neural network");
   keys.add("compulsory", "ACTIVATIONS", "activation functions for the neural network");
@@ -121,13 +119,12 @@ void ANN::registerKeywords( Keywords& keys ) {
   keys.add("numbered", "BIASES", "bias array for each layer of the neural network, "
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
   // since v2.2 plumed requires all components be registered
-  keys.addOutputComponent("node", "default", "components of ANN outputs");
+  keys.addOutputComponent("node", "default", "scalar", "components of ANN outputs");
 }
 
 ANN::ANN(const ActionOptions&ao):
   Action(ao),
-  Function(ao)
-{
+  Function(ao) {
   parse("NUM_LAYERS", num_layers);
   num_nodes = vector<int>(num_layers);
   activations = vector<string>(num_layers - 1);
@@ -229,13 +226,11 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
       for(int jj = 0; jj < num_nodes[ii]; jj ++) {
         output_of_each_layer[ii][jj] = input_of_each_layer[ii][jj];
       }
-    }
-    else if (activations[ii - 1] == string("Tanh")) {
+    } else if (activations[ii - 1] == string("Tanh")) {
       for(int jj = 0; jj < num_nodes[ii]; jj ++) {
         output_of_each_layer[ii][jj] = tanh(input_of_each_layer[ii][jj]);
       }
-    }
-    else if (activations[ii - 1] == string("Circular")) {
+    } else if (activations[ii - 1] == string("Circular")) {
       assert (num_nodes[ii] % 2 == 0);
       for(int jj = 0; jj < num_nodes[ii] / 2; jj ++) {
         double radius = sqrt(input_of_each_layer[ii][2 * jj] * input_of_each_layer[ii][2 * jj]
@@ -244,8 +239,7 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
         output_of_each_layer[ii][2 * jj + 1] = input_of_each_layer[ii][2 * jj + 1] / radius;
 
       }
-    }
-    else {
+    } else {
       printf("layer type not found!\n\n");
       return;
     }
@@ -258,8 +252,7 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
     printf("layer[%d]: ", ii);
     if (ii != 0) {
       cout << activations[ii - 1] << "\t";
-    }
-    else {
+    } else {
       cout << "input \t" ;
     }
     for (int jj = 0; jj < num_nodes[ii]; jj ++) {
@@ -278,8 +271,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
   for (int ii = 0; ii < num_nodes[num_nodes.size() - 1]; ii ++ ) {
     if (ii == index_of_output_component) {
       derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1;
-    }
-    else {
+    } else {
       derivatives_of_each_layer[num_nodes.size() - 1][ii] = 0;
     }
   }
@@ -323,8 +315,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
         }
       }
       // TODO: should be fine, pass all tests, although there seems to be some problems here previously
-    }
-    else {
+    } else {
       for (int mm = 0; mm < num_nodes[jj]; mm ++) {
         derivatives_of_each_layer[jj][mm] = 0;
         for (int kk = 0; kk < num_nodes[jj + 1]; kk ++) {
@@ -333,14 +324,12 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
             derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                  * coeff[jj][kk][mm] \
                                                  * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
-          }
-          else if (activations[jj] == string("Linear")) {
+          } else if (activations[jj] == string("Linear")) {
             // printf("linear\n");
             derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                  * coeff[jj][kk][mm] \
                                                  * 1;
-          }
-          else {
+          } else {
             printf("layer type not found!\n\n");
             return;
           }

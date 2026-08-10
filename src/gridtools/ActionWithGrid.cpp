@@ -28,9 +28,11 @@ ActionWithGrid* ActionWithGrid::getInputActionWithGrid( Action* action ) {
   ActionWithGrid* ag = dynamic_cast<ActionWithGrid*>( action );
   if( !ag && action->getName()=="ACCUMULATE" ) {
     ActionWithArguments* aa=dynamic_cast<ActionWithArguments*>( action );
-    plumed_assert( aa ); ag = dynamic_cast<ActionWithGrid*>( (aa->getPntrToArgument(0))->getPntrToAction() );
+    plumed_assert( aa );
+    ag = dynamic_cast<ActionWithGrid*>( (aa->getPntrToArgument(0))->getPntrToAction() );
   }
-  plumed_assert( ag ); return ag;
+  plumed_assert( ag );
+  return ag;
 }
 
 void ActionWithGrid::registerKeywords( Keywords& keys ) {
@@ -39,16 +41,21 @@ void ActionWithGrid::registerKeywords( Keywords& keys ) {
 
 ActionWithGrid::ActionWithGrid(const ActionOptions&ao):
   Action(ao),
-  ActionWithVector(ao),
-  firststep(true)
-{
+  ActionWithVector(ao) {
 }
 
-void ActionWithGrid::calculate() {
-  plumed_assert( !actionInChain() );
-  if( firststep ) { setupOnFirstStep( true ); firststep=false; }
-
-  runAllTasks();
+void ActionWithGrid::transferStashToValues( const std::vector<unsigned>& partialTaskList, const std::vector<double>& stash ) {
+  unsigned ncomponents = getNumberOfComponents();
+  for(unsigned i=0; i<ncomponents; ++i) {
+    Value* myval = copyOutput(i);
+    std::size_t ngder = myval->getNumberOfGridDerivatives();
+    for(unsigned j=0; j<myval->getNumberOfStoredValues(); ++j) {
+      myval->set( j, stash[(j*ncomponents + i)*(1+ngder)] );
+      for(unsigned k=0; k<ngder; ++k) {
+        myval->setGridDerivatives( j, k, stash[(j*ncomponents + i)*(1+ngder)+1+k] );
+      }
+    }
+  }
 }
 
 }

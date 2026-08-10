@@ -36,34 +36,35 @@ Basis functions given by arbitrary mathematical expressions.
 This allows you to define basis functions using arbitrary mathematical expressions
 that are parsed using the lepton library.
 The basis functions
-\f$f_{i}(x)\f$ are given in mathematical expressions with _x_ as a variable using
+$f_{i}(x)$ are given in mathematical expressions with _x_ as a variable using
 the numbered FUNC keywords that start from
-FUNC1. Consistent with other basis functions is \f$f_{0}(x)=1\f$ defined as
+FUNC1. Consistent with other basis functions is $f_{0}(x)=1$ defined as
 the constant. The interval on which the basis functions are defined is
 given using the MINIMUM and MAXIMUM keywords.
 
-Using the TRANSFORM keyword it is possible to define a function \f$x(t)\f$ that
+Using the TRANSFORM keyword it is possible to define a function $x(t)$ that
 is used to transform the argument before calculating the basis functions
 values. The variables _min_ and _max_ can be used to indicate the minimum
 and the maximum of the interval. By default the arguments are not transformed,
-i.e. \f$x(t)=t\f$.
+i.e. $x(t)=t$.
 
 For periodic basis functions you should use the PERIODIC flag to indicate
 that they are periodic.
 
-The basis functions \f$f_{i}(x)\f$ and the transform function \f$x(t)\f$ need
+The basis functions $f_{i}(x)$ and the transform function $x(t)$ need
 to be well behaved in the interval on which the basis functions are defined,
 e.g. not result in a not a number (nan) or infinity (inf).
 The code will not perform checks to make sure that this is the case unless the
 flag CHECK_NAN_INF is enabled.
 
-\par Examples
+## Examples
 
 Defining Legendre polynomial basis functions of order 6 using BF_CUSTOM
 where the appropriate transform function is given by the TRANSFORM keyword.
 This is just an example of what can be done, in practice you should use
-\ref BF_LEGENDRE for Legendre polynomial basis functions.
-\plumedfile
+[BF_LEGENDRE](BF_LEGENDRE.md) for Legendre polynomial basis functions.
+
+```plumed
 BF_CUSTOM ...
  TRANSFORM=(t-(min+max)/2)/((max-min)/2)
  FUNC1=x
@@ -76,14 +77,14 @@ BF_CUSTOM ...
  MAXIMUM=4.0
  LABEL=bf1
 ... BF_CUSTOM
-\endplumedfile
-
+```
 
 Defining Fourier basis functions of order 3 using BF_CUSTOM where the
 periodicity is indicated using the PERIODIC flag. This is just an example
-of what can be done, in practice you should use \ref BF_FOURIER
+of what can be done, in practice you should use [BF_FOURIER](BF_FOURIER.md)
 for Fourier basis functions.
-\plumedfile
+
+```plumed
 BF_CUSTOM ...
  FUNC1=cos(x)
  FUNC2=sin(x)
@@ -96,7 +97,7 @@ BF_CUSTOM ...
  LABEL=bf1
  PERIODIC
 ... BF_CUSTOM
-\endplumedfile
+```
 
 
 */
@@ -147,28 +148,36 @@ BF_Custom::BF_Custom(const ActionOptions&ao):
   variable_str_("x"),
   transf_variable_str_("t"),
   do_transf_(false),
-  check_nan_inf_(false)
-{
+  check_nan_inf_(false) {
   std::vector<std::string> bf_str;
   std::string str_t1="1";
   bf_str.push_back(str_t1);
   for(int i=1;; i++) {
     std::string str_t2;
-    if(!parseNumbered("FUNC",i,str_t2)) {break;}
-    std::string is; Tools::convert(i,is);
+    if(!parseNumbered("FUNC",i,str_t2)) {
+      break;
+    }
+    std::string is;
+    Tools::convert(i,is);
     addKeywordToList("FUNC"+is,str_t2);
     bf_str.push_back(str_t2);
   }
   //
-  if(bf_str.size()==1) {plumed_merror(getName()+" with label "+getLabel()+": No FUNC keywords given");}
+  if(bf_str.size()==1) {
+    plumed_merror(getName()+" with label "+getLabel()+": No FUNC keywords given");
+  }
 
   setOrder(bf_str.size()-1);
   setNumberOfBasisFunctions(getOrder()+1);
   setIntrinsicInterval(intervalMin(),intervalMax());
   bool periodic = false;
-  parseFlag("PERIODIC",periodic); addKeywordToList("PERIODIC",periodic);
-  if(periodic) {setPeriodic();}
-  else {setNonPeriodic();}
+  parseFlag("PERIODIC",periodic);
+  addKeywordToList("PERIODIC",periodic);
+  if(periodic) {
+    setPeriodic();
+  } else {
+    setNonPeriodic();
+  }
   setIntervalBounded();
   setType("custom_functions");
   setDescription("Custom Functions");
@@ -184,14 +193,15 @@ BF_Custom::BF_Custom(const ActionOptions&ao):
   bf_derivs_lepton_ref_.resize(getNumberOfBasisFunctions());
   //
   for(unsigned int i=1; i<getNumberOfBasisFunctions(); i++) {
-    std::string is; Tools::convert(i,is);
+    std::string is;
+    Tools::convert(i,is);
     try {
       lepton::ParsedExpression pe_value = lepton::Parser::parse(bf_str[i]).optimize(lepton::Constants());
-      std::ostringstream tmp_stream; tmp_stream << pe_value;
+      std::ostringstream tmp_stream;
+      tmp_stream << pe_value;
       bf_values_parsed[i] = tmp_stream.str();
       bf_values_expressions_[i] = pe_value.createCompiledExpression();
-    }
-    catch(PLMD::lepton::Exception& exc) {
+    } catch(PLMD::lepton::Exception& exc) {
       plumed_merror("There was some problem in parsing the function "+bf_str[i]+" given in FUNC"+is + " with lepton");
     }
 
@@ -208,11 +218,11 @@ BF_Custom::BF_Custom(const ActionOptions&ao):
 
     try {
       lepton::ParsedExpression pe_deriv = lepton::Parser::parse(bf_str[i]).differentiate(variable_str_).optimize(lepton::Constants());
-      std::ostringstream tmp_stream2; tmp_stream2 << pe_deriv;
+      std::ostringstream tmp_stream2;
+      tmp_stream2 << pe_deriv;
       bf_derivs_parsed[i] = tmp_stream2.str();
       bf_derivs_expressions_[i] = pe_deriv.createCompiledExpression();
-    }
-    catch(PLMD::lepton::Exception& exc) {
+    } catch(PLMD::lepton::Exception& exc) {
       plumed_merror("There was some problem in parsing the derivative of the function "+bf_str[i]+" given in FUNC"+is + " with lepton");
     }
 
@@ -233,22 +243,28 @@ BF_Custom::BF_Custom(const ActionOptions&ao):
   if(transf_str.size()>0) {
     do_transf_ = true;
     addKeywordToList("TRANSFORM",transf_str);
-    for(unsigned int k=0;; k++) {
-      if(transf_str.find("min")!=std::string::npos) {transf_str.replace(transf_str.find("min"), std::string("min").length(),intervalMinStr());}
-      else {break;}
+    while(true) {
+      if(transf_str.find("min")!=std::string::npos) {
+        transf_str.replace(transf_str.find("min"), std::string("min").length(),intervalMinStr());
+      } else {
+        break;
+      }
     }
-    for(unsigned int k=0;; k++) {
-      if(transf_str.find("max")!=std::string::npos) {transf_str.replace(transf_str.find("max"), std::string("max").length(),intervalMaxStr());}
-      else {break;}
+    while(true) {
+      if(transf_str.find("max")!=std::string::npos) {
+        transf_str.replace(transf_str.find("max"), std::string("max").length(),intervalMaxStr());
+      } else {
+        break;
+      }
     }
 
     try {
       lepton::ParsedExpression pe_value = lepton::Parser::parse(transf_str).optimize(lepton::Constants());;
-      std::ostringstream tmp_stream; tmp_stream << pe_value;
+      std::ostringstream tmp_stream;
+      tmp_stream << pe_value;
       transf_value_parsed = tmp_stream.str();
       transf_value_expression_ = pe_value.createCompiledExpression();
-    }
-    catch(PLMD::lepton::Exception& exc) {
+    } catch(PLMD::lepton::Exception& exc) {
       plumed_merror("There was some problem in parsing the function "+transf_str+" given in TRANSFORM with lepton");
     }
 
@@ -265,11 +281,11 @@ BF_Custom::BF_Custom(const ActionOptions&ao):
 
     try {
       lepton::ParsedExpression pe_deriv = lepton::Parser::parse(transf_str).differentiate(transf_variable_str_).optimize(lepton::Constants());;
-      std::ostringstream tmp_stream2; tmp_stream2 << pe_deriv;
+      std::ostringstream tmp_stream2;
+      tmp_stream2 << pe_deriv;
       transf_deriv_parsed = tmp_stream2.str();
       transf_deriv_expression_ = pe_deriv.createCompiledExpression();
-    }
-    catch(PLMD::lepton::Exception& exc) {
+    } catch(PLMD::lepton::Exception& exc) {
       plumed_merror("There was some problem in parsing the derivative of the function "+transf_str+" given in TRANSFORM with lepton");
     }
 
@@ -292,17 +308,16 @@ BF_Custom::BF_Custom(const ActionOptions&ao):
   if(do_transf_) {
     log.printf("  Arguments are transformed using the following function [lepton parsed function and derivative]:\n");
     log.printf("   %s   [   %s   |   %s   ] \n",transf_str.c_str(),transf_value_parsed.c_str(),transf_deriv_parsed.c_str());
-  }
-  else {
+  } else {
     log.printf("  Arguments are not transformed\n");
   }
   //
 
-  parseFlag("CHECK_NAN_INF",check_nan_inf_); addKeywordToList("CHECK_NAN_INF",check_nan_inf_);
+  parseFlag("CHECK_NAN_INF",check_nan_inf_);
+  addKeywordToList("CHECK_NAN_INF",check_nan_inf_);
   if(check_nan_inf_) {
     log.printf("  The code will check that values given are numercially stable, e.g. do not result in a not a number (nan) or infinity (inf).\n");
-  }
-  else {
+  } else {
     log.printf("  The code will NOT check that values given are numercially stable, e.g. do not result in a not a number (nan) or infinity (inf).\n");
   }
 
@@ -318,19 +333,25 @@ void BF_Custom::getAllValues(const double arg, double& argT, bool& inside_range,
   //
   if(do_transf_) {
 
-    if(transf_value_lepton_ref_) {*transf_value_lepton_ref_ = argT;}
-    if(transf_deriv_lepton_ref_) {*transf_deriv_lepton_ref_ = argT;}
+    if(transf_value_lepton_ref_) {
+      *transf_value_lepton_ref_ = argT;
+    }
+    if(transf_deriv_lepton_ref_) {
+      *transf_deriv_lepton_ref_ = argT;
+    }
 
     argT = transf_value_expression_.evaluate();
     transf_derivf = transf_deriv_expression_.evaluate();
 
     if(check_nan_inf_ && (std::isnan(argT) || std::isinf(argT)) ) {
-      std::string vs; Tools::convert(argT,vs);
+      std::string vs;
+      Tools::convert(argT,vs);
       plumed_merror(getName()+" with label "+getLabel()+": problem with the transform function, it gives " + vs);
     }
 
     if(check_nan_inf_ && (std::isnan(transf_derivf) || std::isinf(transf_derivf)) ) {
-      std::string vs; Tools::convert(transf_derivf,vs);
+      std::string vs;
+      Tools::convert(transf_derivf,vs);
       plumed_merror(getName()+" with label "+getLabel()+": problem with the transform function, its derivative gives " + vs);
     }
   }
@@ -339,27 +360,41 @@ void BF_Custom::getAllValues(const double arg, double& argT, bool& inside_range,
   derivs[0]=0.0;
   for(unsigned int i=1; i < getNumberOfBasisFunctions(); i++) {
 
-    if(bf_values_lepton_ref_[i]) {*bf_values_lepton_ref_[i] = argT;}
-    if(bf_derivs_lepton_ref_[i]) {*bf_derivs_lepton_ref_[i] = argT;}
+    if(bf_values_lepton_ref_[i]) {
+      *bf_values_lepton_ref_[i] = argT;
+    }
+    if(bf_derivs_lepton_ref_[i]) {
+      *bf_derivs_lepton_ref_[i] = argT;
+    }
 
     values[i] = bf_values_expressions_[i].evaluate();
     derivs[i] = bf_derivs_expressions_[i].evaluate();
 
-    if(do_transf_) {derivs[i]*=transf_derivf;}
+    if(do_transf_) {
+      derivs[i]*=transf_derivf;
+    }
     // NaN checks
     if(check_nan_inf_ && (std::isnan(values[i]) || std::isinf(values[i])) ) {
-      std::string vs; Tools::convert(values[i],vs);
-      std::string is; Tools::convert(i,is);
+      std::string vs;
+      Tools::convert(values[i],vs);
+      std::string is;
+      Tools::convert(i,is);
       plumed_merror(getName()+" with label "+getLabel()+": problem with the basis function given in FUNC"+is+", it gives "+vs);
     }
     //
     if(check_nan_inf_ && (std::isnan(derivs[i])|| std::isinf(derivs[i])) ) {
-      std::string vs; Tools::convert(derivs[i],vs);
-      std::string is; Tools::convert(i,is);
+      std::string vs;
+      Tools::convert(derivs[i],vs);
+      std::string is;
+      Tools::convert(i,is);
       plumed_merror(getName()+" with label "+getLabel()+": problem with derivative of the basis function given in FUNC"+is+", it gives "+vs);
     }
   }
-  if(!inside_range) {for(unsigned int i=0; i<derivs.size(); i++) {derivs[i]=0.0;}}
+  if(!inside_range) {
+    for(unsigned int i=0; i<derivs.size(); i++) {
+      derivs[i]=0.0;
+    }
+  }
 }
 
 

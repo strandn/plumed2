@@ -26,10 +26,12 @@
 /*
 Depreciated command that is bascially equivalant to GROUP.
 
-Plase don't use this anymore
+Here is an example but Plase don't use this anymore.  Use [GROUP](GROUP.md) instead.
 
-\par Examples
-
+```plumed
+g1: DENSITY SPECIES=1-100
+DUMPATOMS ATOMS=g1 FILE=group.xyz
+```
 
 */
 //+ENDPLUMEDOC
@@ -47,16 +49,19 @@ PLUMED_REGISTER_ACTION(Density,"DENSITY")
 
 void Density::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
+  keys.setDeprecated("GROUP");
   keys.add("compulsory","SPECIES","the atoms in the group");
-  keys.setValueDescription("indices for the specified group of atoms");
-  keys.needsAction("ONES"); keys.needsAction("GROUP");
+  keys.setValueDescription("atoms","indices for the specified group of atoms");
+  keys.needsAction("ONES");
+  keys.needsAction("GROUP");
 }
 
 Density::Density(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
-  std::string atoms; parse("SPECIES",atoms);
+  ActionShortcut(ao) {
+  std::string atoms;
+  parse("SPECIES",atoms);
+  warning("This action has been depracated.  Look at the log to see how the same result is achieved with the new syntax");
   readInputLine( getShortcutLabel() + ": GROUP ATOMS=" + atoms);
 }
 

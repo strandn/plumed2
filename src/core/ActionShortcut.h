@@ -56,14 +56,16 @@ public:
 /// Do nothing.
   void apply() override {}
 /// Get the lines of the shortcut that were read in
-  std::vector<std::string> getSavedInputLines() const ;
+  const std::vector<std::string>& getSavedInputLines() const ;
 /// Get the labels of the actions that this creates
-  std::vector<std::string> getSavedOutputs() const ;
+  const std::vector<std::string>& getSavedOutputs() const ;
 /// Take everything that was input to this action and convert it to a string
   std::string convertInputLineToString();
 /// This sorts out the reading of arguments from shortcuts
   void interpretDataLabel( const std::string& mystr, Action* myuser, std::vector<Value*>& args ) const ;
-  ActionShortcut* castToActionShortcut() noexcept final { return this; }
+  ActionShortcut* castToActionShortcut() noexcept final {
+    return this;
+  }
 };
 
 }

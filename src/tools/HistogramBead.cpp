@@ -21,68 +21,43 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "HistogramBead.h"
 #include <vector>
-#include <limits>
 #include "Tools.h"
 #include "Keywords.h"
 
-namespace PLMD {
+#pragma GCC diagnostic error "-Wswitch"
 
-//+PLUMEDOC INTERNAL histogrambead
 /*
-A function that can be used to calculate whether quantities are between fixed upper and lower bounds.
+IMPORTANT NOTE FOR DEVELOPERS:
 
-If we have multiple instances of a variable we can estimate the probability density function
-for that variable using a process called kernel density estimation:
-
-\f[
-P(s) = \sum_i K\left( \frac{s - s_i}{w} \right)
-\f]
-
-In this equation \f$K\f$ is a symmetric function that must integrate to one that is often
-called a kernel function and \f$w\f$ is a smearing parameter.  From a probability density function calculated using
-kernel density estimation we can calculate the number/fraction of values between an upper and lower
-bound using:
-
-\f[
-w(s) = \int_a^b \sum_i K\left( \frac{s - s_i}{w} \right)
-\f]
-
-All the input to calculate a quantity like \f$w(s)\f$ is generally provided through a single
-keyword that will have the following form:
-
-KEYWORD={TYPE UPPER=\f$a\f$ LOWER=\f$b\f$ SMEAR=\f$\frac{w}{b-a}\f$}
-
-This will calculate the number of values between \f$a\f$ and \f$b\f$.  To calculate
-the fraction of values you add the word NORM to the input specification.  If the
-function keyword SMEAR is not present \f$w\f$ is set equal to \f$0.5(b-a)\f$. Finally,
-type should specify one of the kernel types that is present in plumed. These are listed
-in the table below:
-
-<table align=center frame=void width=95%% cellpadding=5%%>
-<tr>
-<td> TYPE </td> <td> FUNCTION </td>
-</tr> <tr>
-<td> GAUSSIAN </td> <td> \f$\frac{1}{\sqrt{2\pi}w} \exp\left( -\frac{(s-s_i)^2}{2w^2} \right)\f$ </td>
-</tr> <tr>
-<td> TRIANGULAR </td> <td> \f$ \frac{1}{2w} \left( 1. - \left| \frac{s-s_i}{w} \right| \right) \quad \frac{s-s_i}{w}<1 \f$ </td>
-</tr>
-</table>
-
-Some keywords can also be used to calculate a discrete version of the histogram.  That
-is to say the number of values between \f$a\f$ and \f$b\f$, the number of values between
-\f$b\f$ and \f$c\f$ and so on.  A keyword that specifies this sort of calculation would look
-something like
-
-KEYWORD={TYPE UPPER=\f$a\f$ LOWER=\f$b\f$ NBINS=\f$n\f$ SMEAR=\f$\frac{w}{n(b-a)}\f$}
-
-This specification would calculate the following vector of quantities:
-
-\f[
-w_j(s) = \int_{a + \frac{j-1}{n}(b-a)}^{a + \frac{j}{n}(b-a)} \sum_i K\left( \frac{s - s_i}{w} \right)
-\f]
+If you add a new type of function in this file please add documentation for your new switching function type in function/Between.cpp
 
 */
-//+ENDPLUMEDOC
+namespace PLMD {
+
+constexpr double DP2CUTOFF=6.25;
+//Non periodic constructor
+HistogramBead::HistogramBead(KernelType kt,const  double l,
+                             const double h,
+                             const double w):
+  type(kt),
+  periodicity(Periodicity::notperiodic) {
+  set(l,h,w);
+}
+//periodic constructor
+HistogramBead::HistogramBead(KernelType kt,
+                             double mlow,
+                             double mhigh,const  double l,
+                             const double h,
+                             const double w):
+  type(kt) {
+  isPeriodic(mlow,mhigh);
+  set(l,h,w);
+}
+
+HistogramBead::HistogramBead(const HistogramBead&)=default;
+HistogramBead::HistogramBead(HistogramBead&&)=default;
+HistogramBead& HistogramBead::operator=(const HistogramBead&)=default;
+HistogramBead& HistogramBead::operator=(HistogramBead&&)=default;
 
 void HistogramBead::registerKeywords( Keywords& keys ) {
   keys.add("compulsory","LOWER","the lower boundary for this particular bin");
@@ -90,24 +65,18 @@ void HistogramBead::registerKeywords( Keywords& keys ) {
   keys.add("compulsory","SMEAR","0.5","the amount to smear the Gaussian for each value in the distribution");
 }
 
-HistogramBead::HistogramBead():
-  init(false),
-  lowb(0.0),
-  highb(0.0),
-  width(0.0),
-  cutoff(std::numeric_limits<double>::max()),
-  type(gaussian),
-  periodicity(unset),
-  min(0.0),
-  max(0.0),
-  max_minus_min(0.0),
-  inv_max_minus_min(0.0)
-{
-}
-
 std::string HistogramBead::description() const {
   std::ostringstream ostr;
-  ostr<<"between "<<lowb<<" and "<<highb<<" width of gaussian window equals "<<width;
+  switch (type) {
+  case KernelType::gaussian:
+    ostr<<"between "<<lowb<<" and "
+        <<highb<<" width of gaussian window equals "<<width;
+    break;
+  case KernelType::triangular:
+    ostr<<"between "<<lowb<<" and "
+        <<highb<<" width of triangular window equals "<<width;
+    break;
+  }
   return ostr.str();
 }
 
@@ -117,7 +86,9 @@ void HistogramBead::generateBins( const std::string& params, std::vector<std::st
 
   std::string name=data[0];
 
-  unsigned nbins; std::vector<double> range(2); std::string smear;
+  unsigned nbins;
+  std::vector<double> range(2);
+  std::string smear;
   bool found_nb=Tools::parse(data,"NBINS",nbins);
   plumed_massert(found_nb,"Number of bins in histogram not found");
   bool found_r=Tools::parse(data,"LOWER",range[0]);
@@ -126,9 +97,12 @@ void HistogramBead::generateBins( const std::string& params, std::vector<std::st
   plumed_massert(found_r,"Upper bound for histogram not specified");
   plumed_massert(range[0]<range[1],"Range specification is dubious");
   bool found_b=Tools::parse(data,"SMEAR",smear);
-  if(!found_b) { Tools::convert(0.5,smear); }
+  if(!found_b) {
+    Tools::convert(0.5,smear);
+  }
 
-  std::string lb,ub; double delr = ( range[1]-range[0] ) / static_cast<double>( nbins );
+  std::string lb,ub;
+  double delr = ( range[1]-range[0] ) / static_cast<double>( nbins );
   for(unsigned i=0; i<nbins; ++i) {
     Tools::convert( range[0]+i*delr, lb );
     Tools::convert( range[0]+(i+1)*delr, ub );
@@ -144,122 +118,216 @@ void HistogramBead::set( const std::string& params, std::string& errormsg ) {
     return;
   }
 
-  std::string name=data[0]; const double DP2CUTOFF=6.25;
-  if(name=="GAUSSIAN") { type=gaussian; cutoff=std::sqrt(2.0*DP2CUTOFF); }
-  else if(name=="TRIANGULAR") { type=triangular; cutoff=1.; }
-  else plumed_merror("cannot understand kernel type " + name );
+  std::string name=data[0];
+
+  if(name=="GAUSSIAN") {
+    type=KernelType::gaussian;
+    cutoff=std::sqrt(2.0*DP2CUTOFF);
+  } else if(name=="TRIANGULAR") {
+    type=KernelType::triangular;
+    cutoff=1.0;
+  } else {
+    plumed_merror("cannot understand kernel type " + name );
+  }
 
   double smear;
   bool found_r=Tools::parse(data,"LOWER",lowb);
-  if( !found_r ) errormsg="Lower bound has not been specified use LOWER";
+  if( !found_r ) {
+    errormsg="Lower bound has not been specified use LOWER";
+  }
   found_r=Tools::parse(data,"UPPER",highb);
-  if( !found_r ) errormsg="Upper bound has not been specified use UPPER";
-  if( lowb>=highb ) errormsg="Lower bound is higher than upper bound";
+  if( !found_r ) {
+    errormsg="Upper bound has not been specified use UPPER";
+  }
+  if( lowb>=highb ) {
+    errormsg="Lower bound is higher than upper bound";
+  }
 
-  smear=0.5; Tools::parse(data,"SMEAR",smear);
-  width=smear*(highb-lowb); init=true;
+  smear=0.5;
+  Tools::parse(data,"SMEAR",smear);
+  width=smear*(highb-lowb);
 }
 
-void HistogramBead::set( double l, double h, double w) {
-  init=true; lowb=l; highb=h; width=w;
-  const double DP2CUTOFF=6.25;
-  if( type==gaussian ) cutoff=std::sqrt(2.0*DP2CUTOFF);
-  else if( type==triangular ) cutoff=1.;
-  else plumed_error();
+void HistogramBead::set(const  double l, const double h, const double w) {
+  lowb=l;
+  highb=h;
+  width=w;
+  switch (type) {
+  case KernelType::gaussian : {
+    cutoff=std::sqrt(2.0*DP2CUTOFF);
+  }
+  break;
+  case KernelType::triangular : {
+    cutoff=1.0;
+  }
+  }
+}
+
+HistogramBead::KernelType HistogramBead::getKernelType( const std::string& ktype ) {
+  if(ktype=="gaussian") {
+    return KernelType::gaussian;
+  } else if(ktype=="triangular") {
+    return KernelType::triangular;
+  } else {
+    plumed_merror("cannot understand kernel type " + ktype );
+  }
 }
 
 void HistogramBead::setKernelType( const std::string& ktype ) {
-  if(ktype=="gaussian") type=gaussian;
-  else if(ktype=="triangular") type=triangular;
-  else plumed_merror("cannot understand kernel type " + ktype );
+  if(ktype=="gaussian") {
+    type=KernelType::gaussian;
+  } else if(ktype=="triangular") {
+    type=KernelType::triangular;
+  } else {
+    plumed_merror("cannot understand kernel type " + ktype );
+  }
 }
 
-double HistogramBead::calculate( double x, double& df ) const {
-  plumed_dbg_assert(init && periodicity!=unset );
-  double lowB, upperB, f;
-  if( type==gaussian ) {
-    lowB = difference( x, lowb ) / ( std::sqrt(2.0) * width );
-    upperB = difference( x, highb ) / ( std::sqrt(2.0) * width );
-    df = ( exp( -lowB*lowB ) - exp( -upperB*upperB ) ) / ( std::sqrt(2*pi)*width );
-    f = 0.5*( erf( upperB ) - erf( lowB ) );
-  } else if( type==triangular ) {
-    lowB = ( difference( x, lowb ) / width );
-    upperB = ( difference( x, highb ) / width );
-    df=0;
-    if( std::fabs(lowB)<1. ) df = (1 - std::fabs(lowB)) / width;
-    if( std::fabs(upperB)<1. ) df -= (1 - std::fabs(upperB)) / width;
-    if (upperB<=-1. || lowB >=1.) {
-      f=0.;
-    } else {
-      double ia, ib;
-      if( lowB>-1.0 ) { ia=lowB; } else { ia=-1.0; }
-      if( upperB<1.0 ) { ib=upperB; } else { ib=1.0; }
-      f = (ib*(2.-std::fabs(ib))-ia*(2.-std::fabs(ia)))*0.5;
-    }
-  } else {
-    plumed_merror("function type does not exist");
+void HistogramBead::setKernelType( KernelType ktype ) {
+  type=ktype;
+}
+
+double HistogramBead::calculate(const double x, double& df ) const {
+  double res=0.0;
+  switch (type) {
+  case KernelType::gaussian : {
+    const double lowB = difference( x, lowb ) / ( std::sqrt(2.0) * width );
+    const double upperB = difference( x, highb ) / ( std::sqrt(2.0) * width );
+    df = ( exp( -lowB*lowB ) - exp( -upperB*upperB ) ) / ( std::sqrt(PLMD::twopi)*width );
+    res = 0.5*( erf( upperB ) - erf( lowB ) );
   }
-  return f;
+  break;
+  case KernelType::triangular : {
+    const double lowB = ( difference( x, lowb ) / width );
+    const double upperB = ( difference( x, highb ) / width );
+    df=0.0;
+    if( std::fabs(lowB)<1. ) {
+      df = (1 - std::fabs(lowB)) / width;
+    }
+    if( std::fabs(upperB)<1. ) {
+      df -= (1 - std::fabs(upperB)) / width;
+    }
+    if (upperB<=-1. || lowB >=1.) {
+      break;
+    }
+    const double ia = (lowB>-1.0) ? lowB : -1.0;
+    const double ib = (upperB<1.0) ? upperB : 1.0;
+    res = (ib*(2.-std::fabs(ib))-ia*(2.-std::fabs(ia)))*0.5;
+  }
+  }
+  return res;
 }
 
 double HistogramBead::calculateWithCutoff( double x, double& df ) const {
-  plumed_dbg_assert(init && periodicity!=unset );
+  return calculateWithCutoff( x, lowb, highb, width, df );
+}
 
-  double lowB, upperB, f;
-  lowB = difference( x, lowb ) / width ; upperB = difference( x, highb ) / width;
-  if( upperB<=-cutoff || lowB>=cutoff ) { df=0; return 0; }
-
-  if( type==gaussian ) {
-    lowB /= std::sqrt(2.0); upperB /= std::sqrt(2.0);
-    df = ( exp( -lowB*lowB ) - exp( -upperB*upperB ) ) / ( std::sqrt(2*pi)*width );
+double HistogramBead::calculateWithCutoff(double x,
+    double l,
+    double u,
+    double s,
+    double& df ) const {
+  double lowB = difference( x, l ) / s;
+  double upperB = difference( x, u ) / s;
+  if( upperB<=-cutoff || lowB>=cutoff ) {
+    df=0.0;
+    return 0.0;
+  }
+  double f=0.0;
+  switch (type) {
+  case KernelType::gaussian : {
+    lowB /= std::sqrt(2.0);
+    upperB /= std::sqrt(2.0);
+    df = ( exp( -lowB*lowB ) - exp( -upperB*upperB ) ) / ( std::sqrt(2*pi)*s );
     f = 0.5*( erf( upperB ) - erf( lowB ) );
-  } else if( type==triangular ) {
+  }
+  break;
+  case KernelType::triangular : {
     df=0;
-    if( std::fabs(lowB)<1. ) df = (1 - std::fabs(lowB)) / width;
-    if( std::fabs(upperB)<1. ) df -= (1 - std::fabs(upperB)) / width;
+    if( std::fabs(lowB)<1. ) {
+      df = (1.0 - std::fabs(lowB)) / s;
+    }
+    if( std::fabs(upperB)<1. ) {
+      df -= (1.0 - std::fabs(upperB)) / s;
+    }
     if (upperB<=-1. || lowB >=1.) {
-      f=0.;
+      f=0.0;
     } else {
       double ia, ib;
-      if( lowB>-1.0 ) { ia=lowB; } else { ia=-1.0; }
-      if( upperB<1.0 ) { ib=upperB; } else { ib=1.0; }
+      if( lowB>-1.0 ) {
+        ia=lowB;
+      } else {
+        ia=-1.0;
+      }
+      if( upperB<1.0 ) {
+        ib=upperB;
+      } else {
+        ib=1.0;
+      }
       f = (ib*(2.-std::fabs(ib))-ia*(2.-std::fabs(ia)))*0.5;
     }
-  } else {
-    plumed_merror("function type does not exist");
+  }
   }
   return f;
 }
 
-double HistogramBead::lboundDerivative( const double& x ) const {
-  if( type==gaussian ) {
+double HistogramBead::lboundDerivative( const double x ) const {
+  switch (type) {
+  case KernelType::gaussian : {
     double lowB = difference( x, lowb ) / ( std::sqrt(2.0) * width );
     return exp( -lowB*lowB ) / ( std::sqrt(2*pi)*width );
-  } else if ( type==triangular ) {
-    plumed_error();
-//      lowB = fabs( difference( x, lowb ) / width );
-//      if( lowB<1 ) return ( 1 - (lowB) ) / 2*width;
-//      else return 0;
-  } else {
-    plumed_merror("function type does not exist");
   }
-  return 0;
+  break;
+  case  KernelType::triangular : {
+    assert(false);
+    //TODO: something about this:
+    // double lowB = fabs( difference( x, lowb ) / width );
+    // if( lowB<1 ) {
+    //   return ( 1 - (lowB) ) / 2*width;
+    // } else {
+    //   return 0;
+    // }
+  }
+  }
+  //warning::unreachable
+  return 0.0;
 }
 
-double HistogramBead::uboundDerivative( const double& x ) const {
-  plumed_dbg_assert(init && periodicity!=unset );
-  if( type==gaussian ) {
+double HistogramBead::uboundDerivative( const double x ) const {
+  switch (type) {
+  case KernelType::gaussian : {
     double upperB = difference( x, highb ) / ( std::sqrt(2.0) * width );
     return exp( -upperB*upperB ) / ( std::sqrt(2*pi)*width );
-  } else if ( type==triangular ) {
-    plumed_error();
-//      upperB = fabs( difference( x, highb ) / width );
-//      if( upperB<1 ) return ( 1 - (upperB) ) / 2*width;
-//      else return 0;
-  } else {
-    plumed_merror("function type does not exist");
   }
-  return 0;
+  break;
+  case KernelType::triangular : {
+    assert(false);
+    //TODO: something about this:
+    // double upperB = fabs( difference( x, highb ) / width );
+    // if( upperB<1 ) {
+    //   return ( 1 - (upperB) ) / 2*width;
+    // } else {
+    //   return 0;
+    // }
+  }
+  }
+  //warning::unreachable
+  return 0.0;
+}
+
+inline
+double HistogramBead::difference( double d1, const double d2 ) const {
+  switch (periodicity) {
+  case Periodicity::notperiodic :
+    break;
+  case Periodicity::periodic: {
+    // Make sure the point is in the target range
+    d1*=inv_max_minus_min;
+    d1=Tools::pbc(d1);
+    d1*=max_minus_min;
+  }
+  }
+  return d2-d1;
 }
 
 }

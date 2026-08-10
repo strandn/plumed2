@@ -79,7 +79,7 @@ AC_DEFUN([PLUMED_CHECK_CFLAG], [
 ])
 
 # PLUMED_CHECK_LDFLAGS(flag)
-# use it to check if a flag is available on this compiler
+# use it to check if a flag is available for linking
 AC_DEFUN([PLUMED_CHECK_LDFLAGS], [
   save_LDFLAGS="$LDFLAGS"
   LDFLAGS="$LDFLAGS $1"
@@ -114,7 +114,7 @@ AC_DEFUN([PLUMED_CHECK_PACKAGE], [
        AC_DEFINE([$3])
        $3=yes
     else
-       AC_MSG_WARN([cannot enable $3]) 
+       AC_MSG_WARN([cannot enable $3])
     fi
 ])
 
@@ -133,7 +133,7 @@ AC_DEFUN([PLUMED_CHECK_CXX_PACKAGE], [
       testlibs=""
     fi
     save_LIBS="$LIBS"
-    
+
     # check if multiple libraries are required simultaneously
     multiple="no"
     if test "$5" = "true"; then
@@ -163,8 +163,8 @@ AC_DEFUN([PLUMED_CHECK_CXX_PACKAGE], [
               [AC_MSG_RESULT([yes])],
               [AC_MSG_RESULT([no])]
           )
-      else 
-        for testlib in $testlibs 
+      else
+        for testlib in $testlibs
         do
           AC_MSG_CHECKING([$1 with -l$testlib])
           LIBS="-l$testlib $LIBS"
@@ -185,9 +185,60 @@ AC_DEFUN([PLUMED_CHECK_CXX_PACKAGE], [
       AC_DEFINE([$3])
       $3=yes
     else
-      AC_MSG_WARN([cannot enable $3]) 
+      AC_MSG_WARN([cannot enable $3])
       LIBS="$save_LIBS"
     fi
+])
+
+# PLUMED_OPENMP
+# redefinition of AC_OPENMP that proposes -qopenmp among the choices
+# -qopenmp is tested first because intel compiler have deprecated -fopenmp
+# the base is the AC_OPENMP defined in autoconf 2.69
+AC_DEFUN([PLUMED_OPENMP],
+[
+  OPENMP_[]_AC_LANG_PREFIX[]FLAGS=
+  AC_ARG_ENABLE([openmp],
+    [AS_HELP_STRING([--disable-openmp], [do not use OpenMP])])
+  if test "$enable_openmp" != no; then
+    AC_CACHE_CHECK([for $[]_AC_CC[] option to support OpenMP],
+      [ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp],
+      [AC_LINK_IFELSE([_AC_LANG_OPENMP],
+	 [ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp='none needed'],
+	 [ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp='unsupported'
+	  dnl Try these flags:
+	  dnl   GCC >= 4.2           -fopenmp
+	  dnl   SunPRO C             -xopenmp
+	  dnl   Intel C              -qopenmp, -openmp
+	  dnl   SGI C, PGI C         -mp
+	  dnl   Tru64 Compaq C       -omp
+	  dnl   IBM C (AIX, Linux)   -qsmp=omp
+          dnl   Cray CCE             -homp
+          dnl   NEC SX               -Popenmp
+          dnl   Lahey Fortran (Linux)  --openmp
+	  dnl If in this loop a compiler is passed an option that it do not
+	  dnl understand or that it misinterprets, the AC_LINK_IFELSE test
+	  dnl will fail (since we know that it failed without the option),
+	  dnl therefore the loop will continue searching for an option, and
+	  dnl no output file called 'penmp' or 'mp' is created.
+	  for ac_option in -qopenmp -fopenmp -xopenmp -openmp -mp -omp -qsmp=omp -homp \
+                           -Popenmp --openmp; do
+	    ac_save_[]_AC_LANG_PREFIX[]FLAGS=$[]_AC_LANG_PREFIX[]FLAGS
+	    _AC_LANG_PREFIX[]FLAGS="$[]_AC_LANG_PREFIX[]FLAGS $ac_option"
+	    AC_LINK_IFELSE([_AC_LANG_OPENMP],
+	      [ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp=$ac_option])
+	    _AC_LANG_PREFIX[]FLAGS=$ac_save_[]_AC_LANG_PREFIX[]FLAGS
+	    if test "$ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp" != unsupported; then
+	      break
+	    fi
+	  done])])
+    case $ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp in #(
+      "none needed" | unsupported)
+	;; #(
+      *)
+	OPENMP_[]_AC_LANG_PREFIX[]FLAGS=$ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp ;;
+    esac
+  fi
+  AC_SUBST([OPENMP_]_AC_LANG_PREFIX[FLAGS])
 ])
 
 ##################################################################
@@ -288,7 +339,7 @@ AC_ARG_ENABLE([cxx],
   ]
 )
 PLUMED_CONFIG_ENABLE([basic-warnings],[basic warnings],[yes])
-PLUMED_CONFIG_ENABLE([fussy],[fussy warnings],[no])
+PLUMED_CONFIG_ENABLE([fussy],[fussy warnings, ignored if basic-warnings is disabled],[no])
 PLUMED_CONFIG_ENABLE([debug-glibcxx],[enable boundary check],[no])
 PLUMED_CONFIG_ENABLE([shared],[shared libs],[yes])
 PLUMED_CONFIG_ENABLE([dependency-tracking],[dependency tracking],[yes])
@@ -318,12 +369,15 @@ PLUMED_CONFIG_ENABLE([boost_graph],[search for boost graph],[no])
 PLUMED_CONFIG_ENABLE([boost_serialization],[search for boost serialization],[no])
 PLUMED_CONFIG_ENABLE([fftw],[search for fftw],[yes])
 PLUMED_CONFIG_ENABLE([python],[search for python],[yes])
-PLUMED_CONFIG_ENABLE([pycv],[set up the pycv plugin],[yes])
 PLUMED_CONFIG_ENABLE([af_ocl],[search for arrayfire_ocl],[no])
 PLUMED_CONFIG_ENABLE([af_cuda],[search for arrayfire_cuda],[no])
 PLUMED_CONFIG_ENABLE([af_cpu],[search for arrayfire_cpu],[no])
 PLUMED_CONFIG_ENABLE([libtorch],[search for libtorch],[no]) #added by luigibonati
-PLUMED_CONFIG_ENABLE([metatensor],[search for metatensor],[no])
+PLUMED_CONFIG_ENABLE([libmetatomic],[search for libmetatomic],[no])
+PLUMED_CONFIG_ENABLE([libitensor],[search for libitensor],[no])
+PLUMED_CONFIG_ENABLE([libhdf5],[search for libhdf5],[no])
+PLUMED_CONFIG_ENABLE([linuxperf],[activate the compile options for a more accurate report with perf on linux],[no])
+PLUMED_CONFIG_ENABLE([openacc],[search for openacc (use PLUMED_ACC_TYPE and PLUMED_ACC_GPU for controlling the settings)],[no])
 
 AC_ARG_VAR(SOEXT,[extension of dynamic libraries (so/dylib)])
 AC_ARG_VAR(STATIC_LIBS,[variables that should be linked statically directly to MD code - configure will add here -ldl if necessary ])
@@ -331,7 +385,8 @@ AC_ARG_VAR(LDSHARED,[command for linking shared library - configure will use CXX
 AC_ARG_VAR(PYTHON_BIN,[python executable (e.g. python2.7 or /opt/local/bin/python2.7) - default: search for a python executable])
 AC_ARG_VAR(BASH_COMPLETION_DIR,[path where bash completion will be installed - default: search with pkg-config])
 AC_ARG_VAR(MPIEXEC,[command to run mpi programs in tests - default not specified, which means use PLUMED_MPIRUN env var at runtime for backward compatibility])
-
+AC_ARG_VAR(PLUMED_ACC_TYPE,[with --enable-openacc this is the setting  ('host' or 'gpu') for determining the target of the OPENACC pragmas - default: 'gpu'])
+AC_ARG_VAR(PLUMED_ACC_GPU,[if PLUMED_ACC_TYPE is 'gpu', this is read as a space separated list of '-gpu' options for openacc (example "cc75 managed")])
 # by default use -O flag
 # we override the autoconf default (-g) because in release build we do not want to
 # include symbol information (obj files are huge)
@@ -339,7 +394,6 @@ if test -z "$CXXFLAGS"
 then
   CXXFLAGS=-O3
 fi
-
 # this is a list of common compilers
 compilers="g++ c++ cxx icpc"
 c_compilers="gcc cc icc"
@@ -362,7 +416,7 @@ AC_PROG_CXX([$compilers])
 AC_PROG_CC([$c_compilers])
 
 # also setup Fortran compiler
-# this is optional, and can be used in the late part of this 
+# this is optional, and can be used in the late part of this
 # script to verify that fortran can indeed link properly the
 # a c++ library
 AC_PROG_FC
@@ -396,6 +450,29 @@ if test $basic_warnings = true
 then
   PLUMED_CHECK_CXXFLAG([-Wall])
   PLUMED_CHECK_CXXFLAG([-pedantic])
+  if ! test $openacc = true; then
+    PLUMED_CHECK_CXXFLAG([-Wno-unknown-pragmas])
+  fi
+  if test $fussy = true
+  then
+    PLUMED_CHECK_CXXFLAG([-Wextra])
+    PLUMED_CHECK_CXXFLAG([-Wfloat-equal])
+    PLUMED_CHECK_CXXFLAG([-Wwrite-strings])
+    PLUMED_CHECK_CXXFLAG([-Wpointer-arith])
+    PLUMED_CHECK_CXXFLAG([-Wcast-qual])
+    PLUMED_CHECK_CXXFLAG([-Wcast-align])
+    PLUMED_CHECK_CXXFLAG([-Wconversion])
+    PLUMED_CHECK_CXXFLAG([-Wredundant-decls])
+    PLUMED_CHECK_CXXFLAG([-Wvariadic-macros])
+    PLUMED_CHECK_CXXFLAG([-Wold-style-cast])
+  fi
+else
+  PLUMED_CHECK_CXXFLAG([-w])
+  AC_MSG_NOTICE([All warning disabled])
+  if test $fussy = true
+  then
+     AC_MSG_WARN(["fussy warnings" won't be enabled without basic warnings])
+  fi
 fi
 
 if test -n "$cxx_level"
@@ -417,18 +494,11 @@ then
   STATIC_LIBS="$STATIC_LIBS --coverage"
 fi
 
-if test $fussy = true
+# useful for having a clearer (and correct) flamegraph in linux
+if test $linuxperf = true
 then
-  PLUMED_CHECK_CXXFLAG([-Wextra])
-  PLUMED_CHECK_CXXFLAG([-Wfloat-equal])
-  PLUMED_CHECK_CXXFLAG([-Wwrite-strings])
-  PLUMED_CHECK_CXXFLAG([-Wpointer-arith])
-  PLUMED_CHECK_CXXFLAG([-Wcast-qual])
-  PLUMED_CHECK_CXXFLAG([-Wcast-align])
-  PLUMED_CHECK_CXXFLAG([-Wconversion])
-  PLUMED_CHECK_CXXFLAG([-Wredundant-decls])
-  PLUMED_CHECK_CXXFLAG([-Wvariadic-macros])
-  PLUMED_CHECK_CXXFLAG([-Wold-style-cast])
+  PLUMED_CHECK_CXXFLAG([-fno-omit-frame-pointer])
+  PLUMED_CHECK_CXXFLAG([-gdwarf])
 fi
 
 AC_MSG_CHECKING([whether $CXX declares c++17 support])
@@ -461,7 +531,7 @@ then
   echo "#include \"conftest1.h\"" > conftest.cpp
   echo "#include \"conftest2.h\"" > conftest1.h
   echo "/* */" > conftest2.h
-  $CXX $CXXFLAGS -c -MM -MFconftest.d conftest.cpp 1> /dev/null 2> /dev/null
+  $CXX $CXXFLAGS -c -MM -MF conftest.d conftest.cpp 1> /dev/null 2> /dev/null
   grep conftest2 conftest.d 1> /dev/null 2>/dev/null && dependency=ok
   if test "$dependency" = ok ; then
     AC_MSG_RESULT([yes])
@@ -570,7 +640,7 @@ else
 AC_DEFINE([__PLUMED_HAS_EXTERNAL_LAPACK])
 fi
 
-fi 
+fi
 
 # in case external blas have been found, take note of their underscoring
 # notice that this applies also when external blas are used with internal lapack
@@ -688,13 +758,13 @@ if test $mpi = true ; then
   if test "$__PLUMED_HAS_MPI" = yes; then
     mpi_found=ok
   fi
-else 
+else
   mpi_found=ko
 fi
 
 # search for openmp is automatically disabled by autoconf
 # when configuring with --disable-openmp
-AC_OPENMP
+PLUMED_OPENMP
 
 if test $asmjit = true ; then
   AC_MSG_CHECKING([whether architecture is X86/X64])
@@ -837,62 +907,24 @@ if test $fftw = true ; then
   PLUMED_CHECK_PACKAGE([fftw3.h],[fftw_execute],[__PLUMED_HAS_FFTW],[fftw3])
 fi
 
-# python executable: if any of CYTHON_FOUND or PLUMED_CAN_PYCV is on will store
-# the python executable
+# python executable: if PYTHON_BUILD_FOUND is on will store the python executable
 AC_SUBST(PYTHON_BIN)
-# set if PYTHON_BIN has Cython in its environment
-AC_SUBST(CYTHON_FOUND)
-# definitions and variables related to pycv and in general embedding python
-AC_SUBST(PLUMED_CAN_PYCV)
-AC_SUBST(PYBIND11_CFLAGS)
-AC_SUBST(PYTHON_LDFLAGS)
-AC_SUBST(PYTHON_CFLAGS)
+# set if PYTHON_BIN has build in its environment
+AC_SUBST(PYTHON_BUILD_FOUND)
 
 # if PYTHON_BIN is defined, it is expected to be the full path to python
-# Otherwise, search from a list of names:  
+# Otherwise, search from a list of names:
 if test -z "$PYTHON_BIN" ; then
     AC_CHECK_PROGS([PYTHON_BIN],[python3])
 fi
 if test -n "$PYTHON_BIN" ; then
     AC_MSG_NOTICE([Python executable is $PYTHON_BIN])
-  if test $pycv = true  ; then
-    AC_MSG_CHECKING([pycv: support for required python modules (python3, pybind11, numpy)])
-  testimport="
-import numpy
-import pybind11
-#no need to check for python3, if you have python2, you don't have pybind11 (and vice-versa)
-"
-    if echo "$testimport" | "$PYTHON_BIN" 1>/dev/null 2>/dev/null;  then
-       
-       pyver=$($PYTHON_BIN -c "import sysconfig;print(sysconfig.get_config_var('VERSION'))")
-       python_config=python${pyver}-config
-       
-       if ${python_config} --ldflags --embed 1>/dev/null 2>/dev/null ;then
-          AC_MSG_RESULT([yes])
-          PYBIND11_CFLAGS="$($PYTHON_BIN -m pybind11 --includes) -fvisibility=hidden"
-          PYTHON_CFLAGS=$(${python_config} --cflags --embed)
-          PYTHON_LDFLAGS=$(${python_config} --ldflags --embed)
-          #TODO: conda_fixup
-          PLUMED_CAN_PYCV=yes
-        else
-          AC_MSG_RESULT([no])
-          AC_MSG_WARN([cannot enable pycv])
-          AC_MSG_WARN(["PyCV needs python to be embeddable, please rebuild python"])
-       fi
-    else
-       AC_MSG_RESULT([no])
-       AC_MSG_WARN([cannot enable pycv])
-    fi
-  else
-    AC_MSG_WARN([cannot enable pycv])
-  fi
-
   if test $python = true  ; then
-    AC_MSG_CHECKING([python wrapper: support for required python modules (python3, setuptools, cython)])
+    AC_MSG_CHECKING([python wrapper: support for required python modules (python3, setuptools, build)])
     testimport="
 from setuptools import setup
 from setuptools import Extension
-from Cython.Build import cythonize
+import build
 import sys
 if sys.version_info < (3,):
     raise ImportError('PLUMED>= 2.6 only supports Python 3')
@@ -900,7 +932,7 @@ if sys.version_info < (3,):
     if echo "$testimport" | "$PYTHON_BIN" 1>/dev/null 2>/dev/null;  then
        AC_MSG_RESULT([yes])
        AC_DEFINE([__PLUMED_HAS_PYTHON])
-       CYTHON_FOUND=yes
+       PYTHON_BUILD_FOUND=yes
     else
        AC_MSG_RESULT([no])
        AC_MSG_WARN([cannot enable python interface])
@@ -910,7 +942,7 @@ if sys.version_info < (3,):
   fi
 fi
 
-if test "${PLUMED_CAN_PYCV}" != yes &&  test "${CYTHON_FOUND}" != yes; then
+if test "${PYTHON_BUILD_FOUND}" != yes; then
   #this deactivate python bin if no package was found
   PYTHON_BIN=
 fi
@@ -927,16 +959,15 @@ if test "$af_cpu" = true ; then
   PLUMED_CHECK_PACKAGE([arrayfire.h],[af_is_double],[__PLUMED_HAS_ARRAYFIRE],[afcpu])
 fi
 
-# metatensor requires libtorch
-if test $metatensor = true ; then
+# libmetatomic requires libtorch
+if test $libmetatomic = true ; then
   libtorch=true;
 fi
 
 #added by luigibonati
-if test $libtorch = true ; then 
+if test $libtorch = true ; then
   # disable as-needed in linking libraries (both static and shared)
-  PLUMED_CHECK_CXXFLAG([-Wl,--no-as-needed])
-  LDSHARED="$LDSHARED -Wl,--no-as-needed "
+  PLUMED_CHECK_LDFLAGS([-Wl,--no-as-needed])
 
   # CUDA and CPU libtorch libs have different libraries
   # first test CUDA program
@@ -962,16 +993,16 @@ if test $libtorch = true ; then
     #include <torch/script.h>
     int main() {
       torch::Tensor tensor = torch::rand({2, 3});
-      
+
       return 0;
     }
   ], [__PLUMED_HAS_LIBTORCH], [ torch_cpu c10 ], [true])
   fi
 fi
 
-if test $metatensor = true ; then
-  # find metatensor and metatensor_torch
-  PLUMED_CHECK_CXX_PACKAGE([metatensor],[
+if test $libmetatomic = true ; then
+  # find metatomic & related libraries
+  PLUMED_CHECK_CXX_PACKAGE([libmetatomic],[
     // torch header creates a lot a pedantic warnings, which we can't do anything about
     // we disable them to make finding the relevant part in the config.log easier
     #pragma GCC diagnostic push
@@ -987,15 +1018,84 @@ if test $metatensor = true ; then
     #include <torch/torch.h>
     #include <torch/script.h>
     #pragma GCC diagnostic pop
+    #include <metatensor.hpp>
     #include <metatensor/torch.hpp>
-    #if METATENSOR_TORCH_VERSION_MAJOR != 0 || METATENSOR_TORCH_VERSION_MINOR != 5
-    #error "this code is only compatible with metatensor-torch >=0.5.1,<0.6"
+    #include <metatomic/torch.hpp>
+    #if METATOMIC_TORCH_VERSION_MAJOR != 0 || METATOMIC_TORCH_VERSION_MINOR != 1 || METATOMIC_TORCH_VERSION_PATCH < 12
+    #error "this code is only compatible with metatomic-torch >=0.1.12,<0.2"
     #endif
     int main() {
+      metatomic_torch::version();
       metatensor_torch::version();
+      mts_version();
       return 0;
     }
-  ], [__PLUMED_HAS_METATENSOR], [metatensor metatensor_torch], [true])
+  ], [__PLUMED_HAS_LIBMETATOMIC], [metatomic_torch metatensor_torch metatensor], [true])
+fi
+
+# libitensor requires libhdf5
+if test $libitensor = true ; then
+  libhdf5=true;
+fi
+
+if test $libhdf5 = true ; then
+  PLUMED_CHECK_CXX_PACKAGE([libhdf5],[
+    #include <hdf5.h>
+    int main() {
+      unsigned majnum, minnum, relnum;
+      H5get_libversion(&majnum, &minnum, &relnum);
+      return 0;
+    }
+  ], [__PLUMED_HAS_LIBHDF5], [ hdf5_hl hdf5 ], [true])
+fi
+
+if test $libitensor = true ; then
+  # NOTE: ITensor headers use C++20 'requires' expressions. -fconcepts enables them on
+  # GCC without forcing -std=c++20 globally. When PLUMED upgrades to -std=c++20
+  # everywhere, this PLUMED_CHECK_CXXFLAG call can be removed.
+  # PLUMED_CHECK_CXXFLAG([-fconcepts])
+
+  save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -fconcepts $OPENMP_CXXFLAGS"
+  PLUMED_CHECK_CXX_PACKAGE([libitensor],[
+    #include <itensor/all.h>
+    int main() {
+      auto i = itensor::Index(2,"i");
+      auto j = itensor::Index(2,"j");
+      auto T = itensor::ITensor(i,j);
+      return 0;
+    }
+  ], [__PLUMED_HAS_LIBITENSOR], [ itensor openblas ], [true])
+  CXXFLAGS="$save_CXXFLAGS"
+  if test "$__PLUMED_HAS_LIBITENSOR" = yes ; then
+    PLUMED_CHECK_CXXFLAG([-fconcepts])
+  fi
+fi
+
+acc_found=ko
+if test $openacc = true; then
+  if test -z "$PLUMED_ACC_TYPE"; then
+    PLUMED_ACC_TYPE=gpu
+  fi
+# optional libraries follow
+  PLUMED_CHECK_PACKAGE([openacc.h],[acc_get_device_type],[__PLUMED_HAS_OPENACC])
+  if test "$__PLUMED_HAS_OPENACC" = yes; then
+    acc_found=ok
+    #test if we can compile with openacc
+    PLUMED_CHECK_CXXFLAG([-acc])
+    PLUMED_CHECK_CXXFLAG([-acc=$PLUMED_ACC_TYPE])
+    if test "$PLUMED_ACC_TYPE" = "gpu"; then
+      if test -n "$PLUMED_ACC_GPU"; then
+        for flag in $PLUMED_ACC_GPU; do
+          PLUMED_CHECK_CXXFLAG([-gpu=$flag])
+        done
+      fi
+    fi
+    LDSHARED="$LDSHARED -acc -static-nvidia"
+    AC_MSG_WARN([Please remember to personalize the openacc settings with  "PLUMED_ACC_GPU"])
+  fi
+else
+  acc_found=ko
 fi
 
 # in non-debug mode, add -DNDEBUG
@@ -1094,7 +1194,7 @@ then
       fi
     else
       AC_MSG_WARN([readelf not available, no way to set rpath])
-    fi 
+    fi
   fi
   rm -f conftest.*
 fi
@@ -1248,9 +1348,9 @@ if test "$ld_r" = true ; then
 for test_LD_RO in "$($CXX --print-prog-name=ld) -r -o" "$CXX -Wl,-r -o" "ld -r -o"
 do
   AC_MSG_CHECKING([whether C++ objects can be grouped with $test_LD_RO])
-  
+
   rm -f conftest*
-  
+
   cat << EOF > conftest-main.cpp
   void f(void);
   int main(int argc,char**argv){ f(); return 0; }
@@ -1262,15 +1362,15 @@ EOF
   cat << EOF > conftest-g.cpp
   void g(void){ return; }
 EOF
-  
+
   $CXX $CXXFLAGS -c conftest-main.cpp 1> /dev/null 2> /dev/null
   $CXX $CXXFLAGS -c conftest-f.cpp 1> /dev/null 2> /dev/null
   $CXX $CXXFLAGS -c conftest-g.cpp 1> /dev/null 2> /dev/null
-  
+
   $test_LD_RO conftest-both.o conftest-f.o conftest-g.o 1> /dev/null 2> /dev/null
-  
+
   $CXX $CXXFLAGS -o conftest.exe conftest-main.o conftest-both.o 1> /dev/null 2> /dev/null
-  
+
   if test -f conftest.exe
   then
     AC_MSG_RESULT([yes])
@@ -1289,9 +1389,9 @@ if test "$ar_cr" = true ; then
 for test_AR_CR in "$($CXX --print-prog-name=ar) cr" "ar cr"
 do
   AC_MSG_CHECKING([whether static libraries can be created with $test_AR_CR])
-  
+
   rm -f conftest*
-  
+
   cat << EOF > conftest-main.cpp
   void f(void);
   int main(int argc,char**argv){ f(); return 0; }
@@ -1303,15 +1403,15 @@ EOF
   cat << EOF > conftest-g.cpp
   void g(void){ return; }
 EOF
-  
+
   $CXX $CXXFLAGS -c conftest-main.cpp 1> /dev/null 2> /dev/null
   $CXX $CXXFLAGS -c conftest-f.cpp 1> /dev/null 2> /dev/null
   $CXX $CXXFLAGS -c conftest-g.cpp 1> /dev/null 2> /dev/null
-  
+
   $test_AR_CR conftest-both.a conftest-f.o conftest-g.o 1> /dev/null 2> /dev/null
-  
+
   $CXX $CXXFLAGS -o conftest.exe conftest-main.o conftest-both.a 1> /dev/null 2> /dev/null
-  
+
   if test -f conftest.exe
   then
     AC_MSG_RESULT([yes])
@@ -1321,7 +1421,7 @@ EOF
     AC_MSG_RESULT([no])
   fi
 done
- 
+
 fi
 
 make_static_archive=no
@@ -1339,7 +1439,7 @@ if test "${static_archive}" = true ; then
 
   magic_token=c1bc476d093a3a5c67b4530e6c54c633593fe9aa
   rm -f conftest-*
-  
+
   cat << EOF > conftest-main.cpp
   void f(void);
   int main(int argc,char**argv){ f(); return 0; }
@@ -1358,7 +1458,7 @@ EOF
   $CXX $CXXFLAGS -c conftest-main.cpp 1> /dev/null 2> /dev/null
   $CXX $CXXFLAGS -c conftest-f.cpp 1> /dev/null 2> /dev/null
   $CXX $CXXFLAGS -c conftest-g.cpp 1> /dev/null 2> /dev/null
-  
+
   $LD_RO conftest-both.o conftest-f.o conftest-g.o 1> /dev/null 2> /dev/null
 # linking the previously merged objects should work:
   $AR_CR conftest-both.a conftest-both.o 1> /dev/null 2> /dev/null
@@ -1410,7 +1510,7 @@ void f(void){
   std::cout<<"ciao";return;
 }
 EOF
-    $CXX $CXXFLAGS -c conftest.cpp 
+    $CXX $CXXFLAGS -c conftest.cpp
 # start search:
     found=
     if test "${libsearch}" = true ; then
@@ -1529,7 +1629,7 @@ fi
 if test $mpi = true; then
   if test $mpi_found = ok; then
     AC_MSG_NOTICE([**** PLUMED will be compiled using MPI])
-  else 
+  else
     AC_MSG_WARN([**** PLUMED will NOT be compiled using MPI because MPI have not been found!])
   fi
 else
@@ -1550,6 +1650,16 @@ elif test $mpi_found = ok ; then
   fi
 fi
 
+if test $openacc = true; then
+  if test $acc_found = ok; then
+    AC_MSG_NOTICE([**** PLUMED will be compiled using OPENACC])
+  else
+    AC_MSG_WARN([**** PLUMED will NOT be compiled using OPENACC because OPENACC have not been found!])
+  fi
+else
+    AC_MSG_NOTICE([**** PLUMED will be compiled without OPENACC])
+fi
+
 AC_SUBST(build_dir)
 build_dir=`pwd`
 
@@ -1561,5 +1671,18 @@ AC_CONFIG_FILES([Makefile.conf sourceme.sh])
 # This is to have the stamp-h file up to date
 # The date of this file keeps track of when Makefile.conf and sourceme.sh have been updated
 AC_CONFIG_FILES([stamp-h], [echo timestamp > stamp-h])
-AC_OUTPUT
 
+#small report for the final configuaration, useful to inspects flags in the CI 
+AC_MSG_NOTICE([Reporting the configuration:])
+AC_MSG_NOTICE([Final CXX:         $CXX])
+AC_MSG_NOTICE([Final CXXFLAGS:    $CXXFLAGS])
+AC_MSG_NOTICE([Final CPPFLAGS:    $CPPFLAGS])
+AC_MSG_NOTICE([Final CFLAGS:      $CFLAGS])
+AC_MSG_NOTICE([Final LDFLAGS:     $LDFLAGS])
+AC_MSG_NOTICE([Final LIBS:        $LIBS])
+AC_MSG_NOTICE([Final STATIC_LIBS: $STATIC_LIBS])
+AC_MSG_NOTICE([Final LD:          $LD])
+AC_MSG_NOTICE([Final LDSHARED:    $LDSHARED])
+AC_MSG_NOTICE([Final SOEXT:       $SOEXT])
+
+AC_OUTPUT

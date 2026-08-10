@@ -27,28 +27,31 @@
 /*
 Calculate whether or not a set of torsional angles are within a particular range.
 
-\par Examples
+__This shortcut action allows you to calculate function of a distribution of torsions and reproduces the syntax in older PLUMED versions.
+If you look at the example inputs below you can
+see how the new syntax operates. We would strongly encourage you to use the newer syntax as it offers greater flexibility.__
 
 The following provides an example of the input for the TORSIONS command
 
-\plumedfile
-TORSIONS ...
-ATOMS1=168,170,172,188
-ATOMS2=170,172,188,190
-ATOMS3=188,190,192,230
-BETWEEN={GAUSSIAN LOWER=0 UPPER=pi SMEAR=0.1}
-LABEL=ab
-... TORSIONS
+```plumed
+ab: TORSIONS ...
+  ATOMS1=168,170,172,188
+  ATOMS2=170,172,188,190
+  ATOMS3=188,190,192,230
+  BETWEEN={GAUSSIAN LOWER=0 UPPER=pi SMEAR=0.1}
+...
 PRINT ARG=ab.* FILE=colvar STRIDE=10
-\endplumedfile
+```
+
+The input above calculates how many of torsion angles for the three groups of atoms that have been specified are between 0 and $\pi$.
 
 Writing out the atoms involved in all the torsion angles in this way can be rather tedious. Thankfully if you are working with protein you
-can avoid this by using the \ref MOLINFO command.  PLUMED uses the pdb file that you provide to this command to learn
+can avoid this by using the [MOLINFO](MOLINFO.md) command.  PLUMED uses the pdb file that you provide to this command to learn
 about the topology of the protein molecule.  This means that you can specify torsion angles using the following syntax:
 
-\plumedfile
+```plumed
 #SETTINGS MOLFILE=regtest/basic/rt32/helix.pdb
-MOLINFO MOLTYPE=protein STRUCTURE=myprotein.pdb
+MOLINFO MOLTYPE=protein STRUCTURE=regtest/basic/rt32/helix.pdb
 TORSIONS ...
 ATOMS1=@phi-3
 ATOMS2=@psi-3
@@ -57,10 +60,10 @@ BETWEEN={GAUSSIAN LOWER=0 UPPER=pi SMEAR=0.1}
 LABEL=ab
 ... TORSIONS
 PRINT ARG=ab.* FILE=colvar STRIDE=10
-\endplumedfile
+```
 
-Here, \@phi-3 tells plumed that you would like to calculate the \f$\phi\f$ angle in the third residue of the protein.
-Similarly \@psi-4 tells plumed that you want to calculate the \f$\psi\f$ angle of the fourth residue of the protein.
+Here, `@phi-3` tells plumed that you would like to calculate the $\phi$ angle in the third residue of the protein.
+Similarly `@psi-4` tells plumed that you want to calculate the $\psi$ angle of the fourth residue of the protein.
 
 
 */
@@ -78,19 +81,24 @@ public:
 PLUMED_REGISTER_ACTION(Torsions,"TORSIONS")
 
 void Torsions::registerKeywords(Keywords& keys) {
-  ActionShortcut::registerKeywords( keys ); MultiColvarShortcuts::shortcutKeywords( keys );
+  ActionShortcut::registerKeywords( keys );
+  MultiColvarShortcuts::shortcutKeywords( keys );
   keys.needsAction("TORSION");
+  keys.add("atoms","ATOMS","the four atoms involved in the torsional angle");
+  keys.setValueDescription("vector","the TORSION for each set of three atoms that were specified");
+  keys.setDeprecated("TORSION");
 }
 
 Torsions::Torsions(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
+  ActionShortcut(ao) {
   log.printf("Action TORSION\n");
   log.printf("  with label %s \n", getShortcutLabel().c_str() );
+  std::map<std::string,std::string> keymap;
+  MultiColvarShortcuts::readShortcutKeywords( keymap, this );
   readInputLine( getShortcutLabel() + ": TORSION " + convertInputLineToString() );
   // Add shortcuts to label
-  MultiColvarShortcuts::expandFunctions( getShortcutLabel(), getShortcutLabel(), "", this );
+  MultiColvarShortcuts::expandFunctions( getShortcutLabel(), getShortcutLabel(), "", keymap, this );
 }
 
 }

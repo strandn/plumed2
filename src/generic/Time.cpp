@@ -31,12 +31,12 @@ namespace generic {
 /*
 retrieve the time of the simulation to be used elsewhere
 
-\par Examples
+To retrieve and print the time you can use an input similar to the one shown below:
 
-\plumedfile
-TIME            LABEL=t1
+```plumed
+t1: TIME
 PRINT ARG=t1
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -48,7 +48,9 @@ public:
 // active methods:
   void calculate() override;
   void apply() override {}
-  unsigned getNumberOfDerivatives() override { return 0; }
+  unsigned getNumberOfDerivatives() override {
+    return 0;
+  }
 };
 
 PLUMED_REGISTER_ACTION(Time,"TIME")
@@ -56,13 +58,14 @@ PLUMED_REGISTER_ACTION(Time,"TIME")
 void Time::registerKeywords( Keywords& keys ) {
   Action::registerKeywords( keys );
   ActionWithValue::registerKeywords( keys );
-  keys.setValueDescription("the time since the start of the trajectory");
+  keys.remove("NUMERICAL_DERIVATIVES");
+  keys.setValueDescription("scalar","the time since the start of the trajectory");
 }
 
 Time::Time(const ActionOptions&ao):
-  Action(ao),ActionWithValue(ao)
-{
-  addValueWithDerivatives(); setNotPeriodic();
+  Action(ao),ActionWithValue(ao) {
+  addValueWithDerivatives();
+  setNotPeriodic();
   // resize derivative by hand to a nonzero value
   getPntrToValue()->resizeDerivatives(1);
 }

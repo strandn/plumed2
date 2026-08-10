@@ -37,17 +37,85 @@ namespace PLMD {
 /*
 Define a group of atoms so that a particular list of atoms can be referenced with a single label in definitions of CVs or virtual atoms.
 
-Atoms can be listed as comma separated numbers (i.e. `1,2,3,10,45,7,9`) , simple positive ranges
-(i.e. `20-40`), ranges with a stride either positive or negative (i.e. `20-40:2` or `80-50:-2`) or as
+The GROUP command can be used to define a list of atoms so that the group can be referenced in the definitions of other
+CVs or virtual atoms as shown below:
+
+```plumed
+o: GROUP ATOMS=1,4,7,11,14
+h: GROUP ATOMS=2,3,5,6,8,9,12,13
+# compute the coordination among the two groups
+c: COORDINATION GROUPA=o GROUPB=h R_0=0.3
+# same could have been obtained without GROUP, just writing:
+# c: COORDINATION GROUPA=1,4,7,11,14 GROUPB=2,3,5,6,8,9,12,13
+
+# print the coordination on file 'colvar'
+PRINT ARG=c FILE=colvar
+```
+
+The first group command here creates a group of atoms called `o` containing atoms 1, 4, 7, 11 and 14.
+The second group command here creates a group of toms called `h` containing atoms 2, 3, 5, 6, 8, 9, 12, and 13.
+
+As discussed on [this page](specifying_atoms.md) atoms in groups can be listed as comma separated numbers (i.e. `1,2,3,10,45,7,9`),
+simple positive ranges (i.e. `20-40`), ranges with a stride either positive or negative (i.e. `20-40:2` or `80-50:-2`) or as
 comma separated combinations of all the former methods (`1,2,4,5,10-20,21-40:2,80-50:-2`).
 
-Moreover, lists can be imported from ndx files (GROMACS format). Use `NDX_FILE` to set the name of
-the index file and `NDX_GROUP` to set the name of the group to be imported (default is first one).
-Notice that starting from version 2.10 it is possible to directly use an `@ndx:` selector
-(see \ref Group).
+Oftentime people will store the definitions in a separate file as has been done in the following example input.
 
-It is also possible to remove atoms from a list and or sort them using keywords `REMOVE`, `SORT`, and `UNIQUE`.
-The flow is the following:
+```plumed
+INCLUDE FILE=extras/groups.dat
+# compute the coordination among the two groups
+c: COORDINATION GROUPA=groupa GROUPB=groupb R_0=0.3
+# print the coordination on file 'colvar'
+PRINT ARG=c FILE=colvar
+```
+
+Storing the groups in the extra file is particularly useful if the groups include list of thousand atoms. Putting these definitions
+in a separate file ensures that the main plumed.dat file is not cluttered.  You can even use a [GROMACS index file](https://manual.gromacs.org/archive/5.0.4/online/ndx.html)
+to hold the groups as illustrated in the input below:
+
+```plumed
+# import group named 'Protein' from file index.ndx
+pro: GROUP NDX_FILE=extras/index.ndx NDX_GROUP=Protein
+# dump all the atoms of the protein on a trajectory file
+DUMPATOMS ATOMS=pro FILE=traj.gro
+```
+
+Notice that you use the keyword `NDX_FILE` to set the name of the index file and `NDX_GROUP` to set the name of the group to be imported (default is first one).
+Further notice that starting from version 2.10 it is possible to directly use an `@ndx:` selector in the input to an action as shwn below:
+
+```plumed
+DUMPATOMS ATOMS={@ndx:{extras/index.ndx Protein}} FILE=traj.gro
+```
+
+Notice that it is possible to remove atoms from the list of atoms specified in a GROUP by using the keyword `REMOVE` as shown below:
+
+```plumed
+# take one atom every three, that is oxygens
+ox: GROUP ATOMS=1-90:3
+# take the remaining atoms, that is hydrogens
+hy: GROUP ATOMS=1-90 REMOVE=ox
+DUMPATOMS ATOMS=ox FILE=ox.gro
+DUMPATOMS ATOMS=hy FILE=hy.gro
+```
+
+You can also `SORT` the atoms in a group into ascending order by using the SORT keyword as shown below:
+
+```plumed
+# If you ask for this group in the input to another action the atoms will be
+# in ascending order i.e. the specified atoms will be 2,3,4,4,5,6
+g: GROUP ATOMS=5,4,6,3,4,2 SORT
+```
+
+or you can sort the atoms and remove duplicated atoms by using the `UNIQUE` flag
+
+```plumed
+# If you ask for this group in the input to another action the duplicate atom specifications will be removed
+# and the atoms will be ascending order i.e. the specified atoms will be 2,3,4,5,6
+g: GROUP ATOMS=5,4,6,3,4,2 UNIQUE
+```
+
+When you used the GROUP command the flow as follows:
+
 - If `ATOMS` is present, then take the ordered list of atoms from the `ATOMS` keyword as a starting list.
 - Alternatively, if `NDX_FILE` is present, use the list obtained from the gromacs group.
 - If `REMOVE` is present, then remove the first occurrence of each of these atoms from the list.
@@ -58,82 +126,7 @@ The flow is the following:
 
 Notice that this command just creates a shortcut, and does not imply any real calculation.
 So, having a huge group defined does not slow down your calculation in any way.
-It is just convenient to better organize input files. Might be used in combination with
-the \ref INCLUDE command so as to store long group definitions in a separate file.
-
-
-\par Examples
-
-This command create a group of atoms containing atoms 1, 4, 7, 11 and 14 (labeled 'o'), and another containing
-atoms 2, 3, 5, 6, 8, 9, 12, and 13 (labeled 'h'):
-\plumedfile
-o: GROUP ATOMS=1,4,7,11,14
-h: GROUP ATOMS=2,3,5,6,8,9,12,13
-# compute the coordination among the two groups
-c: COORDINATION GROUPA=o GROUPB=h R_0=0.3
-# same could have been obtained without GROUP, just writing:
-# c: COORDINATION GROUPA=1,4,7,11,14 GROUPB=2,3,5,6,8,9,12,13
-
-# print the coordination on file 'colvar'
-PRINT ARG=c FILE=colvar
-\endplumedfile
-
-Groups can be conveniently stored in a separate file.
-E.g. one could create a file named `groups.dat` which reads
-\plumedfile
-#SETTINGS FILENAME=groups.dat
-# this is groups.dat
-o: GROUP ATOMS=1,4,7,11,14
-h: GROUP ATOMS=2,3,5,6,8,9,12,13
-\endplumedfile
-and then include it in the main 'plumed.dat' file
-\plumedfile
-INCLUDE FILE=groups.dat
-# compute the coordination among the two groups
-c: COORDINATION GROUPA=o GROUPB=h R_0=0.3
-# print the coordination on file 'colvar'
-PRINT ARG=c FILE=colvar
-\endplumedfile
-The `groups.dat` file could be very long and include lists of thousand atoms without cluttering the main plumed.dat file.
-
-A GROMACS index file such as the one shown below:
-
-\auxfile{index.ndx}
-[ Protein ]
-1 3 5 7 9
-2 4 6 8 10
-[ Group2 ]
-30 31 32 33 34 35 36 37 38 39 40
-5
-\endauxfile
-
-can also be imported by using the GROUP keyword as shown below
-\plumedfile
-# import group named 'Protein' from file index.ndx
-pro: GROUP NDX_FILE=index.ndx NDX_GROUP=Protein
-# dump all the atoms of the protein on a trajectory file
-DUMPATOMS ATOMS=pro FILE=traj.gro
-\endplumedfile
-
-Notice that it is now possible to directly use the `@ndx:` selector
-in the definition of collective variables. Thus, the same result can be obtained
-with the following input:
-\plumedfile
-DUMPATOMS ATOMS={@ndx:{index.ndx Protein}} FILE=traj.gro
-\endplumedfile
-
-A list can be edited with `REMOVE`. For instance, if you
-are using a water model with three atoms per molecule, you can
-easily construct the list of hydrogen atoms in this manner
-\plumedfile
-# take one atom every three, that is oxygens
-ox: GROUP ATOMS=1-90:3
-# take the remaining atoms, that is hydrogens
-hy: GROUP ATOMS=1-90 REMOVE=ox
-DUMPATOMS ATOMS=ox FILE=ox.gro
-DUMPATOMS ATOMS=hy FILE=hy.gro
-\endplumedfile
-
+It is just convenient to better organize input files.
 
 */
 //+ENDPLUMEDOC
@@ -142,14 +135,17 @@ PLUMED_REGISTER_ACTION(Group,"GROUP")
 
 Group::Group(const ActionOptions&ao):
   Action(ao),
-  ActionAtomistic(ao)
-{
+  ActionAtomistic(ao) {
   parseAtomList("ATOMS",atoms);
   std::string ndxfile,ndxgroup;
   parse("NDX_FILE",ndxfile);
   parse("NDX_GROUP",ndxgroup);
-  if(ndxfile.length()>0 && atoms.size()>0) error("either use explicit atom list or import from index file");
-  if(ndxfile.length()==0 && ndxgroup.size()>0) error("NDX_GROUP can be only used is NDX_FILE is also used");
+  if(ndxfile.length()>0 && atoms.size()>0) {
+    error("either use explicit atom list or import from index file");
+  }
+  if(ndxfile.length()==0 && ndxgroup.size()>0) {
+    error("NDX_GROUP can be only used is NDX_FILE is also used");
+  }
 
   if(ndxfile.length()>0) {
 
@@ -169,16 +165,22 @@ Group::Group(const ActionOptions&ao):
     for(unsigned i=0; i<remove.size(); i++) {
       const auto it = find(atoms.begin(),atoms.end(),remove[i]);
       if(it!=atoms.end()) {
-        if(k%25==0) log<<"\n";
+        if(k%25==0) {
+          log<<"\n";
+        }
         log<<" "<<(*it).serial();
         k++;
         atoms.erase(it);
-      } else notfound.push_back(remove[i]);
+      } else {
+        notfound.push_back(remove[i]);
+      }
     }
     log<<"\n";
     if(notfound.size()>0) {
       log<<"  the following atoms were not found:";
-      for(unsigned i=0; i<notfound.size(); i++) log<<" "<<notfound[i].serial();
+      for(unsigned i=0; i<notfound.size(); i++) {
+        log<<" "<<notfound[i].serial();
+      }
       log<<"\n";
     }
   }
@@ -189,16 +191,18 @@ Group::Group(const ActionOptions&ao):
     log<<"  atoms are sorted\n";
     sort(atoms.begin(),atoms.end());
   }
-  bool unique=false;
-  parseFlag("UNIQUE",unique);
-  if(unique) {
+  bool uniqueFlag=false;
+  parseFlag("UNIQUE",uniqueFlag);
+  if(uniqueFlag) {
     log<<"  sorting atoms and removing duplicates\n";
     Tools::removeDuplicates(atoms);
   }
 
   log.printf("  list of atoms:");
   for(unsigned i=0; i<atoms.size(); i++) {
-    if(i%25==0) log<<"\n";
+    if(i%25==0) {
+      log<<"\n";
+    }
     log<<" "<<atoms[i].serial();
   }
   log.printf("\n");
@@ -219,8 +223,11 @@ std::vector<std::string> Group::getGroupAtoms() const {
   std::vector<std::string> atoms_str(atoms.size());
   for(unsigned i=0; i<atoms.size(); ++i) {
     std::pair<std::size_t,std::size_t> a = getValueIndices( atoms[i] );
-    if( xpos[a.first]->getNumberOfValues()==1 ) atoms_str[i] = (xpos[a.first]->getPntrToAction())->getLabel();
-    else { Tools::convert( atoms[i].serial(), atoms_str[i] ); }
+    if( xpos[a.first]->getNumberOfValues()==1 ) {
+      atoms_str[i] = (xpos[a.first]->getPntrToAction())->getLabel();
+    } else {
+      Tools::convert( atoms[i].serial(), atoms_str[i] );
+    }
   }
   return atoms_str;
 }

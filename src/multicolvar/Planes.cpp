@@ -29,9 +29,33 @@
 
 //+PLUMEDOC MCOLVAR PLANES
 /*
-Calculate the components of the normal to the plane containing three atoms
+Calculate the components of the normals to the planes containing groups of three atoms.
 
-\par Examples
+__This shortcut action allows you to calculate the planes containing sets of three atoms and reproduces the syntax in older PLUMED versions.
+If you look at the example inputs below you can
+see how the new syntax operates. We would strongly encourage you to use the newer syntax as it is simpler and offers greater flexibility.__
+
+An example input using this shortcut is shown below:
+
+```plumed
+v3: PLANES ...
+   ATOMS1=9,10,11
+   ATOMS2=89,90,91
+   ATOMS3=473,474,475
+   ATOMS4=1161,1162,1163
+   ATOMS5=1521,1522,1523
+   ATOMS6=1593,1594,1595
+   ATOMS7=1601,1602,1603
+   ATOMS8=2201,2202,2203
+   VMEAN
+...
+PRINT ARG=v3_vmean FILE=colvar
+```
+
+As you can see if you expand the shortcut above, the input calculates the vectors perpendicular to the planes containing
+each group of three atoms. The mean value is then computed by adding all these three dimensional vectors together.  The final
+value output is the norm of this mean vector.  This norm is large if the orientations of the planes containing the groups of
+atoms are the same and small if they are not.
 
 */
 //+ENDPLUMEDOC
@@ -56,34 +80,57 @@ void PlaneShortcut::registerKeywords( Keywords& keys ) {
   keys.add("numbered","LOCATION","the location at which the CV is assumed to be in space");
   keys.reset_style("LOCATION","atoms");
   keys.addFlag("VMEAN",false,"calculate the norm of the mean vector.");
-  keys.addOutputComponent("_vmean","VMEAN","the norm of the mean vector");
+  keys.addOutputComponent("_vmean","VMEAN","scalar","the norm of the mean vector");
   keys.addFlag("VSUM",false,"calculate the norm of the sum of all the vectors");
-  keys.addOutputComponent("_vsum","VSUM","the norm of the mean vector");
-  keys.needsAction("CENTER"); keys.needsAction("GROUP"); keys.needsAction("PLANE");
-  keys.needsAction("MEAN"); keys.needsAction("SUM"); keys.needsAction("COMBINE"); keys.needsAction("CUSTOM");
+  keys.addOutputComponent("_vsum","VSUM","scalar","the norm of the mean vector");
+  keys.needsAction("CENTER");
+  keys.needsAction("GROUP");
+  keys.needsAction("PLANE");
+  keys.needsAction("MEAN");
+  keys.needsAction("SUM");
+  keys.needsAction("COMBINE");
+  keys.needsAction("CUSTOM");
+  keys.setDeprecated("PLANE");
 }
 
 PlaneShortcut::PlaneShortcut(const ActionOptions&ao):
   Action(ao),
-  ActionShortcut(ao)
-{
-  bool vmean, vsum; parseFlag("VMEAN",vmean); parseFlag("VSUM",vsum); std::string dline;
+  ActionShortcut(ao) {
+  bool vmean, vsum;
+  parseFlag("VMEAN",vmean);
+  parseFlag("VSUM",vsum);
+  std::string dline;
   std::string grpstr = getShortcutLabel() + "_grp: GROUP ATOMS=";
   for(unsigned i=1;; ++i) {
-    std::string atstring; parseNumbered("ATOMS",i,atstring);
-    if( atstring.length()==0 ) break;
-    std::string locstr; parseNumbered("LOCATION",i,locstr);
-    if( locstr.length()==0 ) {
-      std::string num; Tools::convert( i, num );
-      readInputLine( getShortcutLabel() + "_vatom" + num + ": CENTER ATOMS=" + atstring );
-      if( i==1 ) grpstr += getShortcutLabel() + "_vatom" + num; else grpstr += "," + getShortcutLabel() + "_vatom" + num;
-    } else {
-      if( i==1 ) grpstr += locstr; else grpstr += "," + locstr;
+    std::string atstring;
+    parseNumbered("ATOMS",i,atstring);
+    if( atstring.length()==0 ) {
+      break;
     }
-    std::string num; Tools::convert( i, num );
+    std::string locstr;
+    parseNumbered("LOCATION",i,locstr);
+    if( locstr.length()==0 ) {
+      std::string num;
+      Tools::convert( i, num );
+      readInputLine( getShortcutLabel() + "_vatom" + num + ": CENTER ATOMS=" + atstring );
+      if( i==1 ) {
+        grpstr += getShortcutLabel() + "_vatom" + num;
+      } else {
+        grpstr += "," + getShortcutLabel() + "_vatom" + num;
+      }
+    } else {
+      if( i==1 ) {
+        grpstr += locstr;
+      } else {
+        grpstr += "," + locstr;
+      }
+    }
+    std::string num;
+    Tools::convert( i, num );
     dline += " ATOMS" + num + "=" + atstring;
   }
-  readInputLine( grpstr ); readInputLine( getShortcutLabel() + ": PLANE " + dline + " " + convertInputLineToString() );
+  readInputLine( grpstr );
+  readInputLine( getShortcutLabel() + ": PLANE " + dline + " " + convertInputLineToString() );
   if( vmean ) {
     readInputLine( getShortcutLabel() + "_xs: MEAN ARG=" + getShortcutLabel() + ".x PERIODIC=NO");
     readInputLine( getShortcutLabel() + "_ys: MEAN ARG=" + getShortcutLabel() + ".y PERIODIC=NO");

@@ -38,12 +38,12 @@ namespace maze {
 Performs a linear unbinding along a predefined biasing direction that
 needs to be provided using the PULLING keyword.
 
-\par Examples
+## Examples
 
 Every optimizer implemented in the maze module needs a loss function as
-an argument, and it should be passed using the \ref MAZE_LOSS keyword.
+an argument, and it should be passed using the [MAZE_LOSS](MAZE_LOSS.md) keyword.
 
-\plumedfile
+```plumed
 MAZE_STEERED_MD ...
   LABEL=smd
 
@@ -54,7 +54,7 @@ MAZE_STEERED_MD ...
   LIGAND=2635-2646
   PROTEIN=1-2634
 ... MAZE_STEERED_MD
-\endplumedfile
+```
 
 As shown above, each optimizer should be provided with the LIGAND and
 the PROTEIN keywords.
@@ -118,14 +118,14 @@ void Steered_MD::registerKeywords(Keywords& keys) {
   keys.addOutputComponent(
     "tdist",
     "default",
+    "scalar",
     "Total distance traveled by biased atoms."
   );
 }
 
 Steered_MD::Steered_MD(const ActionOptions& ao)
   : PLUMED_OPT_INIT(ao),
-    total_dist_(0.0)
-{
+    total_dist_(0.0) {
   log.printf("maze> Steered MD.\n");
 
   if (keywords.exists("PULLING")) {
@@ -157,8 +157,7 @@ void Steered_MD::optimize() {
 
   if (pbc_) {
     d = pbcDistance(c, com_);
-  }
-  else {
+  } else {
     d = delta(c, com_);
   }
 

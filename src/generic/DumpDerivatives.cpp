@@ -30,32 +30,62 @@ namespace generic {
 
 //+PLUMEDOC PRINTANALYSIS DUMPDERIVATIVES
 /*
-Dump the derivatives with respect to the input parameters for one or more objects (generally CVs, functions or biases).
+Dump the derivatives with respect to the input parameters for scalar values (generally CVs, functions or biases).
 
-For a CV this line in input instructs plumed to print the derivative of the CV with respect to the atom positions
-and the cell vectors (virial-like form).  In contrast, for a function or bias the derivative with respect to the input "CVs"
-will be output.  This command is most often used to test whether or not analytic derivatives have been implemented correctly.  This
-can be done by outputting the derivatives calculated analytically and numerically.  You can control the buffering of output using the \ref FLUSH keyword.
-
-\par Examples
-
-The following input instructs plumed to write a file called deriv that contains both the
+You can use this command to output the derivatives of a scalar with respect to whatever input parameters are used to
+calculate that scalar.  For example, the following input instructs plumed to write a file called deriv that contains both the
 analytical and numerical derivatives of the distance between atoms 1 and 2.
-\plumedfile
-DISTANCE ATOMS=1,2 LABEL=distance
-DISTANCE ATOMS=1,2 LABEL=distanceN NUMERICAL_DERIVATIVES
-DUMPDERIVATIVES ARG=distance,distanceN STRIDE=1 FILE=deriv
-\endplumedfile
 
-(See also \ref DISTANCE)
+```plumed
+distance: DISTANCE ATOMS=1,2
+distanceN: DISTANCE ATOMS=1,2 NUMERICAL_DERIVATIVES
+DUMPDERIVATIVES ARG=distance,distanceN STRIDE=1 FILE=deriv
+```
+
+This input outputs the derivative of the distance with respect to the atom positions and the cell vectors (virial-like form).
+It will thus output 15 deriatives for the two quantities output - the derivatives with respect to the x,y and z components of the input atoms
+and the 9 components of the virial.
+
+By contast the following input will only output 1 derivative; namely, the derivative of the switching function, `f`, with respect to the input distance, `d`.
+
+```plumed
+d: DISTANCE ATOMS=1,2
+f: LESS_THAN ARG=d SWITCH={RATIONAL R_0=0.2}
+DUMPDERIVATIVES ARG=f STRIDE=1 FMT=%8.4f FILE=deriv
+```
+
+!!! warning ""
+
+    You can only use this command to output the derivatives of rank 0 (scalar) values.
+    You cannot use it to output derivatives of vector, matrix of function values.
+
+## RESTART, UPDATE_FROM and UPDATE_UNTIL
+
+Notice that the RESTART, UPDATE_FROM and UPDATE_UNTIL keywords keywords
+can be used in this action in the same way as they are used for [PRINT](PRINT.md).
+Consequently, if you would like to append derivatives to an existing file called `deriv` instead of backing that
+file up at the start of the calculation and outputting the data from the calculation on a new file called `deriv`
+you would use an input like the one shown below:
+
+```plumed
+distance: DISTANCE ATOMS=1,2
+DUMPDERIVATIVES ARG=distance STRIDE=1 FILE=deriv RESTART=YES
+```
+
+Similarly, if you want to only output the derivatives during the 400 ps time interval after the first
+100 ps of the simulation you would use an input like the one shown below:
+
+```plumed
+distance: DISTANCE ATOMS=1,2
+DUMPDERIVATIVES ARG=distance STRIDE=1 FILE=deriv UPDATE_FROM=100 UPDATE_UNTIL=500
+```
 
 */
 //+ENDPLUMEDOC
 
 class DumpDerivatives :
   public ActionPilot,
-  public ActionWithArguments
-{
+  public ActionWithArguments {
   std::string file;
   std::string fmt;
   OFile of;
@@ -74,7 +104,7 @@ void DumpDerivatives::registerKeywords(Keywords& keys) {
   Action::registerKeywords(keys);
   ActionPilot::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
-  keys.use("ARG");
+  keys.addInputKeyword("compulsory","ARG","scalar","the labels of the values whose derivatives should be output");
   keys.add("compulsory","STRIDE","1","the frequency with which the derivatives should be output");
   keys.add("compulsory","FILE","the name of the file on which to output the derivatives");
   keys.add("compulsory","FMT","%15.10f","the format with which the derivatives should be output");
@@ -87,10 +117,11 @@ DumpDerivatives::DumpDerivatives(const ActionOptions&ao):
   Action(ao),
   ActionPilot(ao),
   ActionWithArguments(ao),
-  fmt("%15.10f")
-{
+  fmt("%15.10f") {
   parse("FILE",file);
-  if( file.length()==0 ) error("name of output file was not specified");
+  if( file.length()==0 ) {
+    error("name of output file was not specified");
+  }
   parse("FMT",fmt);
   fmt=" "+fmt;
   of.link(*this);
@@ -98,15 +129,25 @@ DumpDerivatives::DumpDerivatives(const ActionOptions&ao):
   log.printf("  on file %s\n",file.c_str());
   log.printf("  with format %s\n",fmt.c_str());
   unsigned nargs=getNumberOfArguments();
-  if( nargs==0 ) error("no arguments specified");
+  if( nargs==0 ) {
+    error("no arguments specified");
+  }
   (getPntrToArgument(0)->getPntrToAction())->turnOnDerivatives();
-  if( getPntrToArgument(0)->getRank()>0 ) error("cannot dump derivatives of non-scalar objects");
+  if( getPntrToArgument(0)->getRank()>0 ) {
+    error("cannot dump derivatives of non-scalar objects");
+  }
   unsigned npar=getPntrToArgument(0)->getNumberOfDerivatives();
-  if( npar==0 ) error("one or more arguments has no derivatives");
+  if( npar==0 ) {
+    error("one or more arguments has no derivatives");
+  }
   for(unsigned i=1; i<nargs; i++) {
     (getPntrToArgument(i)->getPntrToAction())->turnOnDerivatives();
-    if( getPntrToArgument(i)->getRank()>0 ) error("cannot dump derivatives of non-scalar objects");
-    if( npar!=getPntrToArgument(i)->getNumberOfDerivatives() ) error("the number of derivatives must be the same in all values being dumped");
+    if( getPntrToArgument(i)->getRank()>0 ) {
+      error("cannot dump derivatives of non-scalar objects");
+    }
+    if( npar!=getPntrToArgument(i)->getNumberOfDerivatives() ) {
+      error("the number of derivatives must be the same in all values being dumped");
+    }
   }
   checkRead();
 }

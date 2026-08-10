@@ -35,17 +35,19 @@ namespace ves {
 /*
 Combining other basis functions types
 
-\par Examples
+##Examples
 
 Here we define both Fourier cosine and sine expansions of order 10,
 each with 11 basis functions, which are combined. This results
 in a total number of 21 basis functions as only the constant from
 is bf_cos is used.
-\plumedfile
+
+```plumed
 bf_cos: BF_COSINE MINIMUM=-pi MAXIMUM=+pi ORDER=10
 bf_sin: BF_SINE   MINIMUM=-pi MAXIMUM=+pi ORDER=10
 bf_comb: BF_COMBINED BASIS_FUNCTIONS=bf_cos,bf_sin
-\endplumedfile
+```
+
 In principle this is the same as using BF_FOURIER with
 ORDER=10 but with different ordering of the basis functions.
 Note that the order used in BASIS_FUNCTIONS matters for the ordering
@@ -90,16 +92,18 @@ void BF_Combined::registerKeywords(Keywords& keys) {
 
 BF_Combined::BF_Combined(const ActionOptions&ao):
   PLUMED_VES_BASISFUNCTIONS_INIT(ao),
-  basisf_pntrs_(0)
-{
+  basisf_pntrs_(0) {
   std::vector<std::string> basisf_labels;
-  parseVector("BASIS_FUNCTIONS",basisf_labels); addKeywordToList("BASIS_FUNCTIONS",basisf_labels);
+  parseVector("BASIS_FUNCTIONS",basisf_labels);
+  addKeywordToList("BASIS_FUNCTIONS",basisf_labels);
   if(basisf_labels.size()==1) {
     plumed_merror("using only one basis function in BF_COMBINED does not make sense");
   }
   std::string error_msg = "";
   basisf_pntrs_ = VesTools::getPointersFromLabels<BasisFunctions*>(basisf_labels,plumed.getActionSet(),error_msg);
-  if(error_msg.size()>0) {plumed_merror("Error in keyword BASIS_FUNCTIONS of "+getName()+": "+error_msg);}
+  if(error_msg.size()>0) {
+    plumed_merror("Error in keyword BASIS_FUNCTIONS of "+getName()+": "+error_msg);
+  }
 
   unsigned int nbasisf_total_ = 1;
   bool periodic = true;
@@ -108,14 +112,19 @@ BF_Combined::BF_Combined(const ActionOptions&ao):
     if(basisf_pntrs_[i]->intervalMinStr()!=basisf_pntrs_[0]->intervalMinStr() || basisf_pntrs_[i]->intervalMaxStr()!=basisf_pntrs_[0]->intervalMaxStr()) {
       plumed_merror("all the basis functions to be combined should have same MINIMUM and MAXIMUM");
     }
-    if(!basisf_pntrs_[i]->arePeriodic()) {periodic=false;}
+    if(!basisf_pntrs_[i]->arePeriodic()) {
+      periodic=false;
+    }
   }
   setOrder(nbasisf_total_-1);
   setNumberOfBasisFunctions(nbasisf_total_);
   setInterval(basisf_pntrs_[0]->intervalMinStr(),basisf_pntrs_[0]->intervalMaxStr());
   setIntrinsicInterval("-1.0","+1.0");
-  if(periodic) {setPeriodic();}
-  else {setNonPeriodic();}
+  if(periodic) {
+    setPeriodic();
+  } else {
+    setNonPeriodic();
+  }
   setIntervalBounded();
   setType("combined");
   setDescription("Combined");
@@ -162,7 +171,8 @@ void BF_Combined::getAllValues(const double arg, double& argT, bool& inside_rang
   for(unsigned int i=1; i<basisf_pntrs_.size(); i++) {
     values_tmp.assign(basisf_pntrs_[i]->numberOfBasisFunctions(),0.0);
     derivs_tmp.assign(basisf_pntrs_[i]->numberOfBasisFunctions(),0.0);
-    double dummy_dbl; bool dummy_bool=true;
+    double dummy_dbl;
+    bool dummy_bool=true;
     basisf_pntrs_[i]->getAllValues(arg,dummy_dbl,dummy_bool,values_tmp,derivs_tmp);
     for(unsigned int l=1; l<basisf_pntrs_[i]->numberOfBasisFunctions(); l++) {
       values[r] = values_tmp[l];

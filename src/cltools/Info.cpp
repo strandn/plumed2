@@ -33,22 +33,18 @@ namespace cltools {
 /*
 This tool allows you to obtain information about your plumed version
 
-You can specify the information you require using the following command line
-arguments
+You can use this command to get information about the PLUMED version you have installed.  For example if you want to find out the root
+directory for your plumed distribution you can use the following command.
 
-\par Examples
-
-The following command returns the root directory for your plumed distribution.
-\verbatim
+```plumed
 plumed info --root
-\endverbatim
+```
 
 */
 //+ENDPLUMEDOC
 
 class Info:
-  public CLTool
-{
+  public CLTool {
 public:
   static void registerKeywords( Keywords& keys );
   explicit Info(const CLToolOptions& co );
@@ -74,45 +70,73 @@ void Info::registerKeywords( Keywords& keys ) {
 }
 
 Info::Info(const CLToolOptions& co ):
-  CLTool(co)
-{
-  inputdata=commandline;
+  CLTool(co) {
+  inputdata=inputType::commandline;
 }
 
 int Info::main(FILE* in, FILE*out,Communicator& pc) {
 
-  bool printconfiguration; parseFlag("--configuration",printconfiguration);
-  bool printroot; parseFlag("--root",printroot);
-  bool printuserdoc; parseFlag("--user-doc",printuserdoc);
-  bool printdeveloperdoc; parseFlag("--developer-doc",printdeveloperdoc);
-  bool printversion; parseFlag("--version",printversion);
-  bool printlongversion; parseFlag("--long-version",printlongversion);
-  bool printgitversion; parseFlag("--git-version",printgitversion);
-  bool printincludedir; parseFlag("--include-dir",printincludedir);
-  bool printsoext; parseFlag("--soext",printsoext);
-  if(printroot) std::fprintf(out,"%s\n",config::getPlumedRoot().c_str());
-  if(printconfiguration) std::fprintf(out,"%s",config::getMakefile().c_str());
-  if(printincludedir) std::fprintf(out,"%s\n",config::getPlumedIncludedir().c_str());
+  bool printconfiguration;
+  parseFlag("--configuration",printconfiguration);
+  bool printroot;
+  parseFlag("--root",printroot);
+  bool printuserdoc;
+  parseFlag("--user-doc",printuserdoc);
+  bool printdeveloperdoc;
+  parseFlag("--developer-doc",printdeveloperdoc);
+  bool printversion;
+  parseFlag("--version",printversion);
+  bool printlongversion;
+  parseFlag("--long-version",printlongversion);
+  bool printgitversion;
+  parseFlag("--git-version",printgitversion);
+  bool printincludedir;
+  parseFlag("--include-dir",printincludedir);
+  bool printsoext;
+  parseFlag("--soext",printsoext);
+  if(printroot) {
+    std::fprintf(out,"%s\n",config::getPlumedRoot().c_str());
+  }
+  if(printconfiguration) {
+    std::fprintf(out,"%s",config::getMakefile().c_str());
+  }
+  if(printincludedir) {
+    std::fprintf(out,"%s\n",config::getPlumedIncludedir().c_str());
+  }
   if(printuserdoc) {
     std::string userdoc=config::getPlumedHtmldir()+"/user-doc/html/index.html";
     FILE *ff=std::fopen(userdoc.c_str(),"r");
     // no exception here
-    if(ff) std::fclose(ff);
-    else userdoc="http://www.plumed.org/doc-v" + config::getVersion() + "/user-doc/html/index.html";
+    if(ff) {
+      std::fclose(ff);
+    } else {
+      userdoc="http://www.plumed.org/doc-v" + config::getVersion() + "/user-doc/html/index.html";
+    }
     std::fprintf(out,"%s\n",userdoc.c_str());
   }
   if(printdeveloperdoc) {
     std::string developerdoc=config::getPlumedHtmldir()+"/developer-doc/html/index.html";
     FILE *ff=std::fopen(developerdoc.c_str(),"r");
     // no exception here
-    if(ff) std::fclose(ff);
-    else developerdoc="http://www.plumed.org/doc-v" + config::getVersion() + "/developer-doc/html/index.html";
+    if(ff) {
+      std::fclose(ff);
+    } else {
+      developerdoc="http://www.plumed.org/doc-v" + config::getVersion() + "/developer-doc/html/index.html";
+    }
     std::fprintf(out,"%s\n",developerdoc.c_str());
   }
-  if(printversion) std::fprintf(out,"%s\n",config::getVersion().c_str());
-  if(printlongversion) std::fprintf(out,"%s\n",config::getVersionLong().c_str());
-  if(printgitversion) std::fprintf(out,"%s\n",config::getVersionGit().c_str());
-  if(printsoext) std::fprintf(out,"%s\n",config::getSoExt().c_str());
+  if(printversion) {
+    std::fprintf(out,"%s\n",config::getVersion().c_str());
+  }
+  if(printlongversion) {
+    std::fprintf(out,"%s\n",config::getVersionLong().c_str());
+  }
+  if(printgitversion) {
+    std::fprintf(out,"%s\n",config::getVersionGit().c_str());
+  }
+  if(printsoext) {
+    std::fprintf(out,"%s\n",config::getSoExt().c_str());
+  }
 
   return 0;
 }

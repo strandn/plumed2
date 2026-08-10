@@ -42,7 +42,6 @@
 #include <cstdio>
 #include <cmath>
 #include <vector>
-#include <iostream>
 
 #ifdef __PLUMED_HAS_MPI
 #include <mpi.h>
@@ -52,7 +51,7 @@
 namespace PLMD {
 namespace ves {
 
-//+PLUMEDOC VES_TOOLS ves_md_linearexpansion
+//+PLUMEDOC TOOLS ves_md_linearexpansion
 /*
 Simple MD code for dynamics on a potential energy surface given by a linear basis set expansion.
 
@@ -62,16 +61,23 @@ dimensions.
 
 It is possible to run more than one replica of the system in parallel.
 
-\par Examples
+## Examples
 
 In the following example we perform dynamics on the
 Wolfe-Quapp potential that is defined as
-\f[
+
+$$
 U(x,y) = x^4 + y^4 - 2 x^2 - 4 y^2 + xy + 0.3 x + 0.1 y
-\f]
+$$
+
+This function has minima at (-1.174,1.477); (-0.831,-1.366); (1.124,-1.486),
+a maxima at (0.100,0.050) and saddle points around (-1.013,-0.036); (0.093,0.174); (-0.208,-1.407).
+
 To define the potential we employ polynomial power basis
-functions (\ref BF_POWERS). The input file is given as
-\verbatim
+functions ([BF_POWERS](BF_POWERS.md)). The input file is given as
+
+```plumed
+#TOOL=ves_md_linearexpansion
 nstep             10000
 tstep             0.005
 temperature       1.0
@@ -87,21 +93,17 @@ initial_position   -1.174,+1.477
 output_potential        potential.data
 output_potential_grid   150
 output_histogram        histogram.data
-
-# Wolfe-Quapp potential given by the equation
-# U(x,y) = x**4 + y**4 - 2.0*x**2 - 4.0*y**2 + x*y + 0.3*x + 0.1*y
-# Minima around (-1.174,1.477); (-0.831,-1.366); (1.124,-1.486)
-# Maxima around (0.100,0.050)
-# Saddle points around (-1.013,-0.036); (0.093,0.174); (-0.208,-1.407)
-\endverbatim
+```
 
 This input is then run by using the following command.
-\verbatim
+
+```plumed
 plumed ves_md_linearexpansion input
-\endverbatim
+```
 
 The corresponding pot_coeffs_input.data file is
-\verbatim
+
+````
 #! FIELDS idx_dim1 idx_dim2 pot.coeffs index description
 #! SET type LinearBasisSet
 #! SET ndimensions  2
@@ -117,15 +119,16 @@ The corresponding pot_coeffs_input.data file is
        0       2        -4.0000000000000000e+00      10  1*s^2
        0       4         1.0000000000000000e+00      20  1*s^4
 #!-------------------
-\endverbatim
+````
 
-One then uses the (x,y) position of the particle as CVs by using the \ref POSITION
+One then uses the (x,y) position of the particle as CVs by using the [POSITION](POSITION.md)
 action as shown in the following PLUMED input
-\plumedfile
+
+```plumed
 p: POSITION ATOM=1
 ene: ENERGY
 PRINT ARG=p.x,p.y,ene FILE=colvar.data FMT=%8.4f
-\endplumedfile
+```
 
 
 
@@ -134,7 +137,9 @@ PRINT ARG=p.x,p.y,ene FILE=colvar.data FMT=%8.4f
 
 class MD_LinearExpansionPES : public PLMD::CLTool {
 public:
-  std::string description() const override {return "MD of a one particle on a linear expansion PES";}
+  std::string description() const override {
+    return "MD of a one particle on a linear expansion PES";
+  }
   static void registerKeywords( Keywords& keys );
   explicit MD_LinearExpansionPES( const CLToolOptions& co );
   int main( FILE* in, FILE* out, PLMD::Communicator& pc) override;
@@ -177,9 +182,8 @@ void MD_LinearExpansionPES::registerKeywords( Keywords& keys ) {
 MD_LinearExpansionPES::MD_LinearExpansionPES( const CLToolOptions& co ):
   CLTool(co),
   dim(0),
-  dim_string_prefix("dim")
-{
-  inputdata=ifile; //commandline;
+  dim_string_prefix("dim") {
+  inputdata=inputType::ifile; //inputType::commandline;
 }
 
 inline
@@ -244,11 +248,9 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   parseVector("temperature",temps_vec);
   if(temps_vec.size()==1) {
     temp = temps_vec[0];
-  }
-  else if(replicas > 1 && temps_vec.size()==replicas) {
+  } else if(replicas > 1 && temps_vec.size()==replicas) {
     temp = temps_vec[inter.Get_rank()];
-  }
-  else {
+  } else {
     error("problem with temperature keyword, you need to give either one value or a value for each replica.");
   }
   //
@@ -257,11 +259,9 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   parseVector("friction",frictions_vec);
   if(frictions_vec.size()==1) {
     friction = frictions_vec[0];
-  }
-  else if(frictions_vec.size()==replicas) {
+  } else if(frictions_vec.size()==replicas) {
     friction = frictions_vec[inter.Get_rank()];
-  }
-  else {
+  } else {
     error("problem with friction keyword, you need to give either one value or a value for each replica.");
   }
   //
@@ -269,19 +269,24 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   std::vector<int> seeds_vec(0);
   parseVector("random_seed",seeds_vec);
   for(unsigned int i=0; i<seeds_vec.size(); i++) {
-    if(seeds_vec[i]>0) {seeds_vec[i] = -seeds_vec[i];}
+    if(seeds_vec[i]>0) {
+      seeds_vec[i] = -seeds_vec[i];
+    }
   }
   if(replicas==1) {
-    if(seeds_vec.size()>1) {error("problem with random_seed keyword, for a single replica you should only give one value");}
+    if(seeds_vec.size()>1) {
+      error("problem with random_seed keyword, for a single replica you should only give one value");
+    }
     seed = seeds_vec[0];
-  }
-  else {
+  } else {
     if(seeds_vec.size()!=1 && seeds_vec.size()!=replicas) {
       error("problem with random_seed keyword, for multiple replicas you should give either one value or a separate value for each replica");
     }
     if(seeds_vec.size()==1) {
       seeds_vec.resize(replicas);
-      for(unsigned int i=1; i<seeds_vec.size(); i++) {seeds_vec[i] = seeds_vec[0] + i;}
+      for(unsigned int i=1; i<seeds_vec.size(); i++) {
+        seeds_vec[i] = seeds_vec[0] + i;
+      }
     }
     seed = seeds_vec[inter.Get_rank()];
   }
@@ -304,19 +309,19 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
         initPos[i][k]=initPosTmp[k];
       }
     }
-  }
-  else if(initPosTmp.size()==dim*replicas) {
+  } else if(initPosTmp.size()==dim*replicas) {
     for(unsigned int i=0; i<replicas; i++) {
       for(unsigned int k=0; k<dim; k++) {
         initPos[i][k]=initPosTmp[i*dim+k];
       }
     }
-  }
-  else {
+  } else {
     error("problem with initial_position keyword, you need to give either one value or a value for each replica.");
   }
 
-  auto deleter=[](FILE* f) { fclose(f); };
+  auto deleter=[](FILE* f) {
+    fclose(f);
+  };
   FILE* file_dummy = fopen("/dev/null","w+");
   plumed_assert(file_dummy);
   // call fclose when file_dummy_deleter goes out of scope
@@ -337,7 +342,8 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   std::vector<double> interval_range(dim);
   for(unsigned int i=0; i<dim; i++) {
     std::string bf_keyword;
-    std::string is; Tools::convert(i+1,is);
+    std::string is;
+    Tools::convert(i+1,is);
     parse("basis_functions_"+is,bf_keyword);
     if(bf_keyword.size()==0) {
       error("basis_functions_"+is+" is needed");
@@ -377,12 +383,10 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   bool diff_input_coeffs = false;
   if(input_coeffs_fnames.size()==1) {
     input_coeffs_fname = input_coeffs_fnames[0];
-  }
-  else if(replicas > 1 && input_coeffs_fnames.size()==replicas) {
+  } else if(replicas > 1 && input_coeffs_fnames.size()==replicas) {
     diff_input_coeffs = true;
     input_coeffs_fname = input_coeffs_fnames[inter.Get_rank()];
-  }
-  else {
+  } else {
     error("problem with coeffs_file keyword, you need to give either one value or a value for each replica.");
   }
   coeffs_pntr->readFromFile(input_coeffs_fname,true,true);
@@ -392,12 +396,10 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
     double coeffs_prefactor = 1.0;
     if(coeffs_prefactors.size()==1) {
       coeffs_prefactor = coeffs_prefactors[0];
-    }
-    else if(replicas > 1 && coeffs_prefactors.size()==replicas) {
+    } else if(replicas > 1 && coeffs_prefactors.size()==replicas) {
       diff_input_coeffs = true;
       coeffs_prefactor = coeffs_prefactors[inter.Get_rank()];
-    }
-    else {
+    } else {
       error("problem with coeffs_prefactor keyword, you need to give either one value or a value for each replica.");
     }
     coeffs_pntr->scaleAllValues(coeffs_prefactor);
@@ -425,7 +427,8 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   ofile_potential.close();
   if(dim>1) {
     for(unsigned int i=0; i<dim; i++) {
-      std::string is; Tools::convert(i+1,is);
+      std::string is;
+      Tools::convert(i+1,is);
       std::vector<std::string> proj_arg(1);
       proj_arg[0] = dim_string_prefix+is;
       auto Fw = Tools::make_unique<FesWeight>(1/temp);
@@ -488,23 +491,33 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
     std::fprintf(out,"Number of steps                       %llu\n",nsteps);
     std::fprintf(out,"Timestep                              %f\n",tstep);
     std::fprintf(out,"Temperature                           %f",temps_vec[0]);
-    for(unsigned int i=1; i<temps_vec.size(); i++) {std::fprintf(out,",%f",temps_vec[i]);}
+    for(unsigned int i=1; i<temps_vec.size(); i++) {
+      std::fprintf(out,",%f",temps_vec[i]);
+    }
     std::fprintf(out,"\n");
     std::fprintf(out,"Friction                              %f",frictions_vec[0]);
-    for(unsigned int i=1; i<frictions_vec.size(); i++) {std::fprintf(out,",%f",frictions_vec[i]);}
+    for(unsigned int i=1; i<frictions_vec.size(); i++) {
+      std::fprintf(out,",%f",frictions_vec[i]);
+    }
     std::fprintf(out,"\n");
     std::fprintf(out,"Random seed                           %d",seeds_vec[0]);
-    for(unsigned int i=1; i<seeds_vec.size(); i++) {std::fprintf(out,",%d",seeds_vec[i]);}
+    for(unsigned int i=1; i<seeds_vec.size(); i++) {
+      std::fprintf(out,",%d",seeds_vec[i]);
+    }
     std::fprintf(out,"\n");
     std::fprintf(out,"Dimensions                            %zu\n",dim);
     for(unsigned int i=0; i<dim; i++) {
       std::fprintf(out,"Basis Function %u                      %s\n",i+1,basisf_keywords[i].c_str());
     }
     std::fprintf(out,"PLUMED input                          %s",plumed_inputfiles[0].c_str());
-    for(unsigned int i=1; i<plumed_inputfiles.size(); i++) {std::fprintf(out,",%s",plumed_inputfiles[i].c_str());}
+    for(unsigned int i=1; i<plumed_inputfiles.size(); i++) {
+      std::fprintf(out,",%s",plumed_inputfiles[i].c_str());
+    }
     std::fprintf(out,"\n");
     std::fprintf(out,"kBoltzmann taken as 1, use NATURAL_UNITS in the plumed input\n");
-    if(diff_input_coeffs) {std::fprintf(out,"using different coefficients for each replica\n");}
+    if(diff_input_coeffs) {
+      std::fprintf(out,"using different coefficients for each replica\n");
+    }
   }
 
 
@@ -527,7 +540,9 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
         error("More than 1 replica but no MPI");
       }
     } else {
-      if(Communicator::initialized()) plumed->cmd("setMPIComm",&pc.Get_comm());
+      if(Communicator::initialized()) {
+        plumed->cmd("setMPIComm",&pc.Get_comm());
+      }
     }
   }
 
@@ -561,16 +576,20 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
   // Setup random number generator
   random.setSeed(seed);
 
-  double potential, therm_eng=0; std::vector<double> masses(1,1);
+  double potential, therm_eng=0;
+  std::vector<double> masses(1,1);
   std::vector<Vector> positions(1), velocities(1), forces(1);
   for(unsigned int k=0; k<dim; k++) {
     positions[0][k] = initPos[inter.Get_rank()][k];
     if(periodic[k]) {
       positions[0][k] = positions[0][k] - floor((positions[0][k]-interval_min[k])/interval_range[k])*interval_range[k];
-    }
-    else {
-      if(positions[0][k]>interval_max[k]) {positions[0][k]=interval_max[k];}
-      if(positions[0][k]<interval_min[k]) {positions[0][k]=interval_min[k];}
+    } else {
+      if(positions[0][k]>interval_max[k]) {
+        positions[0][k]=interval_max[k];
+      }
+      if(positions[0][k]<interval_min[k]) {
+        positions[0][k]=interval_min[k];
+      }
     }
   }
 
@@ -579,7 +598,8 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
     velocities[0][k]=random.Gaussian() * sqrt( temp );
   }
 
-  potential=calc_energy(positions,forces); double ttt=calc_temp(velocities);
+  potential=calc_energy(positions,forces);
+  double ttt=calc_temp(velocities);
 
   FILE* fp=fopen(stats_filename.c_str(),"w+");
   // call fclose when fp_deleter goes out of scope
@@ -620,8 +640,7 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
 
       if(periodic[k]) {
         positions[0][k] = positions[0][k] - floor((positions[0][k]-interval_min[k])/interval_range[k])*interval_range[k];
-      }
-      else {
+      } else {
         if(positions[0][k]>interval_max[k]) {
           positions[0][k]=interval_max[k];
           velocities[0][k]=-std::abs(velocities[0][k]);
@@ -646,7 +665,9 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
       plumed->cmd("setStopFlag",&plumedWantsToStop);
       plumed->cmd("calc");
       //if(istep%2000==0) plumed->cmd("writeCheckPointFile");
-      if(plumedWantsToStop) nsteps=istep;
+      if(plumedWantsToStop) {
+        nsteps=istep;
+      }
     }
 
     // Second step of velocity verlet

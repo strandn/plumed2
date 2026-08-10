@@ -43,15 +43,16 @@ This action can be used to output target distributions to a grid file,
 for example to see how they look like before using them in a VES bias.
 This action only support static target distributions.
 
-This action is normally used through the \ref driver.
+This action is normally used through the [driver](driver.md).
 
 
-\par Examples
+## Examples
 
 In the following input we define a target distribution that is uniform for
 argument 1 and a Gaussian for argument 2 and then output it to a file
 called targetdist-1.data.
-\plumedfile
+
+```plumed
 t1_1: TD_UNIFORM  MINIMA=-4.0  MAXIMA=+4.0
 t1_2: TD_GAUSSIAN  CENTER1=-2.0  SIGMA1=0.5
 t1: TD_PRODUCT_DISTRIBUTION  DISTRIBUTIONS=t1_1,t1_2
@@ -65,22 +66,22 @@ VES_OUTPUT_TARGET_DISTRIBUTION ...
  LOG_TARGETDIST_FILE=targetdist-1.log.data
  FMT_GRIDS=%11.6f
 ... VES_OUTPUT_TARGET_DISTRIBUTION
-\endplumedfile
+```
 
 This input should be run through the driver by using a command similar to the
 following one where the trajectory/configuration file configuration.gro is needed to
 trick the code to exit correctly.
-\verbatim
+
+```plumed
 plumed driver --plumed plumed.dat --igro configuration.gro
-\endverbatim
+```
 
 */
 //+ENDPLUMEDOC
 
 
 class OutputTargetDistribution :
-  public Action
-{
+  public Action {
 public:
   explicit OutputTargetDistribution(const ActionOptions&);
   void calculate() override {}
@@ -105,8 +106,7 @@ void OutputTargetDistribution::registerKeywords(Keywords& keys) {
 }
 
 OutputTargetDistribution::OutputTargetDistribution(const ActionOptions&ao):
-  Action(ao)
-{
+  Action(ao) {
 
   std::string targetdist_fname;
   parse("TARGETDIST_FILE",targetdist_fname);
@@ -127,7 +127,9 @@ OutputTargetDistribution::OutputTargetDistribution(const ActionOptions&ao):
 
   std::vector<std::string> grid_periodicity(nargs);
   parseVector("GRID_PERIODICITY",grid_periodicity);
-  if(grid_periodicity.size()==0) {grid_periodicity.assign(nargs,"NO");}
+  if(grid_periodicity.size()==0) {
+    grid_periodicity.assign(nargs,"NO");
+  }
 
   std::string fmt_grids="%14.9f";
   parse("FMT_GRIDS",fmt_grids);
@@ -148,23 +150,26 @@ OutputTargetDistribution::OutputTargetDistribution(const ActionOptions&ao):
   //
   std::vector<std::unique_ptr<Value>> arguments(nargs);
   for(unsigned int i=0; i < nargs; i++) {
-    std::string is; Tools::convert(i+1,is);
-    if(nargs==1) {is="";}
+    std::string is;
+    Tools::convert(i+1,is);
+    if(nargs==1) {
+      is="";
+    }
     arguments[i]= Tools::make_unique<Value>(nullptr,"arg"+is,false);
     if(grid_periodicity[i]=="YES") {
       arguments[i]->setDomain(grid_min[i],grid_max[i]);
-    }
-    else if(grid_periodicity[i]=="NO") {
+    } else if(grid_periodicity[i]=="NO") {
       arguments[i]->setNotPeriodic();
-    }
-    else {
+    } else {
       plumed_merror("wrong value given in GRID_PERIODICITY, either specify YES or NO");
     }
   }
 
   std::string error_msg = "";
   TargetDistribution* targetdist_pntr = VesTools::getPointerFromLabel<TargetDistribution*>(targetdist_label,plumed.getActionSet(),error_msg);
-  if(error_msg.size()>0) {plumed_merror("Error in keyword TARGET_DISTRIBUTION of "+getName()+": "+error_msg);}
+  if(error_msg.size()>0) {
+    plumed_merror("Error in keyword TARGET_DISTRIBUTION of "+getName()+": "+error_msg);
+  }
   //
   if(targetdist_pntr->isDynamic()) {
     plumed_merror(getName() + " only works for static target distributions");

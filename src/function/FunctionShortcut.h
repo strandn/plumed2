@@ -40,50 +40,121 @@ private:
 public:
   static void registerKeywords(Keywords&);
   explicit FunctionShortcut(const ActionOptions&);
-  static void createAction( ActionShortcut* action, const std::vector<Value*>& vals, const std::string& allargs );
+  static void createAction( ActionShortcut* action,
+                            const std::vector<Value*>& vals,
+                            const std::string& allargs,
+                            bool useGPU=false);
 };
 
 template <class T>
 void FunctionShortcut<T>::registerKeywords(Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
-  keys.add("numbered","ARG","the input to this function");
-  keys.reserve("compulsory","PERIODIC","if the output of your function is periodic then you should specify the periodicity of the function.  If the output is not periodic you must state this using PERIODIC=NO");
-  keys.addActionNameSuffix("_SCALAR"); keys.addActionNameSuffix("_VECTOR"); keys.addActionNameSuffix("_MATRIX"); keys.addActionNameSuffix("_GRID");
-  T tfunc; tfunc.registerKeywords( keys );
+  keys.reserve("compulsory","PERIODIC",
+               "if the output of your function is periodic then you should specify "
+               "the periodicity of the function.  "
+               "If the output is not periodic you must state this using PERIODIC=NO");
+  keys.addActionNameSuffix("_SCALAR");
+  keys.addActionNameSuffix("_ONEARG");
+  keys.addActionNameSuffix("_VECTOR");
+  keys.addActionNameSuffix("_VECTORACC");
+  keys.addActionNameSuffix("_MATRIX");
+  keys.addActionNameSuffix("_MATRIXACC");
+  keys.addActionNameSuffix("_GRID");
+  //keys.addActionNameSuffix("_GRIDACC");
+  keys.addFlag("USEGPU",false,"run this calculation on the GPU");
+  keys.addLinkInDocForFlag("USEGPU","gpu.md");
+  T::registerKeywords( keys );
+  if( keys.getDisplayName()=="SUM" || keys.getDisplayName()=="CUSTOM" || keys.getDisplayName()=="MATHEVAL" ) {
+    keys.addInputKeyword("compulsory","ARG","scalar/vector/matrix/grid","the values input to this function");
+  } else {
+    keys.addInputKeyword("compulsory","ARG","scalar/vector/matrix","the values input to this function");
+  }
+  if( keys.outputComponentExists(".#!value") && keys.getDisplayName()!="DIFFERENCE" ) {
+    keys.addInputKeyword("optional","MASK","vector/matrix",
+                         "the label for a sparse vector/matrix that should be used "
+                         "to determine which elements of the vector/matrix should be computed");
+  }
 }
 
 template <class T>
 FunctionShortcut<T>::FunctionShortcut(const ActionOptions&ao):
   Action(ao),
-  ActionShortcut(ao)
-{
-  std::vector<std::string> args; parseVector("ARG",args);
-  std::string allargs=args[0]; for(unsigned i=1; i<args.size(); ++i) allargs += "," + args[i];
-  std::vector<Value*> vals; ActionWithArguments::interpretArgumentList( args, plumed.getActionSet(), this, vals );
-  if( vals.size()==0 ) error("found no input arguments to function");
-  createAction( this, vals, allargs );
+  ActionShortcut(ao) {
+  std::vector<std::string> args;
+  parseVector("ARG",args);
+  std::string allargs=args[0];
+  for(unsigned i=1; i<args.size(); ++i) {
+    allargs += "," + args[i];
+  }
+  std::vector<Value*> vals;
+  ActionWithArguments::interpretArgumentList( args, plumed.getActionSet(), this, vals );
+  if( vals.size()==0 ) {
+    error("found no input arguments to function");
+  }
+  bool usegpuFLAG=false;
+  parseFlag("USEGPU",usegpuFLAG);
+  createAction( this, vals, allargs,usegpuFLAG);
 }
 
 template <class T>
-void FunctionShortcut<T>::createAction( ActionShortcut* action, const std::vector<Value*>& vals, const std::string& allargs ) {
-  unsigned maxrank=vals[0]->getRank(); bool isgrid=false;
+void FunctionShortcut<T>::createAction( ActionShortcut* action,
+                                        const std::vector<Value*>& vals,
+                                        const std::string& allargs,
+                                        const bool useGPU) {
+  unsigned maxrank=vals[0]->getRank();
+  bool isgrid=false;
+  const std::string doUSEGPU = useGPU?"ACC":"";
   for(unsigned i=0; i<vals.size(); ++i) {
-    if( vals[i]->getRank()>0 && vals[i]->hasDerivatives() ) isgrid=true;
-    if( vals[i]->getRank()>maxrank ) maxrank=vals[i]->getRank();
+    if( vals[i]->getRank()>0 && vals[i]->hasDerivatives() ) {
+      isgrid=true;
+    }
+    if( vals[i]->getRank()>maxrank ) {
+      maxrank=vals[i]->getRank();
+    }
   }
   if( isgrid ) {
-    if( actionRegister().check( action->getName() + "_GRID") ) action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID ARG=" + allargs + " " + action->convertInputLineToString() );
-    else plumed_merror("there is no action registered that allows you to do " + action->getName() + " with functions on a grid");
+    if( action->plumed.checkAction( action->getName() + "_GRID") ) {
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_GRID ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
+    } else {
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with functions on a grid");
+    }
   } else if( maxrank==0 ) {
-    if( actionRegister().check( action->getName() + "_SCALAR") ) action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_SCALAR ARG=" + allargs + " " + action->convertInputLineToString() );
-    else plumed_merror("there is no action registered that allows you to do " + action->getName() + " with scalars");
+    if( action->plumed.checkAction(action->getName() + "_SCALAR") ) {
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_SCALAR ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
+    } else {
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with scalars");
+    }
+  } else if( vals.size()==1 && action->plumed.checkAction(action->getName() + "_ONEARG") ) {
+    action->readInputLine( action->getShortcutLabel() + ": "
+                           + action->getName() + "_ONEARG ARG=" + allargs
+                           + " " + action->convertInputLineToString() );
   } else if( maxrank==1 ) {
-    if( actionRegister().check( action->getName() + "_VECTOR") ) action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_VECTOR ARG=" + allargs + " " + action->convertInputLineToString() );
-    else plumed_merror("there is no action registered that allows you to do " + action->getName() + " with vectors");
+    if( action->plumed.checkAction( action->getName() + "_VECTOR"+doUSEGPU) ) {
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_VECTOR"+doUSEGPU+" ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
+    } else {
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with vectors"+ (useGPU?" (with USEGPU)":""));
+    }
   } else if( maxrank==2  ) {
-    if( actionRegister().check( action->getName() + "_MATRIX") ) action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_MATRIX ARG=" + allargs + " " + action->convertInputLineToString() );
-    else plumed_merror("there is no action registered that allows you to do " + action->getName() + " with matrices");
-  } else plumed_error();
+    if( action->plumed.checkAction( action->getName() + "_MATRIX"+doUSEGPU) ) {
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_MATRIX"+doUSEGPU+" ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
+    } else {
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with matrices" + (useGPU?" (with USEGPU)":""));
+    }
+  } else {
+    plumed_error();
+  }
 }
 
 }

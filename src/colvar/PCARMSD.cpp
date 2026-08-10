@@ -47,54 +47,19 @@ public:
 /*
 Calculate the PCA components for a number of provided eigenvectors and an average structure.
 
-For information on this method ( see \cite Sutto:2010 and \cite spiwok ). Performs optimal alignment at every step and reports the rmsd so you know if you are far or close from the average structure.
+Information about this method can be found in the reference papers in the bibliography below.  An example input is provided below:
+
+```plumed
+#SETTINGS INPUTFILES=regtest/trajectories/pca/average.pdb,regtest/trajectories/pca/eigenvec.pdb
+PCARMSD ...
+  AVERAGE=regtest/trajectories/pca/average.pdb
+  EIGENVECTORS=regtest/trajectories/pca/eigenvec.pdb
+...
+```
+
+This input performs optimal alignment at every step and reports the rmsd so you know if you are far or close from the average structure.
 It takes the average structure and eigenvectors in form of a pdb.
 Note that beta and occupancy values in the pdb are neglected and all the weights are placed to 1 (differently from the RMSD colvar for example)
-
-\par Examples
-
-\plumedfile
-PCARMSD AVERAGE=file.pdb EIGENVECTORS=eigenvectors.pdb
-\endplumedfile
-
-The input is taken so to be compatible with the output you get from g_covar utility of gromacs (suitably adapted to have a pdb input format).
-The reference configuration (file.pdb) will thus be in a file that looks something like this:
-
-\auxfile{file.pdb}
-TITLE     Average structure
-MODEL        1
-ATOM      1  CL  ALA     1       1.042  -3.070   0.946  1.00  0.00
-ATOM      5  CLP ALA     1       0.416  -2.033   0.132  1.00  0.00
-ATOM      6  OL  ALA     1       0.415  -2.082  -0.976  1.00  0.00
-ATOM      7  NL  ALA     1      -0.134  -1.045   0.677  1.00  0.00
-ATOM      9  CA  ALA     1      -0.774   0.053   0.003  1.00  0.00
-TER
-ENDMDL
-\endauxfile
-
-while the eigenvectors will be in a pdb file (eigenvectors.pdb) that looks something like this:
-
-\auxfile{eigenvectors.pdb}
-TITLE     frame t= -1.000
-MODEL        1
-ATOM      1  CL  ALA     1       1.194  -2.988   0.724  1.00  0.00
-ATOM      5  CLP ALA     1      -0.996   0.042   0.144  1.00  0.00
-ATOM      6  OL  ALA     1      -1.246  -0.178  -0.886  1.00  0.00
-ATOM      7  NL  ALA     1      -2.296   0.272   0.934  1.00  0.00
-ATOM      9  CA  ALA     1      -0.436   2.292   0.814  1.00  0.00
-TER
-ENDMDL
-TITLE     frame t= 0.000
-MODEL        1
-ATOM      1  CL  ALA     1       1.042  -3.070   0.946  1.00  0.00
-ATOM      5  CLP ALA     1      -0.774   0.053   0.003  1.00  0.00
-ATOM      6  OL  ALA     1      -0.849  -0.166  -1.034  1.00  0.00
-ATOM      7  NL  ALA     1      -2.176   0.260   0.563  1.00  0.00
-ATOM      9  CA  ALA     1       0.314   1.825   0.962  1.00  0.00
-TER
-ENDMDL
-
-\endauxfile
 
 */
 //+ENDPLUMEDOC
@@ -105,56 +70,75 @@ void PCARMSD::registerKeywords(Keywords& keys) {
   Colvar::registerKeywords(keys);
   keys.add("compulsory","AVERAGE","a file in pdb format containing the reference structure and the atoms involved in the CV.");
   keys.add("compulsory","EIGENVECTORS","a file in pdb format containing the reference structure and the atoms involved in the CV.");
-  keys.addOutputComponent("eig","default","the projections on each eigenvalue are stored on values labeled eig-1, eig-2, ...");
-  keys.addOutputComponent("residual","default","the distance of the present configuration from the configuration supplied as AVERAGE in terms of mean squared displacement after optimal alignment ");
+  keys.addOutputComponent("eig","default","scalar","the projections on each eigenvalue are stored on values labeled eig-1, eig-2, ...");
+  keys.addOutputComponent("residual","default","scalar","the distance of the present configuration from the configuration supplied as AVERAGE in terms of mean squared displacement after optimal alignment ");
   keys.addFlag("SQUARED_ROOT",false," This should be set if you want RMSD instead of mean squared displacement ");
+  keys.addDOI("10.1021/ct100413b");
+  keys.addDOI("10.1021/jp068587c");
 }
 
 PCARMSD::PCARMSD(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   squared(true),
-  nopbc(false)
-{
+  nopbc(false) {
   std::string f_average;
   parse("AVERAGE",f_average);
   std::string type;
   type.assign("OPTIMAL");
   std::string f_eigenvectors;
   parse("EIGENVECTORS",f_eigenvectors);
-  bool sq;  parseFlag("SQUARED_ROOT",sq);
-  if (sq) { squared=false; }
+  bool sq;
+  parseFlag("SQUARED_ROOT",sq);
+  if (sq) {
+    squared=false;
+  }
   parseFlag("NOPBC",nopbc);
   checkRead();
 
   PDB pdb;
 
   // read everything in ang and transform to nm if we are not in natural units
-  if( !pdb.read(f_average,usingNaturalUnits(),0.1/getUnits().getLength()) )
+  if( !pdb.read(f_average,usingNaturalUnits(),0.1/getUnits().getLength()) ) {
     error("missing input file " + f_average );
+  }
 
   rmsd=Tools::make_unique<RMSD>();
   bool remove_com=true;
   bool normalize_weights=true;
   // here align and displace are a simple vector of ones
-  std::vector<double> align; align=pdb.getOccupancy(); for(unsigned i=0; i<align.size(); i++) {align[i]=1.;} ;
-  std::vector<double> displace;  displace=pdb.getBeta(); for(unsigned i=0; i<displace.size(); i++) {displace[i]=1.;} ;
+  std::vector<double> align;
+  align=pdb.getOccupancy();
+  for(unsigned i=0; i<align.size(); i++) {
+    align[i]=1.;
+  } ;
+  std::vector<double> displace;
+  displace=pdb.getBeta();
+  for(unsigned i=0; i<displace.size(); i++) {
+    displace[i]=1.;
+  } ;
   // reset again to reimpose unifrom weights (safe to disable this)
   rmsd->set(align,displace,pdb.getPositions(),type,remove_com,normalize_weights);
   requestAtoms( pdb.getAtomNumbers() );
 
-  addComponentWithDerivatives("residual"); componentIsNotPeriodic("residual");
+  addComponentWithDerivatives("residual");
+  componentIsNotPeriodic("residual");
 
   log.printf("  average from file %s\n",f_average.c_str());
   log.printf("  which contains %d atoms\n",getNumberOfAtoms());
   log.printf("  with indices : ");
   for(unsigned i=0; i<pdb.getAtomNumbers().size(); ++i) {
-    if(i%25==0) log<<"\n";
+    if(i%25==0) {
+      log<<"\n";
+    }
     log.printf("%d ",pdb.getAtomNumbers()[i].serial());
   }
   log.printf("\n");
   log.printf("  method for alignment : %s \n",type.c_str() );
-  if(nopbc) log.printf("  without periodic boundary conditions\n");
-  else      log.printf("  using periodic boundary conditions\n");
+  if(nopbc) {
+    log.printf("  without periodic boundary conditions\n");
+  } else {
+    log.printf("  using periodic boundary conditions\n");
+  }
 
   log<<"  Bibliography "<<plumed.cite("Spiwok, Lipovova and Kralova, JPCB, 111, 3073 (2007)  ");
   log<<" "<<plumed.cite( "Sutto, D'Abramo, Gervasio, JCTC, 6, 3640 (2010)");
@@ -163,10 +147,11 @@ PCARMSD::PCARMSD(const ActionOptions&ao):
   neigenvects=0;
   // now get the eigenvectors
   // open the file
-  if (FILE* fp=this->fopen(f_eigenvectors.c_str(),"r"))
-  {
+  if (FILE* fp=this->fopen(f_eigenvectors.c_str(),"r")) {
 // call fclose when exiting this block
-    auto deleter=[this](FILE* f) { this->fclose(f); };
+    auto deleter=[this](FILE* f) {
+      this->fclose(f);
+    };
     std::unique_ptr<FILE,decltype(deleter)> fp_deleter(fp,deleter);
 
     std::vector<AtomNumber> aaa;
@@ -179,25 +164,41 @@ PCARMSD::PCARMSD(const ActionOptions&ao):
       do_read=mypdb.readFromFilepointer(fp,usingNaturalUnits(),0.1/getUnits().getLength());
       if(do_read) {
         neigenvects++;
-        if(mypdb.getAtomNumbers().size()==0) error("number of atoms in a frame should be more than zero");
-        if(nat==0) nat=mypdb.getAtomNumbers().size();
-        if(nat!=mypdb.getAtomNumbers().size()) error("frames should have the same number of atoms");
-        if(aaa.empty()) aaa=mypdb.getAtomNumbers();
-        if(aaa!=mypdb.getAtomNumbers()) error("frames should contain same atoms in same order");
+        if(mypdb.getAtomNumbers().size()==0) {
+          error("number of atoms in a frame should be more than zero");
+        }
+        if(nat==0) {
+          nat=mypdb.getAtomNumbers().size();
+        }
+        if(nat!=mypdb.getAtomNumbers().size()) {
+          error("frames should have the same number of atoms");
+        }
+        if(aaa.empty()) {
+          aaa=mypdb.getAtomNumbers();
+        }
+        if(aaa!=mypdb.getAtomNumbers()) {
+          error("frames should contain same atoms in same order");
+        }
         log<<"  Found eigenvector: "<<neigenvects<<" containing  "<<mypdb.getAtomNumbers().size()<<" atoms\n";
         pdbv.push_back(mypdb);
         eigenvectors.push_back(mypdb.getPositions());
-      } else {break ;}
+      } else {
+        break ;
+      }
     }
     log<<"  Found total "<<neigenvects<< " eigenvectors in the file "<<f_eigenvectors.c_str()<<" \n";
-    if(neigenvects==0) error("at least one eigenvector is expected");
+    if(neigenvects==0) {
+      error("at least one eigenvector is expected");
+    }
   }
   // the components
   for(unsigned i=0; i<neigenvects; i++) {
-    std::string num; Tools::convert( i, num );
-    std::string name; name=std::string("eig-")+num;
-    pca_names.push_back(name);
-    addComponentWithDerivatives(name); componentIsNotPeriodic(name);
+    std::string num;
+    Tools::convert( i, num );
+    std::string compName=std::string("eig-")+num;
+    pca_names.push_back(compName);
+    addComponentWithDerivatives(compName);
+    componentIsNotPeriodic(compName);
   }
   turnOnDerivatives();
 
@@ -205,7 +206,9 @@ PCARMSD::PCARMSD(const ActionOptions&ao):
 
 // calculator
 void PCARMSD::calculate() {
-  if(!nopbc) makeWhole();
+  if(!nopbc) {
+    makeWhole();
+  }
   Tensor rotation,invrotation;
   Matrix<std::vector<Vector> > drotdpos(3,3);
   std::vector<Vector> alignedpos;
@@ -227,9 +230,11 @@ void PCARMSD::calculate() {
 
   for(unsigned i=0; i<eigenvectors.size(); i++) {
     Value* value=getPntrToComponent(pca_names[i].c_str());
-    double val; val=0.;
+    double val;
+    val=0.;
     for(unsigned iat=0; iat<getNumberOfAtoms(); iat++) {
-      val+=dotProduct(alignedpos[iat]-centeredref[iat],eigenvectors[i][iat]);	der[iat].zero();
+      val+=dotProduct(alignedpos[iat]-centeredref[iat],eigenvectors[i][iat]);
+      der[iat].zero();
     }
     value->set(val);
     // here the loop is reversed to better suit the structure of the derivative of the rotation matrix
@@ -255,7 +260,9 @@ void PCARMSD::calculate() {
     }
   }
 
-  for(int i=0; i<getNumberOfComponents(); ++i) setBoxDerivativesNoPbc( getPntrToComponent(i) );
+  for(unsigned i=0; i<getNumberOfComponents(); ++i) {
+    setBoxDerivativesNoPbc( getPntrToComponent(i) );
+  }
 
 }
 

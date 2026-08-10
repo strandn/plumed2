@@ -35,62 +35,67 @@ Generalized extreme value distribution (static).
 Employ a target distribution given by a
 [generalized extreme value distribution](https://en.wikipedia.org/wiki/Generalized_extreme_value_distribution)
 that is defined as
-\f[
+
+$$
 p(s) =
 \frac{1}{\sigma} \, t(s)^{\xi+1} \, e^{-t(s)},
-\f]
+$$
+
 where
-\f[
+
+$$
 t(s) =
 \begin{cases}
 \left( 1 + \xi \left( \frac{s-\mu}{\sigma} \right) \right)^{-1/\xi} & \mathrm{if\ }\xi \neq 0 \\
 \exp\left(- \frac{s-\mu}{\sigma} \right) & \mathrm{if\ } \xi = 0
 \end{cases},
-\f]
-and \f$\mu\f$ is the location parameter which approximately determines the location of the
-maximum of the distribution, \f$\sigma>0\f$ is the scale parameter that determines the
-broadness of the distribution, and \f$\xi\f$ is the shape parameter that determines
-the tail behavior of the distribution. For \f$\xi=0\f$, \f$\xi>0\f$, and \f$\xi<0\f$
+$$
+
+and $\mu$ is the location parameter which approximately determines the location of the
+maximum of the distribution, $\sigma>0$ is the scale parameter that determines the
+broadness of the distribution, and $\xi$ is the shape parameter that determines
+the tail behavior of the distribution. For $\xi=0$, $\xi>0$, and $\xi<0$
 the Gumbel, Frechet, and Weibull families of distributions are obtained, respectively.
 
-The location parameter \f$\mu\f$ is given using the LOCATION keyword, the scale parameter \f$\sigma\f$
-using the SCALE keyword, and the shape parameter \f$\xi\f$ using the SHAPE
+The location parameter $\mu$ is given using the LOCATION keyword, the scale parameter $\sigma$
+using the SCALE keyword, and the shape parameter $\xi$ using the SHAPE
 keyword.
 
 This target distribution action is only defined for one dimension, for multiple dimensions
-it should be used in combination with \ref TD_PRODUCT_DISTRIBUTION action.
+it should be used in combination with [TD_PRODUCT_DISTRIBUTION](TD_PRODUCT_DISTRIBUTION.md) action.
 
-\par Examples
+## Examples
 
-Generalized extreme value distribution with \f$\mu=0.0\f$, \f$\sigma=2.0\f$, and \f$\xi=0.0\f$ (Gumbel distribution)
-\plumedfile
+Generalized extreme value distribution with $\mu=0.0$, $\sigma=2.0$, and $\xi=0.0$ (Gumbel distribution)
+
+```plumed
 td: TD_GENERALIZED_EXTREME_VALUE  LOCATION=0.0  SCALE=2.0 SHAPE=0.0
-\endplumedfile
+```
 
+Generalized extreme value distribution with $\mu=-5.0$, $\sigma=1.0$, and $\xi=0.5$ (Frechet distribution)
 
-Generalized extreme value distribution with \f$\mu=-5.0\f$, \f$\sigma=1.0\f$, and \f$\xi=0.5\f$ (Frechet distribution)
-\plumedfile
+```plumed
 td: TD_GENERALIZED_EXTREME_VALUE  LOCATION=-5.0  SCALE=1.0 SHAPE=0.5
-\endplumedfile
+```
 
+Generalized extreme value distribution with $\mu=5.0$, $\sigma=2.0$, and $\xi=-0.5$ (Weibull distribution)
 
-Generalized extreme value distribution with \f$\mu=5.0\f$, \f$\sigma=2.0\f$, and \f$\xi=-0.5\f$ (Weibull distribution)
-\plumedfile
+```plumed
 td: TD_GENERALIZED_EXTREME_VALUE  LOCATION=5.0  SCALE=1.0 SHAPE=-0.5
-\endplumedfile
-
+```
 
 The generalized extreme value distribution is only defined for one dimension so for multiple
-dimensions we have to use it in combination with the \ref TD_PRODUCT_DISTRIBUTION action as shown in
+dimensions we have to use it in combination with the [TD_PRODUCT_DISTRIBUTION](TD_PRODUCT_DISTRIBUTION.md) action as shown in
 the following example where we have a Generalized extreme value distribution for argument 1
 and uniform distribution for argument 2
-\plumedfile
+
+```plumed
 td_gev: TD_GENERALIZED_EXTREME_VALUE  LOCATION=-5.0  SCALE=1.0 SHAPE=0.5
 
 td_uni: TD_UNIFORM
 
 td_pd: TD_PRODUCT_DISTRIBUTION DISTRIBUTIONS=td_gev,td_uni
-\endplumedfile
+```
 
 
 */
@@ -128,20 +133,27 @@ TD_GeneralizedExtremeValue::TD_GeneralizedExtremeValue(const ActionOptions& ao):
   center_(0),
   scale_(0),
   shape_(0),
-  normalization_(0)
-{
+  normalization_(0) {
   parseVector("LOCATION",center_);
   parseVector("SCALE",scale_);
   parseVector("SHAPE",shape_);
 
   setDimension(center_.size());
-  if(getDimension()>1) {plumed_merror(getName()+": only defined for one dimension, for multiple dimensions it should be used in combination with the TD_PRODUCT_DISTRIBUTION action.");}
-  if(scale_.size()!=getDimension()) {plumed_merror(getName()+": the SCALE keyword does not match the given dimension in MINIMA");}
-  if(shape_.size()!=getDimension()) {plumed_merror(getName()+": the SHAPE keyword does not match the given dimension in MINIMA");}
+  if(getDimension()>1) {
+    plumed_merror(getName()+": only defined for one dimension, for multiple dimensions it should be used in combination with the TD_PRODUCT_DISTRIBUTION action.");
+  }
+  if(scale_.size()!=getDimension()) {
+    plumed_merror(getName()+": the SCALE keyword does not match the given dimension in MINIMA");
+  }
+  if(shape_.size()!=getDimension()) {
+    plumed_merror(getName()+": the SHAPE keyword does not match the given dimension in MINIMA");
+  }
 
   normalization_.resize(getDimension());
   for(unsigned int k=0; k<getDimension(); k++) {
-    if(scale_[k]<0.0) {plumed_merror(getName()+": the value given for the scale parameter in SCALE should be larger than 0.0");}
+    if(scale_[k]<0.0) {
+      plumed_merror(getName()+": the value given for the scale parameter in SCALE should be larger than 0.0");
+    }
     normalization_[k] = 1.0/scale_[k];
   }
   checkRead();
@@ -159,11 +171,14 @@ double TD_GeneralizedExtremeValue::GEVdiagonal(const std::vector<double>& argume
     double arg=(argument[k]-center[k])/scale[k];
     double tx;
     if(shape_[k]!=0.0) {
-      if( shape_[k]>0 && argument[k] <= (center[k]-scale[k]/shape[k]) ) {return 0.0;}
-      if( shape_[k]<0 && argument[k] > (center[k]-scale[k]/shape[k]) ) {return 0.0;}
+      if( shape_[k]>0 && argument[k] <= (center[k]-scale[k]/shape[k]) ) {
+        return 0.0;
+      }
+      if( shape_[k]<0 && argument[k] > (center[k]-scale[k]/shape[k]) ) {
+        return 0.0;
+      }
       tx = pow( (1.0+arg*shape[k]), -1.0/shape[k] );
-    }
-    else {
+    } else {
       tx = exp(-arg);
     }
     value *= normalization[k] * pow(tx,shape[k]+1.0) * exp(-tx);

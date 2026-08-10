@@ -65,8 +65,7 @@ PLMD::Action you should use <b> the routines with the word component in the name
 */
 
 class ActionWithValue :
-  public virtual Action
-{
+  public virtual Action {
   friend class ActionWithVector;
   friend class ActionWithArguments;
 private:
@@ -82,15 +81,15 @@ private:
 /// Are we using numerical derivatives to differentiate
   bool numericalDerivatives;
 /// Return the index for the component named name
-  int getComponent( const std::string& name ) const;
+  int getComponent( const std::string& valname ) const;
 public:
 
 // -------- The action has one value only  ---------------- //
 
 /// Add a value with the name label
-  void addValue( const std::vector<unsigned>& shape=std::vector<unsigned>() );
+  void addValue( const std::vector<std::size_t>& shape=std::vector<std::size_t>() );
 /// Add a value with the name label that has derivatives
-  virtual void addValueWithDerivatives( const std::vector<unsigned>& shape=std::vector<unsigned>() );
+  virtual void addValueWithDerivatives( const std::vector<std::size_t>& shape=std::vector<std::size_t>() );
 /// Set your default value to have no periodicity
   void setNotPeriodic();
 /// Set the value to be periodic with a particular domain
@@ -105,22 +104,22 @@ protected:
 
 public:
 /// Add a value with a name like label.name
-  void addComponent( const std::string& name, const std::vector<unsigned>& shape=std::vector<unsigned>() );
+  void addComponent( const std::string& valname, const std::vector<std::size_t>& shape=std::vector<std::size_t>() );
 /// Add a value with a name like label.name that has derivatives
-  virtual void addComponentWithDerivatives( const std::string& name, const std::vector<unsigned>& shape=std::vector<unsigned>() );
+  virtual void addComponentWithDerivatives( const std::string& valname, const std::vector<std::size_t>& shape=std::vector<std::size_t>() );
 /// Set your value component to have no periodicity
-  void componentIsNotPeriodic( const std::string& name );
+  void componentIsNotPeriodic( const std::string& valname );
 /// Set the value to be periodic with a particular domain
-  void componentIsPeriodic( const std::string& name, const std::string& min, const std::string& max );
+  void componentIsPeriodic( const std::string& valname, const std::string& min, const std::string& max );
 /// Get the description of this component
   virtual std::string getOutputComponentDescription( const std::string& cname, const Keywords& keys ) const ;
+/// Get a const pointer to the ith component
+  const Value* getConstPntrToComponent(unsigned i) const;
 protected:
 /// Return a pointer to the component by index
-  Value* getPntrToComponent(int i);
-/// Get a const pointer to the ith component
-  const Value* getConstPntrToComponent(int i) const;
+  Value* getPntrToComponent(unsigned i);
 /// Return a pointer to the value by name
-  Value* getPntrToComponent(const std::string& name);
+  Value* getPntrToComponent(const std::string& valname);
 /// Accumulate the forces from the Values
   bool checkForForces();
 /// Get the forces to apply
@@ -140,17 +139,17 @@ public:
 /// Get the value of one of the components of the PLMD::Action
   double getOutputQuantity( const unsigned j ) const ;
 /// Get the value with a specific name (N.B. if there is no such value this returns zero)
-  double getOutputQuantity( const std::string& name ) const ;
+  double getOutputQuantity( const std::string& valname ) const ;
 
 //  --- Routines for passing stuff to ActionWithArguments -- //
 
 /// Check if a value with a particular name is present.  This is only used in PLMD::ActionWithArguments.
 /// You should not use it when manipulating components.
-  bool exists( const std::string& name ) const;
+  bool exists( const std::string& valname ) const;
 /// Return a pointer to the value with name (this is used to retrieve values in other PLMD::Actions)
 /// You should NEVER use this routine to refer to the components of your PLMD::Action.  Use
 /// getPntrToComponent instead.
-  Value* copyOutput( const std::string&name ) const;
+  Value* copyOutput( const std::string& valname ) const;
 /// Return a pointer to the value with this number (this is used to retrieve values in other PLMD::Actions)
 /// You should NEVER use this routine to refer to the components of your PLMD::Action.  Use
 /// getPntrToComponent instead.
@@ -164,7 +163,7 @@ public:
 // -- Routines for everything else -- //
 
 /// Returns the number of values defined
-  int getNumberOfComponents() const ;
+  std::size_t getNumberOfComponents() const ;
 /// Clear the forces on the values
   virtual void clearInputForces( const bool& force=false );
 /// Clear the derivatives of values wrt parameters
@@ -178,7 +177,9 @@ public:
 /// This forces the class to use numerical derivatives
   void useNumericalDerivatives();
 // These are things for using vectors of values as fields
-  virtual void checkFieldsAllowed() { error("cannot use this action as a field"); }
+  virtual void checkFieldsAllowed() {
+    error("cannot use this action as a field");
+  }
   virtual unsigned getNumberOfDerivatives()=0;
 /// Activate the calculation of derivatives
   virtual void turnOnDerivatives();
@@ -186,7 +187,9 @@ public:
   virtual void getMatrixColumnTitles( std::vector<std::string>& argnames ) const ;
 /// This is used to check if we run calculate during the update step
   virtual bool calculateOnUpdate();
-  ActionWithValue* castToActionWithValue() noexcept final { return this; }
+  ActionWithValue* castToActionWithValue() noexcept final {
+    return this;
+  }
 };
 
 inline
@@ -196,13 +199,15 @@ double ActionWithValue::getOutputQuantity(const unsigned j) const {
 }
 
 inline
-double ActionWithValue::getOutputQuantity( const std::string& name ) const {
+double ActionWithValue::getOutputQuantity( const std::string& quantityName ) const {
   auto offset=getLabel().size();
   for(unsigned i=0; i<values.size(); ++i) {
     const std::string & valname=values[i]->name;
     if(valname.size()>offset+1 && valname[offset]=='.' ) {
       plumed_dbg_assert(Tools::startWith(valname,getLabel()));
-      if(!std::strcmp(valname.c_str()+offset+1,name.c_str())) return values[i]->get();
+      if(!std::strcmp(valname.c_str()+offset+1,quantityName.c_str())) {
+        return values[i]->get();
+      }
     }
   }
   return 0.0;
@@ -216,7 +221,7 @@ void ActionWithValue::setValue(const double& d) {
 }
 
 inline
-int ActionWithValue::getNumberOfComponents() const {
+std::size_t ActionWithValue::getNumberOfComponents() const {
   return values.size();
 }
 

@@ -31,76 +31,81 @@ namespace bias {
 /*
 Add extended Lagrangian.
 
-This action can be used to create fictitious collective variables coupled to the real ones.
-Given \f$x_i\f$ the \f$i\f$th argument of this bias potential, potential
-and kinetic contributions are added to the energy of the system as
-\f[
-  V=\sum_i \frac{k_i}{2} (x_i-s_i)^2 + \sum_i \frac{\dot{s}_i^2}{2m_i}
-\f].
+This action can be used to create fictitious collective variables that are coupled to the real ones.
+In this method potential and kinetic contributions are added to the energy of the system using
 
-The resulting potential is thus similar to a \ref RESTRAINT,
-but the restraint center moved with time following Hamiltonian
-dynamics with mass \f$m_i\f$.
+$$
+  V=\sum_i \frac{k_i}{2} (x_i-s_i)^2 + \sum_i \frac{\dot{s}_i^2}{2m_i}
+$$.
+
+In this expression, $x_i$ is the $i$th scalar-argument that is input to the bias potential so
+the resulting potential is similar to a [RESTRAINT](RESTRAINT.md) that is forced to take scalars in input.
+However, in this method the restraint center moves with time following Hamiltonian
+dynamics with mass $m_i$.
 
 This bias potential accepts thus vectorial keywords (one element per argument)
-to define the coupling constant (KAPPA) and a relaxation time \f$tau\f$ (TAU).
-The mass is them computed as \f$m=k(\frac{\tau}{2\pi})^2\f$.
+to define the coupling constant (KAPPA) and a relaxation time $tau$ (TAU).
+The mass is them computed as $m=k(\frac{\tau}{2\pi})^2$.
 
 Notice that this action creates several components.
 The ones named XX_fict are the fictitious coordinates. It is possible
 to add further forces on them by means of other bias potential,
-e.g. to obtain an indirect \ref METAD as in \cite continua .
+e.g. to obtain an indirect [METAD](METAD.md) as in the first paper cited below.
 Also notice that the velocities of the fictitious coordinates
 are reported (XX_vfict). However, printed velocities are the ones
 at the previous step.
 
 It is also possible to provide a non-zero friction (one value per component).
-This is then used to implement a Langevin thermostat, so as to implement
-TAMD/dAFED method \cite Maragliano2006 \cite AbramsJ2008 . Notice that
+This is then used to implement a Langevin thermostat, so as to implement the
+TAMD/dAFED method that is discussed in the second two papers cited below. Notice that
 here a massive Langevin thermostat is used, whereas usually
-TAMD employs an overamped Langevin dynamics and dAFED
+TAMD employs an overamped Langevin dynamics while dAFED employs
 a Gaussian thermostat.
 
-\warning
-The bias potential is reported in the component bias.
-Notice that this bias potential, although formally compatible with
-replica exchange framework, probably does not work as expected in that case.
-Indeed, since fictitious coordinates are not swapped upon exchange,
-acceptace can be expected to be extremely low unless (by chance) two neighboring
-replicas have the fictitious variables located properly in space.
+!!!! warning "bias not campatible with replica exchange"
 
-\warning
-\ref RESTART is not properly supported by this action. Indeed,
-at every start the position of the fictitious variable is reset to the value
-of the real variable, and its velocity is set to zero.
-This is not expected to introduce big errors, but certainly is
-introducing a small inconsistency between a single long run
-and many shorter runs.
+     The bias potential is reported in the component bias.
+     Notice that this bias potential, although formally compatible with
+     replica exchange framework, probably does not work as expected in that case.
+     Indeed, since fictitious coordinates are not swapped upon exchange,
+     acceptace can be expected to be extremely low unless (by chance) two neighboring
+     replicas have the fictitious variables located properly in space.
 
-\par Examples
+!!! warning "restart not supported"
+
+    [RESTART](RESTART.md) is not properly supported by this action. Indeed,
+    at every start the position of the fictitious variable is reset to the value
+    of the real variable, and its velocity is set to zero.
+    This is not expected to introduce big errors, but certainly is
+    introducing a small inconsistency between a single long run
+    and many shorter runs.
+
+## Examples
 
 The following input tells plumed to perform a metadynamics
 with an extended Lagrangian on two torsional angles.
-\plumedfile
+
+```plumed
 phi: TORSION ATOMS=5,7,9,15
 psi: TORSION ATOMS=7,9,15,17
 ex: EXTENDED_LAGRANGIAN ARG=phi,psi KAPPA=20,20.0 TAU=0.1,0.1
 METAD ARG=ex.phi_fict,ex.psi_fict PACE=100 SIGMA=0.35,0.35 HEIGHT=0.1
 # monitor the two variables
 PRINT STRIDE=10 ARG=phi,psi,ex.phi_fict,ex.psi_fict FILE=COLVAR
-\endplumedfile
+```
 
 The following input tells plumed to perform a TAMD (or dAFED)
 calculation on two torsional angles, keeping the two variables
 at a fictitious temperature of 3000K with a Langevin thermostat
 with friction 10
-\plumedfile
+
+```plumed
 phi: TORSION ATOMS=5,7,9,15
 psi: TORSION ATOMS=7,9,15,17
 ex: EXTENDED_LAGRANGIAN ARG=phi,psi KAPPA=20,20.0 TAU=0.1,0.1 FRICTION=10,10 TEMP=3000
 # monitor the two variables
 PRINT STRIDE=10 ARG=phi,psi,ex.phi_fict,ex.psi_fict FILE=COLVAR
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -129,17 +134,19 @@ PLUMED_REGISTER_ACTION(ExtendedLagrangian,"EXTENDED_LAGRANGIAN")
 
 void ExtendedLagrangian::registerKeywords(Keywords& keys) {
   Bias::registerKeywords(keys);
-  keys.use("ARG");
   keys.add("compulsory","KAPPA","specifies that the restraint is harmonic and what the values of the force constants on each of the variables are");
   keys.add("compulsory","TAU","specifies that the restraint is harmonic and what the values of the force constants on each of the variables are");
   keys.add("compulsory","FRICTION","0.0","add a friction to the variable");
   keys.add("optional","TEMP","the system temperature - needed when FRICTION is present. If not provided will be taken from MD code (if available)");
-  keys.addOutputComponent("_fict","default","one or multiple instances of this quantity can be referenced elsewhere in the input file. "
+  keys.addOutputComponent("_fict","default","scalar","one or multiple instances of this quantity can be referenced elsewhere in the input file. "
                           "These quantities will named with the arguments of the bias followed by "
                           "the character string _tilde. It is possible to add forces on these variable.");
-  keys.addOutputComponent("_vfict","default","one or multiple instances of this quantity can be referenced elsewhere in the input file. "
+  keys.addOutputComponent("_vfict","default","scalar","one or multiple instances of this quantity can be referenced elsewhere in the input file. "
                           "These quantities will named with the arguments of the bias followed by "
                           "the character string _tilde. It is NOT possible to add forces on these variable.");
+  keys.addDOI("10.1103/PhysRevLett.90.238302");
+  keys.addDOI("10.1016/j.cplett.2006.05.062");
+  keys.addDOI("10.1021/jp805039u");
 }
 
 ExtendedLagrangian::ExtendedLagrangian(const ActionOptions&ao):
@@ -154,27 +161,36 @@ ExtendedLagrangian::ExtendedLagrangian(const ActionOptions&ao):
   friction(getNumberOfArguments(),0.0),
   fictValue(getNumberOfArguments(),NULL),
   vfictValue(getNumberOfArguments(),NULL),
-  kbt(0.0)
-{
+  kbt(0.0) {
   parseVector("TAU",tau);
   parseVector("FRICTION",friction);
   parseVector("KAPPA",kappa);
-  kbt=getkBT(); checkRead();
+  kbt=getkBT();
+  checkRead();
 
   log.printf("  with harmonic force constant");
-  for(unsigned i=0; i<kappa.size(); i++) log.printf(" %f",kappa[i]);
+  for(unsigned i=0; i<kappa.size(); i++) {
+    log.printf(" %f",kappa[i]);
+  }
   log.printf("\n");
 
   log.printf("  with relaxation time");
-  for(unsigned i=0; i<tau.size(); i++) log.printf(" %f",tau[i]);
+  for(unsigned i=0; i<tau.size(); i++) {
+    log.printf(" %f",tau[i]);
+  }
   log.printf("\n");
 
   bool hasFriction=false;
-  for(unsigned i=0; i<getNumberOfArguments(); ++i) if(friction[i]>0.0) hasFriction=true;
+  for(unsigned i=0; i<getNumberOfArguments(); ++i)
+    if(friction[i]>0.0) {
+      hasFriction=true;
+    }
 
   if(hasFriction) {
     log.printf("  with friction");
-    for(unsigned i=0; i<friction.size(); i++) log.printf(" %f",friction[i]);
+    for(unsigned i=0; i<friction.size(); i++) {
+      log.printf(" %f",friction[i]);
+    }
     log.printf("\n");
   }
 
@@ -189,7 +205,9 @@ ExtendedLagrangian::ExtendedLagrangian(const ActionOptions&ao):
       std::string a,b;
       getPntrToArgument(i)->getDomain(a,b);
       componentIsPeriodic(comp,a,b);
-    } else componentIsNotPeriodic(comp);
+    } else {
+      componentIsNotPeriodic(comp);
+    }
     fictValue[i]=getPntrToComponent(comp);
     comp=getPntrToArgument(i)->getName()+"_vfict";
     addComponent(comp);

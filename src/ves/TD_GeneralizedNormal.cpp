@@ -36,62 +36,67 @@ Employ a target distribution that is given by a sum where each
 term is a product of one-dimensional
 [generalized normal distributions](https://en.wikipedia.org/wiki/Generalized_normal_distribution)
 (version 1, also know as an exponential power distribution), defined as
-\f[
+
+$$
 p(\mathbf{s}) = \sum_{i} \, w_{i}
 \prod_{k}^{d}
 \frac{\beta_{k,i}}{2 \, \alpha_{k,i} \, \Gamma(1/\beta_{k,i})}
 \exp\left( -\left\vert \frac{s_{k}-\mu_{k,i}}{\alpha_{k,i}} \right\vert^{\beta_{k,i}} \right)
-\f]
-where \f$(\mu_{1,i},\mu_{2,i},\ldots,\mu_{d,i})\f$
+$$
+
+where $(\mu_{1,i},\mu_{2,i},\ldots,\mu_{d,i})$
 are the centers of the distributions,
-\f$(\alpha_{1,i},\alpha_{2,i},\ldots,\alpha_{d,i})\f$ are the scale
+$(\alpha_{1,i},\alpha_{2,i},\ldots,\alpha_{d,i})$ are the scale
 parameters of the distributions,
-\f$(\beta_{1,i},\beta_{2,i},\ldots,\beta_{d,i})\f$ are the shape
-parameters of the distributions, and \f$\Gamma(x)\f$ is the
+$(\beta_{1,i},\beta_{2,i},\ldots,\beta_{d,i})$ are the shape
+parameters of the distributions, and $\Gamma(x)$ is the
 gamma function.
-The weights \f$w_{i}\f$ are normalized to 1, \f$\sum_{i}w_{i}=1\f$.
+The weights $w_{i}$ are normalized to 1, $\sum_{i}w_{i}=1$.
 
-Employing \f$\beta=2\f$ results in a
+Employing $\beta=2$ results in a
 Gaussian (normal) distributions with mean
-\f$\mu\f$ and variance \f$\alpha^2/2\f$,
-\f$\beta=1\f$ gives the Laplace distribution, and
-the limit \f$\beta \to \infty\f$ results in a
-uniform  distribution on the interval \f$[\mu-\alpha,\mu+\alpha]\f$.
+$\mu$ and variance $\alpha^2/2$,
+$\beta=1$ gives the Laplace distribution, and
+the limit $\beta \to \infty$ results in a
+uniform  distribution on the interval $[\mu-\alpha,\mu+\alpha]$.
 
-The centers \f$(\mu_{1,i},\mu_{2,i},\ldots,\mu_{d,i})\f$
+The centers $(\mu_{1,i},\mu_{2,i},\ldots,\mu_{d,i})$
 are given using the numbered CENTER keywords, the scale
-parameters \f$(\alpha_{1,i},\alpha_{2,i},\ldots,\alpha_{d,i})\f$
+parameters $(\alpha_{1,i},\alpha_{2,i},\ldots,\alpha_{d,i})$
 using the numbered SCALE keywords, and the shape parameters
-\f$(\beta_{1,i},\beta_{2,i},\ldots,\beta_{d,i})\f$ using the
+$(\beta_{1,i},\beta_{2,i},\ldots,\beta_{d,i})$ using the
 numbered SHAPE keywords.
 The weights are given using the WEIGHTS keywords, if no weights are
 given are all terms weighted equally.
 
-\par Examples
+## Examples
 
 A generalized normal distribution in one-dimensional
-\plumedfile
+
+```plumed
 td1: TD_GENERALIZED_NORMAL CENTER1=+20.0  ALPHA1=5.0  BETA1=4.0
-\endplumedfile
+```
 
 A sum of two one-dimensional generalized normal distributions
-\plumedfile
+
+```plumed
 TD_GENERALIZED_NORMAL ...
  CENTER1=+20.0  ALPHA1=5.0  BETA1=4.0
  CENTER2=-20.0  ALPHA2=5.0  BETA2=3.0
  LABEL=td1
 ... TD_GENERALIZED_NORMAL
-\endplumedfile
+```
 
 A sum of two two-dimensional generalized normal distributions
-\plumedfile
+
+```plumed
 TD_GENERALIZED_NORMAL ...
  CENTER1=-20.0,-20.0 ALPHA1=5.0,3.0 BETA1=2.0,4.0
  CENTER2=-20.0,+20.0 ALPHA2=3.0,5.0 BETA2=4.0,2.0
  WEIGHTS=2.0,1.0
  LABEL=td1
 ... TD_GENERALIZED_NORMAL
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -133,26 +138,35 @@ TD_GeneralizedNormal::TD_GeneralizedNormal(const ActionOptions& ao):
   betas_(0),
   normalization_(0),
   weights_(0),
-  ncenters_(0)
-{
+  ncenters_(0) {
   for(unsigned int i=1;; i++) {
     std::vector<double> tmp_center;
-    if(!parseNumberedVector("CENTER",i,tmp_center) ) {break;}
+    if(!parseNumberedVector("CENTER",i,tmp_center) ) {
+      break;
+    }
     centers_.push_back(tmp_center);
   }
   for(unsigned int i=1;; i++) {
     std::vector<double> tmp_alpha;
-    if(!parseNumberedVector("ALPHA",i,tmp_alpha) ) {break;}
+    if(!parseNumberedVector("ALPHA",i,tmp_alpha) ) {
+      break;
+    }
     for(unsigned int k=0; k<tmp_alpha.size(); k++) {
-      if(tmp_alpha[k]<=0.0) {plumed_merror(getName()+": the values given in ALPHA should be positive");}
+      if(tmp_alpha[k]<=0.0) {
+        plumed_merror(getName()+": the values given in ALPHA should be positive");
+      }
     }
     alphas_.push_back(tmp_alpha);
   }
   for(unsigned int i=1;; i++) {
     std::vector<double> tmp_beta;
-    if(!parseNumberedVector("BETA",i,tmp_beta) ) {break;}
+    if(!parseNumberedVector("BETA",i,tmp_beta) ) {
+      break;
+    }
     for(unsigned int k=0; k<tmp_beta.size(); k++) {
-      if(tmp_beta[k]<=0.0) {plumed_merror(getName()+": the values given in BETA should be positive");}
+      if(tmp_beta[k]<=0.0) {
+        plumed_merror(getName()+": the values given in BETA should be positive");
+      }
     }
     betas_.push_back(tmp_beta);
   }
@@ -182,14 +196,20 @@ TD_GeneralizedNormal::TD_GeneralizedNormal(const ActionOptions& ao):
   }
   //
   parseVector("WEIGHTS",weights_);
-  if(weights_.size()==0) {weights_.assign(centers_.size(),1.0);}
+  if(weights_.size()==0) {
+    weights_.assign(centers_.size(),1.0);
+  }
   if(centers_.size()!=weights_.size()) {
     plumed_merror(getName()+": there has to be as many weights given in WEIGHTS as numbered CENTER keywords");
   }
   //
   double sum_weights=0.0;
-  for(unsigned int i=0; i<weights_.size(); i++) {sum_weights+=weights_[i];}
-  for(unsigned int i=0; i<weights_.size(); i++) {weights_[i]/=sum_weights;}
+  for(unsigned int i=0; i<weights_.size(); i++) {
+    sum_weights+=weights_[i];
+  }
+  for(unsigned int i=0; i<weights_.size(); i++) {
+    weights_[i]/=sum_weights;
+  }
   //
   normalization_.resize(ncenters_);
   for(unsigned int i=0; i<ncenters_; i++) {

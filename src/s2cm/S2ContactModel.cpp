@@ -33,13 +33,11 @@ namespace s2cm {
 
 //
 
-//+PLUMEDOC S2CMMOD_COLVAR S2CM
+//+PLUMEDOC COLVAR S2CM
 /*
 S2 contact model CV.
 
-This CV was used in \cite Palazzesi_s2_2017, based on NH order parameter from \cite Zhang_s2_2002 and methyl order parameter from \cite Ming_s2_2004. Input parameters can be found in the relevant papers.
-
-\par Examples
+This CV was used in the first paper cited below.  It is based on NH order parameter from the second paper cited below and the methyl order parameter from the third. Input parameters can be found in the relevant papers.
 
 
 */
@@ -96,7 +94,10 @@ void S2ContactModel::registerKeywords( Keywords& keys ) {
   keys.add("compulsory","OFFSET_C","the offset, c in the equation");
   keys.add("compulsory","N_I"," n_i in the equation");
   keys.add("optional","R_SHIFT","shift all distances by given amount");
-  keys.setValueDescription("the value of the CV");
+  keys.setValueDescription("scalar","the value of the CV");
+  keys.addDOI("10.1021/acs.jpclett.7b01770");
+  keys.addDOI("10.1021/ja027847a");
+  keys.addDOI("10.1023/B:JNMR.0000032612.70767.35");
 }
 
 S2ContactModel::S2ContactModel(const ActionOptions&ao):
@@ -113,8 +114,7 @@ S2ContactModel::S2ContactModel(const ActionOptions&ao):
   n_i_(0.0),
   total_prefactor_(0.0),
   r_globalshift_(0.0),
-  modeltype_(methyl)
-{
+  modeltype_(methyl) {
 
   parseFlag("SERIAL",serial_);
 
@@ -162,9 +162,13 @@ S2ContactModel::S2ContactModel(const ActionOptions&ao):
   parseFlag("NLIST",doneigh);
   if(doneigh) {
     parse("NL_CUTOFF",nl_cut);
-    if(nl_cut<=0.0) error("NL_CUTOFF should be explicitly specified and positive");
+    if(nl_cut<=0.0) {
+      error("NL_CUTOFF should be explicitly specified and positive");
+    }
     parse("NL_STRIDE",nl_st);
-    if(nl_st<=0) error("NL_STRIDE should be explicitly specified and positive");
+    if(nl_st<=0) {
+      error("NL_STRIDE should be explicitly specified and positive");
+    }
   }
 
   parse("R_EFF",r_eff_);
@@ -187,8 +191,7 @@ S2ContactModel::S2ContactModel(const ActionOptions&ao):
   bool dopair=false;
   if(doneigh) {
     nl=Tools::make_unique<NeighborList>(main_atoms,heavy_atoms,serial_,dopair,pbc_,getPbc(),comm,nl_cut,nl_st);
-  }
-  else {
+  } else {
     nl=Tools::make_unique<NeighborList>(main_atoms,heavy_atoms,serial_,dopair,pbc_,getPbc(),comm);
   }
 
@@ -202,15 +205,16 @@ S2ContactModel::S2ContactModel(const ActionOptions&ao):
     log << plumed.cite("Ming and Bruschweiler, J. Biomol. NMR, 29, 363 (2004) - DOI:10.1023/B:JNMR.0000032612.70767.35");
     log.printf("\n");
     log.printf("  calculation of methyl order parameter using atom %d \n",methyl_atom[0].serial());
-  }
-  else if(modeltype_==nh) {
+  } else if(modeltype_==nh) {
     log << plumed.cite("Zhang and Bruschweiler, J. Am. Chem. Soc. 124, 12654 (2002) - DOI:10.1021/ja027847a");
     log.printf("\n");
     log.printf("  calculation of NH order parameter using atoms %d and %d\n",nh_atoms[0].serial(),nh_atoms[1].serial());
   }
   log.printf("  heavy atoms used in the calculation (%u in total):\n",static_cast<unsigned int>(heavy_atoms.size()));
   for(unsigned int i=0; i<heavy_atoms.size(); ++i) {
-    if( (i+1) % 25 == 0 ) {log.printf("  \n");}
+    if( (i+1) % 25 == 0 ) {
+      log.printf("  \n");
+    }
     log.printf("  %d", heavy_atoms[i].serial());
   }
   log.printf("  \n");
@@ -244,18 +248,7 @@ S2ContactModel::~S2ContactModel() {
 }
 
 void S2ContactModel::prepare() {
-  if(nl->getStride()>0) {
-    if(firsttime || (getStep()%nl->getStride()==0)) {
-      requestAtoms(nl->getFullAtomList());
-      invalidateList=true;
-      firsttime=false;
-    } else {
-      requestAtoms(nl->getReducedAtomList());
-      invalidateList=false;
-      if(getExchangeStep()) error("Neighbor lists should be updated on exchange steps - choose a NL_STRIDE which divides the exchange stride!");
-    }
-    if(getExchangeStep()) firsttime=true;
-  }
+  std::tie(firsttime,invalidateList) = nl->prepare(this,firsttime,invalidateList).get();
 }
 
 // calculator
@@ -283,7 +276,9 @@ void S2ContactModel::calculate() {
     Vector distance;
     unsigned int i0=nl->getClosePair(i).first;
     unsigned int i1=nl->getClosePair(i).second;
-    if(getAbsoluteIndex(i0)==getAbsoluteIndex(i1)) {continue;}
+    if(getAbsoluteIndex(i0)==getAbsoluteIndex(i1)) {
+      continue;
+    }
 
     if(pbc_) {
       distance=pbcDistance(getPosition(i0),getPosition(i1));

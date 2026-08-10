@@ -31,22 +31,20 @@ namespace generic {
 /*
 Set some debug options.
 
-Can be used while debugging or optimizing plumed.
+This action can be used while debugging or optimizing plumed. The example
+input below demonstates two useful ways you can use the DEBUG command
 
-\par Examples
-
-\plumedfile
+```plumed
 # print detailed (action-by-action) timers at the end of simulation
-DEBUG DETAILED_TIMERS
+a: DEBUG DETAILED_TIMERS
 # dump every two steps which are the atoms required from the MD code
-DEBUG logRequestedAtoms STRIDE=2
-\endplumedfile
+b: DEBUG logRequestedAtoms STRIDE=2
+```
 
 */
 //+ENDPLUMEDOC
 class Debug:
-  public ActionPilot
-{
+  public ActionPilot {
   OFile ofile;
   bool logActivity;
   bool logRequestedAtoms;
@@ -66,8 +64,10 @@ void Debug::registerKeywords( Keywords& keys ) {
   Action::registerKeywords( keys );
   ActionPilot::registerKeywords(keys);
   keys.add("compulsory","STRIDE","1","the frequency with which this action is to be performed");
-  keys.addFlag("logActivity",false,"write in the log which actions are inactive and which are inactive");
-  keys.addFlag("logRequestedAtoms",false,"write in the log which atoms have been requested at a given time");
+  keys.addFlag("LOGACTIVITY",false,"write in the log which actions are inactive and which are inactive,"
+               " in PLUMED<2.6 and this flag can be activated only as 'logActivity'");
+  keys.addFlag("LOGREQUESTEDATOMS",false,"write in the log which atoms have been requested at a given time,"
+               " in PLUMED<2.6 and this flag can be activated only as 'logRequestedAtoms'");
   keys.addFlag("NOVIRIAL",false,"switch off the virial contribution for the entirety of the simulation");
   keys.addFlag("DETAILED_TIMERS",false,"switch on detailed timers");
   keys.add("optional","FILE","the name of the file on which to output these quantities");
@@ -79,13 +79,21 @@ Debug::Debug(const ActionOptions&ao):
   logActivity(false),
   logRequestedAtoms(false),
   novirial(false) {
-  parseFlag("logActivity",logActivity);
-  if(logActivity) log.printf("  logging activity\n");
-  parseFlag("logRequestedAtoms",logRequestedAtoms);
-  if(logRequestedAtoms) log.printf("  logging requested atoms\n");
+  parseFlag("LOGACTIVITY",logActivity);
+  if(logActivity) {
+    log.printf("  logging activity\n");
+  }
+  parseFlag("LOGREQUESTEDATOMS",logRequestedAtoms);
+  if(logRequestedAtoms) {
+    log.printf("  logging requested atoms\n");
+  }
   parseFlag("NOVIRIAL",novirial);
-  if(novirial) log.printf("  Switching off virial contribution\n");
-  if(novirial) plumed.novirial=true;
+  if(novirial) {
+    log.printf("  Switching off virial contribution\n");
+  }
+  if(novirial) {
+    plumed.novirial=true;
+  }
   parseFlag("DETAILED_TIMERS",detailedTimers);
   if(detailedTimers) {
     log.printf("  Detailed timing on\n");
@@ -109,15 +117,24 @@ void Debug::apply() {
     const ActionSet&actionSet(plumed.getActionSet());
     int a=0;
     for(const auto & p : actionSet) {
-      if(dynamic_cast<Debug*>(p.get()))continue;
-      if(p->isActive()) a++;
+      if(dynamic_cast<Debug*>(p.get())) {
+        continue;
+      }
+      if(p->isActive()) {
+        a++;
+      }
     };
     if(a>0) {
       ofile<<"activity at step "<<getStep()<<": ";
       for(const auto & p : actionSet) {
-        if(dynamic_cast<Debug*>(p.get()))continue;
-        if(p->isActive()) ofile.printf("+");
-        else                 ofile.printf("-");
+        if(dynamic_cast<Debug*>(p.get())) {
+          continue;
+        }
+        if(p->isActive()) {
+          ofile.printf("+");
+        } else {
+          ofile.printf("-");
+        }
       };
       ofile.printf("\n");
     };
@@ -128,7 +145,9 @@ void Debug::apply() {
     int n;
     plumed.cmd("createFullList",&n);
     plumed.cmd("getFullList",&l);
-    for(int i=0; i<n; i++) ofile.printf(" %d",l[i]);
+    for(int i=0; i<n; i++) {
+      ofile.printf(" %d",l[i]);
+    }
     ofile.printf("\n");
     plumed.cmd("clearFullList");
   }

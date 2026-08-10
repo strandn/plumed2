@@ -44,22 +44,26 @@ namespace colvar {
 Calculates EEF1 solvation free energy for a group of atoms.
 
 EEF1 is a solvent-accessible surface area based model, where the free energy of solvation is computed using a pairwise interaction term for non-hydrogen atoms:
-\f[
-    \Delta G^\mathrm{solv}_i = \Delta G^\mathrm{ref}_i - \sum_{j \neq i} f_i(r_{ij}) V_j
-\f]
-where \f$\Delta G^\mathrm{solv}_i\f$ is the free energy of solvation, \f$\Delta G^\mathrm{ref}_i\f$ is the reference solvation free energy, \f$V_j\f$ is the volume of atom \f$j\f$ and
-\f[
-    f_i(r) 4\pi r^2 = \frac{2}{\sqrt{\pi}} \frac{\Delta G^\mathrm{free}_i}{\lambda_i} \exp\left\{ - \frac{(r-R_i)^2}{\lambda^2_i}\right\}
-\f]
-where \f$\Delta G^\mathrm{free}_i\f$ is the solvation free energy of the isolated group, \f$\lambda_i\f$ is the correlation length equal to the width of the first solvation shell and \f$R_i\f$ is the van der Waals radius of atom \f$i\f$.
 
-The output from this collective variable, the free energy of solvation, can be used with the \ref BIASVALUE keyword to provide implicit solvation to a system. All parameters are designed to be used with a modified CHARMM36 force field. It takes only non-hydrogen atoms as input, these can be conveniently specified using the \ref GROUP action with the NDX_GROUP parameter. To speed up the calculation, EEFSOLV internally uses a neighbor list with a cutoff dependent on the type of atom (maximum of 1.95 nm). This cutoff can be extended further by using the NL_BUFFER keyword.
+$$
+\Delta G^\mathrm{solv}_i = \Delta G_i^\mathrm{ref}-\sum _{j \neq i} f _i(r _{ij}) V_j
+$$
 
-\par Examples
+where $\Delta G^\mathrm{solv}_i$ is the free energy of solvation, $\Delta G^\mathrm{ref}_i$ is the reference solvation free energy, $V_j$ is the volume of atom $j$ and
 
-\plumedfile
+$$
+    f_i(r) 4\pi r^2 = \frac{2}{\sqrt{\pi}} \frac{\Delta G^\mathrm{free}_i}{\lambda_i} \exp\left( - \frac{(r-R_i)^2}{\lambda^2_i}\right)
+$$
+
+where $\Delta G^\mathrm{free}_i$ is the solvation free energy of the isolated group, $\lambda_i$ is the correlation length equal to the width of the first solvation shell and $R_i$ is the van der Waals radius of atom $i$.
+
+The output from this collective variable, the free energy of solvation, can be used with the [BIASVALUE](BIASVALUE.md) keyword to provide implicit solvation to a system. All parameters are designed to be used with a modified CHARMM36 force field. It takes only non-hydrogen atoms as input, these can be conveniently specified using the [GROUP](GROUP.md) action with the NDX_GROUP parameter. To speed up the calculation, EEFSOLV internally uses a neighbor list with a cutoff dependent on the type of atom (maximum of 1.95 nm). This cutoff can be extended further by using the NL_BUFFER keyword.
+
+## Examples
+
+```plumed
 #SETTINGS MOLFILE=regtest/basic/rt77/peptide.pdb
-MOLINFO MOLTYPE=protein STRUCTURE=peptide.pdb
+MOLINFO MOLTYPE=protein STRUCTURE=regtest/basic/rt77/peptide.pdb
 WHOLEMOLECULES ENTITY0=1-111
 
 # This allows us to select only non-hydrogen atoms
@@ -73,7 +77,7 @@ solv: EEFSOLV ATOMS=protein-h
 bias: BIASVALUE ARG=solv
 
 PRINT ARG=solv FILE=SOLV
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -89,7 +93,9 @@ private:
   std::vector<std::vector<unsigned> > nl;
   std::vector<std::vector<bool> > nlexpo;
   std::vector<std::vector<double> > parameter;
-  void setupConstants(const std::vector<AtomNumber> &atoms, std::vector<std::vector<double> > &parameter, bool tcorr);
+  void setupConstants(const std::vector<AtomNumber> &atoms,
+                      std::vector<std::vector<double> > &parameter,
+                      bool tcorr);
   std::map<std::string, std::map<std::string, std::string> > setupTypeMap();
   std::map<std::string, std::vector<double> > setupValueMap();
   void update_neighb();
@@ -109,7 +115,7 @@ void EEFSolv::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "NL_STRIDE", "40", "The frequency with which the neighbor list is updated.");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
   keys.addFlag("TEMP_CORRECTION", false, "Correct free energy of solvation constants for temperatures different from 298.15 K");
-  keys.setValueDescription("the EEF1 solvation free energy for the input atoms");
+  keys.setValueDescription("scalar","the EEF1 solvation free energy for the input atoms");
 }
 
 EEFSolv::EEFSolv(const ActionOptions&ao):
@@ -119,8 +125,7 @@ EEFSolv::EEFSolv(const ActionOptions&ao):
   delta_g_ref(0.),
   nl_buffer(0.1),
   nl_stride(40),
-  nl_update(0)
-{
+  nl_update(0) {
   std::vector<AtomNumber> atoms;
   parseAtomList("ATOMS", atoms);
   const unsigned size = atoms.size();
@@ -137,7 +142,8 @@ EEFSolv::EEFSolv(const ActionOptions&ao):
 
   checkRead();
 
-  log << "  Bibliography " << plumed.cite("Lazaridis T, Karplus M, Proteins Struct. Funct. Genet. 35, 133 (1999)"); log << "\n";
+  log << "  Bibliography " << plumed.cite("Lazaridis T, Karplus M, Proteins Struct. Funct. Genet. 35, 133 (1999)");
+  log << "\n";
 
   nl.resize(size);
   nlexpo.resize(size);
@@ -150,7 +156,7 @@ EEFSolv::EEFSolv(const ActionOptions&ao):
 }
 
 void EEFSolv::update_neighb() {
-  const double lower_c2 = 0.24 * 0.24; // this is the cut-off for bonded atoms
+  constexpr double lower_c2 = 0.24 * 0.24; // this is the cut-off for bonded atoms
   const unsigned size = getNumberOfAtoms();
 
   for (unsigned i=0; i<size; i++) {
@@ -159,7 +165,9 @@ void EEFSolv::update_neighb() {
     const Vector posi = getPosition(i);
     // Loop through neighboring atoms, add the ones below cutoff
     for (unsigned j=i+1; j<size; j++) {
-      if(parameter[i][1]==0&&parameter[j][1]==0) continue;
+      if(parameter[i][1]==0&&parameter[j][1]==0) {
+        continue;
+      }
       const double d2 = delta(posi, getPosition(j)).modulo2();
       if (d2 < lower_c2 && j < i+14) {
         // crude approximation for i-i+1/2 interactions,
@@ -168,22 +176,32 @@ void EEFSolv::update_neighb() {
       }
       // We choose the maximum lambda value and use a more conservative cutoff
       double mlambda = 1./parameter[i][2];
-      if (1./parameter[j][2] > mlambda) mlambda = 1./parameter[j][2];
+      if (1./parameter[j][2] > mlambda) {
+        mlambda = 1./parameter[j][2];
+      }
       const double c2 = (2. * mlambda + nl_buffer) * (2. * mlambda + nl_buffer);
       if (d2 < c2 ) {
         nl[i].push_back(j);
         if(parameter[i][2] == parameter[j][2] && parameter[i][3] == parameter[j][3]) {
           nlexpo[i].push_back(true);
-        } else nlexpo[i].push_back(false);
+        } else {
+          nlexpo[i].push_back(false);
+        }
       }
     }
   }
 }
 
 void EEFSolv::calculate() {
-  if(pbc) makeWhole();
-  if(getExchangeStep()) nl_update = 0;
-  if(nl_update==0) update_neighb();
+  if(pbc) {
+    makeWhole();
+  }
+  if(getExchangeStep()) {
+    nl_update = 0;
+  }
+  if(nl_update==0) {
+    update_neighb();
+  }
 
   const unsigned size=getNumberOfAtoms();
   double bias = 0.0;
@@ -200,7 +218,9 @@ void EEFSolv::calculate() {
   }
 
   unsigned nt=OpenMP::getNumThreads();
-  if(nt*stride*10>size) nt=1;
+  if(nt*stride*10>size) {
+    nt=1;
+  }
 
   #pragma omp parallel num_threads(nt)
   {
@@ -233,8 +253,7 @@ void EEFSolv::calculate() {
         // in this case we can calculate a single exponential
         if(!nlexpo[i][i_nl]) {
           // i-j interaction
-          if(inv_rij > 0.5*inv_lambda_i && delta_g_free_i!=0.)
-          {
+          if(inv_rij > 0.5*inv_lambda_i && delta_g_free_i!=0.) {
             const double e_arg = (rij - vdw_radius_i)*inv_lambda_i;
             const double expo  = std::exp(-e_arg*e_arg);
             const double fact  = expo*fact_ij;
@@ -242,13 +261,15 @@ void EEFSolv::calculate() {
             const Vector dd    = e_deriv*dist;
             fedensity    += fact;
             deriv_i      += dd;
-            if(nt>1) deriv_omp[j] -= dd;
-            else deriv[j] -= dd;
+            if(nt>1) {
+              deriv_omp[j] -= dd;
+            } else {
+              deriv[j] -= dd;
+            }
           }
 
           // j-i interaction
-          if(inv_rij > 0.5*inv_lambda_j && delta_g_free_j!=0.)
-          {
+          if(inv_rij > 0.5*inv_lambda_j && delta_g_free_j!=0.) {
             const double e_arg = (rij - vdw_radius_j)*inv_lambda_j;
             const double expo  = std::exp(-e_arg*e_arg);
             const double fact  = expo*fact_ji;
@@ -256,13 +277,15 @@ void EEFSolv::calculate() {
             const Vector dd    = e_deriv*dist;
             fedensity    += fact;
             deriv_i      += dd;
-            if(nt>1) deriv_omp[j] -= dd;
-            else deriv[j] -= dd;
+            if(nt>1) {
+              deriv_omp[j] -= dd;
+            } else {
+              deriv[j] -= dd;
+            }
           }
         } else {
           // i-j interaction
-          if(inv_rij > 0.5*inv_lambda_i)
-          {
+          if(inv_rij > 0.5*inv_lambda_i) {
             const double e_arg = (rij - vdw_radius_i)*inv_lambda_i;
             const double expo  = std::exp(-e_arg*e_arg);
             const double fact  = expo*(fact_ij + fact_ji);
@@ -270,23 +293,35 @@ void EEFSolv::calculate() {
             const Vector dd    = e_deriv*dist;
             fedensity    += fact;
             deriv_i      += dd;
-            if(nt>1) deriv_omp[j] -= dd;
-            else deriv[j] -= dd;
+            if(nt>1) {
+              deriv_omp[j] -= dd;
+            } else {
+              deriv[j] -= dd;
+            }
           }
         }
 
       }
-      if(nt>1) deriv_omp[i] += deriv_i;
-      else deriv[i] += deriv_i;
+      if(nt>1) {
+        deriv_omp[i] += deriv_i;
+      } else {
+        deriv[i] += deriv_i;
+      }
       bias += 0.5*fedensity;
     }
     #pragma omp critical
-    if(nt>1) for(unsigned i=0; i<size; i++) deriv[i]+=deriv_omp[i];
+    if(nt>1) {
+      for(unsigned i=0; i<size; i++) {
+        deriv[i]+=deriv_omp[i];
+      }
+    }
   }
 
   if(!serial) {
     comm.Sum(bias);
-    if(!deriv.empty()) comm.Sum(&deriv[0][0],3*deriv.size());
+    if(!deriv.empty()) {
+      comm.Sum(&deriv[0][0],3*deriv.size());
+    }
   }
 
   Tensor virial;
@@ -304,22 +339,22 @@ void EEFSolv::calculate() {
   }
 }
 
-void EEFSolv::setupConstants(const std::vector<AtomNumber> &atoms, std::vector<std::vector<double> > &parameter, bool tcorr) {
+void EEFSolv::setupConstants(const std::vector<AtomNumber> &atoms,
+                             std::vector<std::vector<double> > &parameterlist,
+                             bool tcorr) {
   std::vector<std::vector<double> > parameter_temp;
   parameter_temp.resize(atoms.size(), std::vector<double>(7,0));
-  std::map<std::string, std::vector<double> > valuemap;
-  std::map<std::string, std::map<std::string, std::string> > typemap;
-  valuemap = setupValueMap();
-  typemap  = setupTypeMap();
-  auto * moldat = plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
+  std::map<std::string, std::vector<double> > valuemap = setupValueMap();
+  std::map<std::string, std::map<std::string, std::string> > typemap = setupTypeMap();
+  auto * infomoldat = plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
   bool cter=false;
-  if (moldat) {
-    log<<"  MOLINFO DATA found with label " <<moldat->getLabel()<<", using proper atom names\n";
+  if (infomoldat) {
+    log<<"  MOLINFO DATA found with label " <<infomoldat->getLabel()<<", using proper atom names\n";
     for(unsigned i=0; i<atoms.size(); ++i) {
 
       // Get atom and residue names
-      std::string Aname = moldat->getAtomName(atoms[i]);
-      std::string Rname = moldat->getResidueName(atoms[i]);
+      std::string Aname = infomoldat->getAtomName(atoms[i]);
+      std::string Rname = infomoldat->getResidueName(atoms[i]);
       std::string Atype = typemap[Rname][Aname];
 
       // Check for terminal COOH or COO- (different atomtypes & parameters!)
@@ -328,7 +363,7 @@ void EEFSolv::setupConstants(const std::vector<AtomNumber> &atoms, std::vector<s
         unsigned ai = atoms[i].index();
         AtomNumber tmp_an;
         tmp_an.setIndex(ai + 2);
-        if (moldat->checkForAtom(tmp_an) && moldat->getAtomName(tmp_an) == "HT2") {
+        if (infomoldat->checkForAtom(tmp_an) && infomoldat->getAtomName(tmp_an) == "HT2") {
           // COOH
           Atype = "OB";
         } else {
@@ -341,7 +376,7 @@ void EEFSolv::setupConstants(const std::vector<AtomNumber> &atoms, std::vector<s
         unsigned ai = atoms[i].index();
         AtomNumber tmp_an;
         tmp_an.setIndex(ai + 1);
-        if (moldat->checkForAtom(tmp_an) && moldat->getAtomName(tmp_an) == "HT2") {
+        if (infomoldat->checkForAtom(tmp_an) && infomoldat->getAtomName(tmp_an) == "HT2") {
           // COOH
           Atype = "OH1";
         } else {
@@ -375,7 +410,7 @@ void EEFSolv::setupConstants(const std::vector<AtomNumber> &atoms, std::vector<s
       }
 
       // Temperature correction
-      if (tcorr && parameter[i][1] > 0.0) {
+      if (tcorr && parameterlist[i][1] > 0.0) {
         const double t0 = 298.15;
         const double delta_g_ref_t0 = parameter_temp[i][1];
         const double delta_h_ref_t0 = parameter_temp[i][3];
@@ -385,15 +420,17 @@ void EEFSolv::setupConstants(const std::vector<AtomNumber> &atoms, std::vector<s
         parameter_temp[i][1] -= delta_s_ref_t0 * (t - t0) - delta_cp * t * std::log(t / t0) + delta_cp * (t - t0);
         parameter_temp[i][2] *= parameter_temp[i][1] / delta_g_ref_t0;
       }
-      parameter[i][0] = parameter_temp[i][0];
-      parameter[i][1] = parameter_temp[i][2];
-      parameter[i][2] = parameter_temp[i][5];
-      parameter[i][3] = parameter_temp[i][6];
+      parameterlist[i][0] = parameter_temp[i][0];
+      parameterlist[i][1] = parameter_temp[i][2];
+      parameterlist[i][2] = parameter_temp[i][5];
+      parameterlist[i][3] = parameter_temp[i][6];
     }
   } else {
     error("MOLINFO DATA not found\n");
   }
-  for(unsigned i=0; i<atoms.size(); ++i) delta_g_ref += parameter_temp[i][1];
+  for(unsigned i=0; i<atoms.size(); ++i) {
+    delta_g_ref += parameter_temp[i][1];
+  }
 }
 
 std::map<std::string, std::map<std::string, std::string> > EEFSolv::setupTypeMap()  {

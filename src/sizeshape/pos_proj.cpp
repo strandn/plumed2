@@ -26,40 +26,49 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 namespace PLMD {
 namespace sizeshape {
 
-//+PLUMEDOC sizeshapeMOD_COLVAR SIZESHAPE_POSITION_LINEAR_PROJ
+//+PLUMEDOC COLVAR SIZESHAPE_POSITION_LINEAR_PROJ
 /*
 Calculates a linear projection in the space of a given reference configurational distribution in size-and-shape space.
 
-This method is described in \cite Sasmal-poslda-2023.
-
 The linear projection is given by:
-\f[
+
+$$
     l(\mathbf{x}) = \mathbf{v}\cdot(\mathbf{R}\cdot(\mathbf{x}(t) - \vec{{\zeta}}(t)) - \mathbf{\mu}),
-\f]
-Where \f$\mathbf{v}\f$ is a vector of linear coefficients, \f$\mathbf{x}(t)\f$ is the configuration at time t, \f$\vec{\zeta}(t)\f$ is the difference in the geometric mean of the current configuration and that of the reference configuration \f$\mathbf{\mu}\f$. \f$\vec{\zeta}(t) = \frac{1}{N} \sum_{i=1}^N \vec{x_{i}}(t) - \frac{1}{N} \sum_{i=1}^N \vec{\mu_{i}}(t)\f$, for N atoms.
+$$
 
-\f$\mathbf{R}\f$ is an optimal rotation matrix that minimizes the Mahalanobis distance between the current configuration and reference. \f$\mathbf{R}\f$ is obtained by using Kabsch algorithm within the code. The Mahalanobis distance is given as:
+Where $\mathbf{v}$ is a vector of linear coefficients, $\mathbf{x}(t)$ is the configuration at time t, $\vec{\zeta}(t)$ is the difference in the geometric mean of the current configuration and that of the reference configuration $\mathbf{\mu}$. $\vec{\zeta}(t) = \frac{1}{N} \sum_{i=1}^N \vec{x_{i}}(t) - \frac{1}{N} \sum_{i=1}^N \vec{\mu_{i}}(t)$, for N atoms.
 
-\f[
+$\mathbf{R}$ is an optimal rotation matrix that minimizes the Mahalanobis distance between the current configuration and reference. $\mathbf{R}$ is obtained by using Kabsch algorithm within the code. The Mahalanobis distance is given as:
+
+$$
 d(\mathbf{x}, \mathbf{\mu}, \mathbf{\Sigma}) = \sqrt{(\mathbf{x}-\mathbf{\mu})^T \mathbf{\Sigma}^{-1} (\mathbf{x}-\mathbf{\mu})}
-\f]
+$$
 
-where, \f$\mathbf{\Sigma}^{-1}\f$ is the \f$N\times N\f$ precision matrix. See also \ref POSITION_MAHA_DIST for information about calculating Mahalanobis distance in size-and-shape space.
+where, $\mathbf{\Sigma}^{-1}$ is the $N\times N$ precision matrix. See also [SIZESHAPE_POSITION_MAHA_DIST](SIZESHAPE_POSITION_MAHA_DIST.md) for information about calculating Mahalanobis distance in size-and-shape space.
 
-Size-and-shape Gaussian Mixture Model (shapeGMM) \cite Heidi-shapeGMM-2022 is a probabilistic clustering technique that is used to perform structural clusteing on ensemble of molecular configurations and to obtain reference \f$(\mathbf{\mu})\f$ and precision \f$(\mathbf{\Sigma}^{-1})\f$ corresponding to each of the cluster centers. Please chcek out <a href="https://github.com/mccullaghlab/shapeGMMTorch">shapeGMMTorch-GitHub</a> and <a href="https://pypi.org/project/shapeGMMTorch/"> shapeGMMTorch-PyPI</a> for examples and informations on preforming shapeGMM clustering.
+Size-and-shape Gaussian Mixture Model (shapeGMM) \cite Heidi-shapeGMM-2022 is a probabilistic clustering technique that is used to perform structural clusteing on ensemble of molecular configurations and to obtain reference $(\mathbf{\mu})$ and precision $(\mathbf{\Sigma}^{-1})$ corresponding to each of the cluster centers.
+Please chcek out <a href="https://github.com/mccullaghlab/shapeGMMTorch">shapeGMMTorch-GitHub</a> and <a href="https://pypi.org/project/shapeGMMTorch/"> shapeGMMTorch-PyPI</a> for examples and informations on preforming shapeGMM clustering.
 
-\par Examples
+##Examples
+
 In the following example, a group is defined with atom indices of selected atoms and then linear projection is calculated for the given reference, precision and coefficients. Each file is a space separated list of 3N floating point numbers.
 
-\plumedfile
+```plumed
+#SETTINGS INPUTFILES=regtest/sizeshape/rt-sizeshape/global_avg.txt
+#SETTINGS INPUTFILES=regtest/sizeshape/rt-sizeshape/global_precision.txt
+#SETTINGS INPUTFILES=regtest/sizeshape/rt-sizeshape/ld1_scalings.txt
+
 UNITS LENGTH=A TIME=ps ENERGY=kcal/mol
 GROUP ATOMS=18,20,22,31,33,35,44,46,48,57,59,61,70,72,74,83,85,87,96,98,100,109,111 LABEL=ga_list
-#SETTINGS AUXFILE=regtest/sizeshape/rt-sizeshape/global_avg.txt
-#SETTINGS AUXFILE=regtest/sizeshape/rt-sizeshape/global_precision.txt
-#SETTINGS AUXFILE=regtest/sizeshape/rt-sizeshape/ld1_scalings.txt
-proj: SIZESHAPE_POSITION_LINEAR_PROJ REFERENCE=global_avg.txt PRECISION=global_precision.txt COEFFS=ld1_scalings.txt GROUP=ga_list
+proj: SIZESHAPE_POSITION_LINEAR_PROJ ...
+   REFERENCE=regtest/sizeshape/rt-sizeshape/global_avg.txt
+   PRECISION=regtest/sizeshape/rt-sizeshape/global_precision.txt
+   COEFFS=regtest/sizeshape/rt-sizeshape/ld1_scalings.txt
+   GROUP=ga_list
+...
+
 PRINT ARG=proj STRIDE=1 FILE=COLVAR FMT=%8.8f
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -106,7 +115,7 @@ void position_linear_proj::registerKeywords( Keywords& keys ) {
   keys.add("atoms","GROUP","Group of atoms being used");
   keys.add("compulsory", "COEFFS", "Vector of linear coefficients.");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial, for debug purposes only.");
-  keys.setValueDescription("the linear projection");
+  keys.setValueDescription("scalar","the linear projection");
 }
 
 // constructor function
@@ -114,11 +123,10 @@ position_linear_proj::position_linear_proj(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   pbc(true),
   serial(false),
-  proj(0),
   prec_f_name(""),
   ref_f_name(""),
-  coeffs_f_name("")   // Note! no comma here in the last line.
-{
+  coeffs_f_name(""),
+  proj(0) {
   parseFlag("SERIAL",serial);
   parseAtomList("GROUP",atom_list);
   parse("REFERENCE", ref_f_name);
@@ -135,10 +143,14 @@ position_linear_proj::position_linear_proj(const ActionOptions&ao):
     log.printf("  %d", atom_list[i].serial());
   }
 
-  if(pbc) log.printf("\n using periodic boundary conditions\n");
-  else log.printf("\n without periodic boundary conditions\n");
+  if(pbc) {
+    log.printf("\n using periodic boundary conditions\n");
+  } else {
+    log.printf("\n without periodic boundary conditions\n");
+  }
 
-  addValueWithDerivatives(); setNotPeriodic();
+  addValueWithDerivatives();
+  setNotPeriodic();
 
   requestAtoms(atom_list);
 
@@ -148,26 +160,29 @@ position_linear_proj::position_linear_proj(const ActionOptions&ao):
 }
 
 // read inputs function
-void position_linear_proj::readinputs()
-{
+void position_linear_proj::readinputs() {
   unsigned N=getNumberOfAtoms();
   // read ref coords
   in_.open(ref_f_name);
 
-  ref_str.resize(N,3); prec.resize(N,N);
+  ref_str.resize(N,3);
+  prec.resize(N,N);
   derv_numeric.resize(N,3);
 
   std::string line_, val_;
   unsigned c_=0;
 
-  while (c_ < N)
-  {
+  while (c_ < N) {
     in_.getline(line_);
     std::vector<std::string> items_;
     std::stringstream check_(line_);
 
-    while(std::getline(check_, val_, ' ')) { items_.push_back(val_); }
-    for(int i=0; i<3; ++i) { ref_str(c_,i) = std::stold(items_[i]); }
+    while(std::getline(check_, val_, ' ')) {
+      items_.push_back(val_);
+    }
+    for(int i=0; i<3; ++i) {
+      ref_str(c_,i) = std::stold(items_[i]);
+    }
     c_ += 1;
   }
   in_.close();
@@ -178,8 +193,7 @@ void position_linear_proj::readinputs()
   std::string line, val;
   unsigned int c = 0;
 
-  while(c < N)
-  {
+  while(c < N) {
     in_.getline(line);
 
     // vector for storing the objects
@@ -188,13 +202,11 @@ void position_linear_proj::readinputs()
     // stringstream helps to treat a string like an ifstream!
     std::stringstream check(line);
 
-    while (std::getline(check, val, ' '))
-    {
+    while (std::getline(check, val, ' ')) {
       items.push_back(val);
     }
 
-    for(unsigned int i=0; i<N; ++i)
-    {
+    for(unsigned int i=0; i<N; ++i) {
       prec(c, i) = std::stold(items[i]);
     }
 
@@ -207,7 +219,11 @@ void position_linear_proj::readinputs()
   in_.open(coeffs_f_name);
   unsigned n_=0;
   std::string l_;
-  while (n_ < N*3) { in_.getline(l_); linear_coeffs.push_back(std::stod(l_)); n_ += 1; }
+  while (n_ < N*3) {
+    in_.getline(l_);
+    linear_coeffs.push_back(std::stod(l_));
+    n_ += 1;
+  }
   linear_coeffs.resize(N*3);
 
   in_.close();
@@ -216,13 +232,14 @@ void position_linear_proj::readinputs()
 
 
 
-double position_linear_proj::determinant(int n, const std::vector<std::vector<double>>* B)
-{
+double position_linear_proj::determinant(int n, const std::vector<std::vector<double>>* B) {
 
   std::vector<std::vector<double>> A(n, std::vector<double>(n, 0));
   // make a copy first!
   for(int i=0; i<n; ++i) {
-    for(int j=0; j<n; ++j) {A[i][j] = (*B)[i][j];}
+    for(int j=0; j<n; ++j) {
+      A[i][j] = (*B)[i][j];
+    }
   }
 
 
@@ -231,34 +248,35 @@ double position_linear_proj::determinant(int n, const std::vector<std::vector<do
   double det = 1;
 
   // Row operations for i = 0, ,,,, n - 2 (n-1 not needed)
-  for ( int i = 0; i < n - 1; i++ )
-  {
+  for ( int i = 0; i < n - 1; i++ ) {
     // Partial pivot: find row r below with largest element in column i
     int r = i;
     double maxA = std::abs( A[i][i] );
-    for ( int k = i + 1; k < n; k++ )
-    {
+    for ( int k = i + 1; k < n; k++ ) {
       double val = std::abs( A[k][i] );
-      if ( val > maxA )
-      {
+      if ( val > maxA ) {
         r = k;
         maxA = val;
       }
     }
-    if ( r != i )
-    {
-      for ( int j = i; j < n; j++ ) std::swap( A[i][j], A[r][j] );
+    if ( r != i ) {
+      for ( int j = i; j < n; j++ ) {
+        std::swap( A[i][j], A[r][j] );
+      }
       det = -det;
     }
 
     // Row operations to make upper-triangular
     double pivot = A[i][i];
-    if (std::abs( pivot ) < SMALL ) return 0.0;              // Singular matrix
+    if (std::abs( pivot ) < SMALL ) {
+      return 0.0;  // Singular matrix
+    }
 
-    for ( int r = i + 1; r < n; r++ )                    // On lower rows
-    {
+    for ( int r = i + 1; r < n; r++ ) {                  // On lower rows
       double multiple = A[r][i] / pivot;                // Multiple of row i to clear element in ith column
-      for ( int j = i; j < n; j++ ) A[r][j] -= multiple * A[i][j];
+      for ( int j = i; j < n; j++ ) {
+        A[r][j] -= multiple * A[i][j];
+      }
     }
     det *= pivot;                                        // Determinant is product of diagonal
   }
@@ -293,10 +311,17 @@ void position_linear_proj::kabsch_rot_mat() {
   unsigned k=0;
 
   // Transfer the matrix to the local array
-  for (int i=0; i<cl; ++i) for (int j=0; j<rw; ++j) da[k++]=static_cast<double>( correlation(j,i) ); // note! its [j][i] not [i][j]
+  for (int i=0; i<cl; ++i)
+    for (int j=0; j<rw; ++j) {
+      da[k++]=static_cast<double>( correlation(j,i) );  // note! its [j][i] not [i][j]
+    }
 
   int nsv, info, nrows=rw, ncols=cl;
-  if(rw>cl) {nsv=cl;} else {nsv=rw;}
+  if(rw>cl) {
+    nsv=cl;
+  } else {
+    nsv=rw;
+  }
 
   // Create some containers for stuff from single value decomposition
   std::vector<double> S(nsv);
@@ -309,15 +334,20 @@ void position_linear_proj::kabsch_rot_mat() {
   std::vector<double> work(1);
   plumed_lapack_dgesdd( "A", &nrows, &ncols, da.data(), &nrows, S.data(), U.data(), &nrows, VT.data(), &ncols, work.data(), &lwork, iwork.data(), &info );
   //if(info!=0) return info;
-  if(info!=0) log.printf("info:", info);
+  if(info!=0) {
+    log.printf("info:", info);
+  }
 
   // Retrieve correct sizes for work and rellocate
-  lwork=(int) work[0]; work.resize(lwork);
+  lwork=(int) work[0];
+  work.resize(lwork);
 
   // This does the singular value decomposition
   plumed_lapack_dgesdd( "A", &nrows, &ncols, da.data(), &nrows, S.data(), U.data(), &nrows, VT.data(), &ncols, work.data(), &lwork, iwork.data(), &info );
   //if(info!=0) return info;
-  if(info!=0) log.printf("info:", info);
+  if(info!=0) {
+    log.printf("info:", info);
+  }
 
 
   // get U and VT in form of 2D vector (U_, VT_)
@@ -326,8 +356,20 @@ void position_linear_proj::kabsch_rot_mat() {
 
   int  c=0;
 
-  for(int i=0; i<nrows; ++i) { for(int j=0; j<nrows; ++j) { U_[j][i] = U[c]; c += 1;} } c = 0; // note! its [j][i] not [i][j]
-  for(int i=0; i<ncols; ++i) { for(int j=0; j<ncols; ++j) { VT_[j][i] = VT[c]; c += 1;} } c=0; // note! its [j][i] not [i][j]
+  for(int i=0; i<nrows; ++i) {
+    for(int j=0; j<nrows; ++j) {
+      U_[j][i] = U[c];
+      c += 1;
+    }
+  }
+  c = 0; // note! its [j][i] not [i][j]
+  for(int i=0; i<ncols; ++i) {
+    for(int j=0; j<ncols; ++j) {
+      VT_[j][i] = VT[c];
+      c += 1;
+    }
+  }
+  c=0; // note! its [j][i] not [i][j]
 
 
   // calculate determinants
@@ -335,13 +377,22 @@ void position_linear_proj::kabsch_rot_mat() {
   double det_vt = determinant(ncols, &VT_);
 
   // check!
-  if (det_u * det_vt < 0.0) { for(int i=0; i<nrows; ++i) {U_[i][nrows-1] *= -1;} }
+  if (det_u * det_vt < 0.0) {
+    for(int i=0; i<nrows; ++i) {
+      U_[i][nrows-1] *= -1;
+    }
+  }
 
 
   //Matrix<double> rotation(3,3);
   rotation.resize(3,3);
   Matrix<double> u(3,3), vt(3,3);
-  for(int i=0; i<3; ++i) { for(int j=0; j<3; ++j) { u(i,j)=U_[i][j]; vt(i,j)=VT_[i][j]; } }
+  for(int i=0; i<3; ++i) {
+    for(int j=0; j<3; ++j) {
+      u(i,j)=U_[i][j];
+      vt(i,j)=VT_[i][j];
+    }
+  }
 
   // get rotation matrix
   mult(u, vt, rotation);
@@ -361,11 +412,18 @@ double position_linear_proj::cal_position_linear_proj() {
   // compute the displacement
   std::vector<double> disp(N*3);
   unsigned c=0;
-  for(unsigned int i=0; i<N; ++i) { for(int j=0; j<3; ++j) { disp[c] = (rotated_obj(i,j)-ref_str(i,j)); c+=1;} }
+  for(unsigned int i=0; i<N; ++i) {
+    for(int j=0; j<3; ++j) {
+      disp[c] = (rotated_obj(i,j)-ref_str(i,j));
+      c+=1;
+    }
+  }
 
   //double proj_val = dotProduct(disp, linear_coeffs);
   double proj_val = 0.0;
-  for(unsigned int i=0; i<N*3; ++i) { proj_val += (linear_coeffs[i]*disp[i]);}
+  for(unsigned int i=0; i<N*3; ++i) {
+    proj_val += (linear_coeffs[i]*disp[i]);
+  }
 
   return proj_val;
 }
@@ -399,7 +457,9 @@ void position_linear_proj::numeric_grad() {
   }
 
   if(!serial) {
-    if(!derv_numeric.getVector().empty()) comm.Sum(&derv_numeric(0,0), derv_numeric.getVector().size());
+    if(!derv_numeric.getVector().empty()) {
+      comm.Sum(&derv_numeric(0,0), derv_numeric.getVector().size());
+    }
   }
 
 
@@ -416,7 +476,9 @@ void position_linear_proj::numeric_grad() {
 // calculator
 void position_linear_proj::calculate() {
 
-  if(pbc) makeWhole();
+  if(pbc) {
+    makeWhole();
+  }
   unsigned N=getNumberOfAtoms();
 
   mobile_str.resize(N,3);
@@ -432,14 +494,16 @@ void position_linear_proj::calculate() {
   // translating the structure to center of geometry
   double center_of_geometry[3]= {0.0, 0.0, 0.0};
 
-  for(unsigned int i=0; i<N; ++i)
-  {
-    center_of_geometry[0] += mobile_str(i,0); center_of_geometry[1] += mobile_str(i,1); center_of_geometry[2] += mobile_str(i,2);
+  for(unsigned int i=0; i<N; ++i) {
+    center_of_geometry[0] += mobile_str(i,0);
+    center_of_geometry[1] += mobile_str(i,1);
+    center_of_geometry[2] += mobile_str(i,2);
   }
 
-  for(unsigned int i=0; i<N; ++i)
-  {
-    for(int j=0; j<3; ++j) { mobile_str(i,j) -= (center_of_geometry[j]/N); }
+  for(unsigned int i=0; i<N; ++i) {
+    for(int j=0; j<3; ++j) {
+      mobile_str(i,j) -= (center_of_geometry[j]/N);
+    }
   }
 
   kabsch_rot_mat();

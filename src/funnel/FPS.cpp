@@ -22,24 +22,24 @@ using namespace std;
 namespace PLMD {
 namespace funnel {
 
-//+PLUMEDOC FUNNELMOD_COLVAR FUNNEL_PS
+//+PLUMEDOC COLVAR FUNNEL_PS
 /*
 FUNNEL_PS implements the Funnel-Metadynamics (FM) technique in PLUMED 2.
 
-Please read the FM \cite limongelli2013funnel \cite raniolo2020ligand papers to better understand the notions hereby reported.
+Please read the first two papers in the references below to better understand the notions hereby reported.
 
 This colvar evaluates the position of a ligand of interest with respect to a given line, built from the two points
-A and B, and should be used together with the \ref FUNNEL bias.
+A and B, and should be used together with the [FUNNEL](FUNNEL.md) bias.
 The constructed line represents the axis of the funnel-shape restraint potential, which should be placed so
 as to include the portion of a macromolecule (i.e., protein, DNA, etc.) that should be explored.
 Since it is important that the position of the line is updated based on the motion of the macromolecule during
 the simulation, this colvar incorporates an alignment method. The latter uses the TYPE=OPTIMAL option to remove
 motions due to rotation and translation of the macromolecule with respect to a reference structure, which is
 provided by the user. In order to accomplish the task, an optimal alignment matrix is calculated using the
-Kearsley \cite kearsley algorithm.
+Kearsley algorithm that is discussed in the third paper cited below.
 The reference structure should be given as a pdb file, containing only the atoms of the macromolecule or a
-selection of them (e.g., the protein CA atoms of secondary structures). In contrast to the methods reported in
-the \ref dists, the values reported in the occupancy and beta-factor columns of the pdb file are not important
+selection of them (e.g., the protein CA atoms of secondary structures). In contrast to the methods discussed in
+the documentation for [RMSD](RMSD.md), the values reported in the occupancy and beta-factor columns of the pdb file are not important
 since they will be overwritten and replaced by the value 1.00 during the procedure. It is important to understand
 that all atoms in the file will be used for the alignment, even if they display 0.00 in the occupancy column.
 
@@ -47,35 +47,37 @@ The ligand can be represented by one single atom or the center of mass (COM) of 
 provided by the user.
 
 By default FUNNEL_PS is computed taking into account periodic boundary conditions. Since PLUMED 2.5, molecules are
-rebuilt using a procedure that is equivalent to that done in \ref WHOLEMOLECULES. We note that this action is local
+rebuilt using a procedure that is equivalent to that done in [WHOLEMOLECULES](WHOLEMOLECULES.md). We note that this action is local
 to this colvar, thus it does not modify the coordinates stored in PLUMED. Moreover, FUNNEL_PS requires an ANCHOR atom
 to be specified in order to facilitate the reconstruction of periodic boundary conditions. This atom should be the
 closest macromolecule's atom to the ligand and it should reduce the risk of ligand "warping" in the simulation box.
-Nevertheless, we highly recommend to add to the PLUMED input file a custom line of \ref WHOLEMOLECULES, in order to
+Nevertheless, we highly recommend to add to the PLUMED input file a custom line of [WHOLEMOLECULES](WHOLEMOLECULES.md), in order to
 be sure of reconstructing the ligand together with the macromolecule (please look the examples). In this case, the user
 can use the NOPBC flag to turn off the internal periodic boundary condition reconstruction.
 
 FUNNEL_PS is divided in two components (fps.lp and fps.ld) which evaluate the projection of the ligand along the funnel line
 and the distance from it, respectively. The values attributed to these two components are then used together with the
-potential file created by the \ref FUNNEL bias to define if the ligand is within or not in the funnel-shape restraint
+potential file created by the [FUNNEL](FUNNEL.md) bias to define if the ligand is within or not in the funnel-shape restraint
 potential. In the latter case, the potential will force the ligand to enter within the funnel boundaries.
 
-\par Examples
+## Examples
 
 The following input tells plumed to print the FUNNEL_PS components for the COM of a ligand. The inputs are a reference structure,
 which is the structure used for the alignment, the COM of the molecule we want to track, and 2 points in the Cartesian space
 (i.e., x, y, and z) to draw the line representing the funnel axis.
-\plumedfile
+
+```plumed
 lig: COM ATOMS=2446,2447,2448,2449,2451
 fps: FUNNEL_PS REFERENCE=protein.pdb LIGAND=lig POINTS=5.3478,-0.7278,2.4746,7.3785,6.7364,-9.3624
 PRINT ARG=fps.lp,fps.ld
-\endplumedfile
+```
 
 It is recommended to add a line to force the reconstruction of the periodic boundary conditions. In the following example,
-\ref WHOLEMOLECULES was added to make sure that the ligand was reconstructed together with the protein. The list contains
+[WHOLEMOLECULES](WHOLEMOLECULES.md) was added to make sure that the ligand was reconstructed together with the protein. The list contains
 all the atoms reported in the start.pdb file followed by the ANCHOR atom and the ligand. All atoms should be contained in the
 same entity and the correct order.
-\plumedfile
+
+```plumed
 WHOLEMOLECULES ENTITY0=54,75,212,228,239,258,311,328,348,372,383,402,421,463,487,503,519,657,674,690,714,897,914,934,953,964,
 974,985,1007,1018,1037,1247,1264,1283,1302,1324,1689,1708,1727,1738,1962,1984,1994,2312,2329,2349,2467,2490,2500,2517,2524,2536,
 2547,2554,2569,2575,2591,2607,2635,2657,2676,2693,2700,2719,2735,2746,2770,2777,2788,2795,2805,2815,2832,2854,2868,2898,2904,
@@ -83,7 +85,7 @@ WHOLEMOLECULES ENTITY0=54,75,212,228,239,258,311,328,348,372,383,402,421,463,487
 lig: COM ATOMS=3221,3224,3225,3228,3229,3231,3233,3235,3237
 fps: FUNNEL_PS LIGAND=lig REFERENCE=start.pdb ANCHOR=2472 POINTS=4.724,5.369,4.069,4.597,5.721,4.343
 PRINT ARG=fps.lp,fps.ld
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -122,21 +124,24 @@ void FUNNEL_PS::registerKeywords(Keywords& keys) {
   keys.add("atoms","ANCHOR","Closest protein atom to the ligand, picked to avoid pbc problems during the simulation");
   keys.add("compulsory","POINTS","6 values defining x, y, and z of the 2 points used to construct the line. The order should be A_x,A_y,A_z,B_x,B_y,B_z.");
   keys.addFlag("SQUARED-ROOT",false,"Used to initialize the creation of the alignment variable");
-  keys.addOutputComponent("lp","default","the position along the funnel line");
-  keys.addOutputComponent("ld","default","the distance from the funnel line");
+  keys.addOutputComponent("lp","default","scalar","the position along the funnel line");
+  keys.addOutputComponent("ld","default","scalar","the distance from the funnel line");
+  keys.addDOI("10.1073/pnas.1303186110");
+  keys.addDOI("10.1038/s41596-020-0342-4");
+  keys.addDOI("10.1107/S0108767388010128");
 }
 
 FUNNEL_PS::FUNNEL_PS(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
-  pbc(true),squared(true)
-{
+  pbc(true),squared(true) {
   string reference;
   parse("REFERENCE",reference);
   string type;
   type.assign("OPTIMAL");
   parseAtomList("LIGAND",ligand_com);
-  if(ligand_com.size()!=1)
+  if(ligand_com.size()!=1) {
     error("Number of specified atoms should be one, normally the COM of the ligand");
+  }
   parseVector("POINTS",points);
   bool nopbc=!pbc;
   parseFlag("NOPBC",nopbc);
@@ -150,8 +155,9 @@ FUNNEL_PS::FUNNEL_PS(const ActionOptions&ao):
   checkRead();
 
   // read everything in ang and transform to nm if we are not in natural units
-  if( !pdb.read(reference,usingNaturalUnits(),0.1/getUnits().getLength()) )
+  if( !pdb.read(reference,usingNaturalUnits(),0.1/getUnits().getLength()) ) {
     error("missing input file " + reference );
+  }
 
   bool remove_com=true;
   bool normalize_weights=true;
@@ -177,8 +183,11 @@ FUNNEL_PS::FUNNEL_PS(const ActionOptions&ao):
   log.printf("  average from file %s\n",reference.c_str());
   log.printf("  method for alignment : %s \n",type.c_str() );
 
-  if(pbc) log.printf("  using periodic boundary conditions\n");
-  else    log.printf("  without periodic boundary conditions\n");
+  if(pbc) {
+    log.printf("  using periodic boundary conditions\n");
+  } else {
+    log.printf("  without periodic boundary conditions\n");
+  }
 
   addComponentWithDerivatives("lp");
   componentIsNotPeriodic("lp");
@@ -192,7 +201,9 @@ FUNNEL_PS::FUNNEL_PS(const ActionOptions&ao):
 // calculator
 void FUNNEL_PS::calculate() {
 
-  if(pbc) makeWhole();
+  if(pbc) {
+    makeWhole();
+  }
 
   Tensor Rotation;
   Matrix<std::vector<Vector> > drotdpos(3,3);
@@ -223,7 +234,7 @@ void FUNNEL_PS::calculate() {
   // I call the method calc_FitElements that initializes all feature that I need
   // except for centerreference that I need to calculate from scratch
   // Buffer has no meaning but I had to fulfill the requirements of calc_FitElements
-  double rmsd = alignment.calc_FitElements( sourcePositions, Rotation, drotdpos, buffer, centerpositions, squared);
+  alignment.calc_FitElements( sourcePositions, Rotation, drotdpos, buffer, centerpositions, squared);
 
   // To Plumed developers: it would be interesting to make the functions to calculate centers of mass public or protected
   centerreference.zero();
@@ -259,8 +270,6 @@ void FUNNEL_PS::calculate() {
   //Projection vector v onto s
 
   Vector prj = (dotProduct(s,v)/dotProduct(s,s))*s;
-  const double prj_length = prj.modulo() ;
-  const double inv_prj_length = 1.0/prj_length;
 
   Vector height = v - prj;
   const double prj_height = height.modulo() ;

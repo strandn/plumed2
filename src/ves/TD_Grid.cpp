@@ -70,31 +70,19 @@ values outside the boundary of the external grid file are the same as at
 the boundary. This can be changed by using the ZERO_OUTSIDE keyword which
 will make values outside to be taken as zero.
 
-\par Examples
+## Examples
 
 Generally you only need to provide the the filename of the external grid
 file.
-\plumedfile
-td: TD_GRID FILE=input-grid.data
-\endplumedfile
 
-The input grid is then specified using the usual format employed by PLUMED an example of which
-is shown below:
+```plumed
+#SETTINGS INPUTFILES=regtest/ves/rt-td-grid/targetdist-input-grid-1d.data INPUTFILELINES=1-20
 
-\auxfile{input-grid.data}
-#! FIELDS d1 external.bias der_d1
-#! SET min_d1 1.14
-#! SET max_d1 1.32
-#! SET nbins_d1 6
-#! SET periodic_d1 false
-   1.1400   0.0031   0.1101
-   1.1700   0.0086   0.2842
-   1.2000   0.0222   0.6648
-   1.2300   0.0521   1.4068
-   1.2600   0.1120   2.6873
-   1.2900   0.2199   4.6183
-   1.3200   0.3948   7.1055
-\endauxfile
+td: TD_GRID FILE=regtest/ves/rt-td-grid/targetdist-input-grid-1d.data
+```
+
+The input grid is then specified using the usual format employed by PLUMED. You can see an example
+by clicking on the name of the file in the input above.
 
 */
 //+ENDPLUMEDOC
@@ -132,20 +120,25 @@ TD_Grid::TD_Grid(const ActionOptions& ao):
   minima_(0),
   maxima_(0),
   zero_outside_(false),
-  shift_(0.0)
-{
+  shift_(0.0) {
   std::string filename;
   parse("FILE",filename);
   parse("SHIFT",shift_);
   if(shift_!=0.0) {
-    if(isTargetDistGridShiftedToZero()) {plumed_merror(getName() + ": using both SHIFT and SHIFT_TO_ZERO is not allowed.");}
+    if(isTargetDistGridShiftedToZero()) {
+      plumed_merror(getName() + ": using both SHIFT and SHIFT_TO_ZERO is not allowed.");
+    }
   }
   parseFlag("ZERO_OUTSIDE",zero_outside_);
 
   bool do_not_normalize=false;
   parseFlag("DO_NOT_NORMALIZE",do_not_normalize);
-  if(do_not_normalize && shift_!=0.0) {plumed_merror(getName() + ": using both SHIFT and DO_NOT_NORMALIZE is not allowed.");}
-  if(!do_not_normalize) {setForcedNormalization();}
+  if(do_not_normalize && shift_!=0.0) {
+    plumed_merror(getName() + ": using both SHIFT and DO_NOT_NORMALIZE is not allowed.");
+  }
+  if(!do_not_normalize) {
+    setForcedNormalization();
+  }
 
   checkRead();
 
@@ -167,17 +160,16 @@ TD_Grid::TD_Grid(const ActionOptions& ao):
     arguments[i]= Tools::make_unique<Value>(nullptr,arglabels[i],false);
     if(argperiodic[i]) {
       arguments[i]->setDomain(argmin[i],argmax[i]);
-    }
-    else {
+    } else {
       arguments[i]->setNotPeriodic();
     }
   }
 
-  IFile gridfile; gridfile.open(filename);
+  IFile gridfile;
+  gridfile.open(filename);
   if(has_deriv) {
     distGrid_=GridBase::create(gridlabel,Tools::unique2raw(arguments),gridfile,false,true,true);
-  }
-  else {
+  } else {
     distGrid_=GridBase::create(gridlabel,Tools::unique2raw(arguments),gridfile,false,false,false);
   }
   gridfile.close();
@@ -190,7 +182,9 @@ TD_Grid::TD_Grid(const ActionOptions& ao):
     Tools::convert(distGrid_->getMin()[i],minima_[i]);
     Tools::convert(distGrid_->getMax()[i],maxima_[i]);
     periodic_[i] = argperiodic[i];
-    if(periodic_[i]) {maxima_[i]-=distGrid_->getDx()[i];}
+    if(periodic_[i]) {
+      maxima_[i]-=distGrid_->getDx()[i];
+    }
   }
 
 }
@@ -202,11 +196,9 @@ double TD_Grid::getValue(const std::vector<double>& argument) const {
   for(unsigned int k=0; k<getDimension(); k++) {
     if(zero_outside_ && (argument[k] < minima_[k] || argument[k] > maxima_[k])) {
       return outside;
-    }
-    else if(argument[k] < minima_[k]) {
+    } else if(argument[k] < minima_[k]) {
       arg[k] = minima_[k];
-    }
-    else if(argument[k] > maxima_[k]) {
+    } else if(argument[k] > maxima_[k]) {
       arg[k] =maxima_[k];
     }
   }

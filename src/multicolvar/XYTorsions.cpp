@@ -27,7 +27,19 @@
 /*
 Calculate the torsional angle around the x axis between an arbitrary vector and the positive y direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [TORSION](TORSION.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angle around the x direction between the positive y-axis and the vector connecting atom 3 to atom 5 and
+the angle around the x direction between the positive y axis and the vector connecting atom 1 to atom 2.  The average of these two quantities is then output
+
+```plumed
+d1: XYTORSIONS ATOMS1=3,5 ATOMS2=1,2 MEAN
+PRINT ARG=d1_mean
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -36,7 +48,19 @@ Calculate the torsional angle around the x axis between an arbitrary vector and 
 /*
 Calculate the torsional angle around the x axis between an arbitrary vector and the positive z direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [TORSION](TORSION.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angle around the x direction between the positive z-axis and the vector connecting atom 3 to atom 5 and
+the angle around the x direction between the positive z axis and the vector connecting atom 1 to atom 2.  The average of these two quantities is then output
+
+```plumed
+d1: XZTORSIONS ATOMS1=3,5 ATOMS2=1,2 MEAN
+PRINT ARG=d1_mean
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -45,7 +69,19 @@ Calculate the torsional angle around the x axis between an arbitrary vector and 
 /*
 Calculate the torsional angle around the y axis between an arbitrary vector and the positive x direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [TORSION](TORSION.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angle around the y direction between the positive x-axis and the vector connecting atom 3 to atom 5 and
+the angle around the y direction between the positive x axis and the vector connecting atom 1 to atom 2.  The average of these two quantities is then output
+
+```plumed
+d1: YXTORSIONS ATOMS1=3,5 ATOMS2=1,2 MEAN
+PRINT ARG=d1_mean
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -54,7 +90,19 @@ Calculate the torsional angle around the y axis between an arbitrary vector and 
 /*
 Calculate the torsional angle around the y axis between an arbitrary vector and the positive z direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [TORSION](TORSION.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angle around the y direction between the positive z-axis and the vector connecting atom 3 to atom 5 and
+the angle around the y direction between the positive z axis and the vector connecting atom 1 to atom 2.  The average of these two quantities is then output
+
+```plumed
+d1: YZTORSIONS ATOMS1=3,5 ATOMS2=1,2 MEAN
+PRINT ARG=d1_mean
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -63,7 +111,19 @@ Calculate the torsional angle around the y axis between an arbitrary vector and 
 /*
 Calculate the torsional angle around the z axis between an arbitrary vector and the positive x direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [TORSION](TORSION.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angle around the z direction between the positive x-axis and the vector connecting atom 3 to atom 5 and
+the angle around the z direction between the positive x axis and the vector connecting atom 1 to atom 2.  The average of these two quantities is then output
+
+```plumed
+d1: ZXTORSIONS ATOMS1=3,5 ATOMS2=1,2 MEAN
+PRINT ARG=d1_mean
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -72,7 +132,19 @@ Calculate the torsional angle around the z axis between an arbitrary vector and 
 /*
 Calculate the torsional angle around the z axis between an arbitrary vector and the positive y direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [TORSION](TORSION.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angle around the z direction between the positive y-axis and the vector connecting atom 3 to atom 5 and
+the angle around the z direction between the positive y-axis and the vector connecting atom 1 to atom 2.  The average of these two quantities is then output
+
+```plumed
+d1: ZYTORSIONS ATOMS1=3,5 ATOMS2=1,2 MEAN
+PRINT ARG=d1_mean
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -96,14 +168,17 @@ PLUMED_REGISTER_ACTION(XYTorsions,"ZYTORSIONS")
 void XYTorsions::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
   keys.add("numbered","ATOMS","the pairs of atoms that you would like to calculate the angles for");
-  keys.reset_style("ATOMS","atoms"); MultiColvarShortcuts::shortcutKeywords( keys );
-  keys.needsAction("FIXEDATOM"); keys.needsAction("TORSION");
+  keys.reset_style("ATOMS","atoms");
+  MultiColvarShortcuts::shortcutKeywords( keys );
+  keys.setValueDescription("vector","the angle between the vector connecting each pair of atoms and the the positive X/Y/Z direction around the X/Y/Z axis");
+  keys.needsAction("FIXEDATOM");
+  keys.needsAction("TORSION");
+  keys.setDeprecated("TORSION");
 }
 
 XYTorsions::XYTorsions(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
+  ActionShortcut(ao) {
   std::string vdir = getShortcutLabel() + "_vec2," + getShortcutLabel() + "_origin";
   std::string adir = getShortcutLabel() + "_axis," + getShortcutLabel() + "_origin";
   // Create action for position of origin
@@ -136,9 +211,13 @@ XYTorsions::XYTorsions(const ActionOptions& ao):
   // Now create action to compute all torsions
   std::string torsions_str = getShortcutLabel() + ": TORSION";
   for(unsigned i=1;; ++i) {
-    std::string atstring; parseNumbered("ATOMS",i,atstring);
-    if( atstring.length()==0 ) break;
-    std::string num; Tools::convert( i, num );
+    std::string atstring;
+    parseNumbered("ATOMS",i,atstring);
+    if( atstring.length()==0 ) {
+      break;
+    }
+    std::string num;
+    Tools::convert( i, num );
     torsions_str += " VECTORA" + num + "=" + atstring + " VECTORB" + num + "=" + vdir + " AXIS" + num + "=" + adir;
   }
   readInputLine( torsions_str );

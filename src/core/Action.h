@@ -21,6 +21,7 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef __PLUMED_core_Action_h
 #define __PLUMED_core_Action_h
+#include <iomanip>
 #include <vector>
 #include <string>
 #include <set>
@@ -28,6 +29,7 @@
 #include "tools/Tools.h"
 #include "tools/Units.h"
 #include "tools/Log.h"
+#include "tools/TokenizedLine.h"
 
 namespace PLMD {
 
@@ -63,8 +65,8 @@ public:
 /// Constructor
   ActionOptions(PlumedMain&p,const std::vector<std::string>&);
   ActionOptions(const ActionOptions&,const Keywords& keys);
-  void setFullPath(const std::string & fullPath) {
-    this->fullPath=fullPath;
+  void setFullPath(const std::string & newFullPath) {
+    fullPath=newFullPath;
   }
 };
 
@@ -73,18 +75,17 @@ public:
 /// in the plumed.dat file and are applied in order at each time-step.
 class Action {
   friend class ActionShortcut;
-
+  using KeyMap = TokenizedLine;
 /// Name of the directive in the plumed.dat file.
-  const std::string name;
+  const std::string actionName;
 
 /// Label of the Action, as set with LABEL= in the plumed.dat file.
-  std::string label;
+  std::string actionLabel;
 
 /// Directive line.
 /// This line is progressively erased during Action construction
 /// so as to check if all the present keywords are correct.
-  std::vector<std::string> line;
-
+  KeyMap linemap;
 /// Update only after this time.
   double update_from;
 
@@ -117,7 +118,7 @@ private:
   bool active;
 
 /// Option that you might have enabled
-  std::set<std::string> options;
+  std::set<std::string> actionOptions;
 
   bool restart;
 
@@ -292,13 +293,19 @@ public:
   bool isOptionOn(const std::string &s)const;
 
 /// Return dependencies
-  const Dependencies & getDependencies()const {return after;}
+  const Dependencies & getDependencies()const {
+    return after;
+  }
 
 /// Check if numerical derivatives should be performed
-  virtual bool checkNumericalDerivatives()const {return false;}
+  virtual bool checkNumericalDerivatives()const {
+    return false;
+  }
 
 /// Check if the action needs gradient
-  virtual bool checkNeedsGradients()const {return false;}
+  virtual bool checkNeedsGradients()const {
+    return false;
+  }
 
 /// Perform calculation using numerical derivatives
 /// N.B. only pass an ActionWithValue to this routine if you know exactly what you
@@ -335,16 +342,36 @@ public:
 /// Get the info on what to calculate
   virtual std::string writeInGraph() const ;
 /// Specialized casts, to make PlumedMain run faster
-  virtual ActionWithValue* castToActionWithValue() noexcept { return nullptr; }
-  virtual ActionWithArguments* castToActionWithArguments() noexcept { return nullptr; }
-  virtual ActionAtomistic* castToActionAtomistic() noexcept { return nullptr; }
-  virtual ActionWithVirtualAtom* castToActionWithVirtualAtom() noexcept { return nullptr; }
-  virtual PbcAction* castToPbcAction() noexcept { return nullptr; }
-  virtual ActionToPutData* castToActionToPutData() noexcept { return nullptr; }
-  virtual ActionToGetData* castToActionToGetData() noexcept { return nullptr; }
-  virtual DomainDecomposition* castToDomainDecomposition() noexcept { return nullptr; }
-  virtual ActionForInterface* castToActionForInterface() noexcept { return nullptr; }
-  virtual ActionShortcut* castToActionShortcut() noexcept { return nullptr; }
+  virtual ActionWithValue* castToActionWithValue() noexcept {
+    return nullptr;
+  }
+  virtual ActionWithArguments* castToActionWithArguments() noexcept {
+    return nullptr;
+  }
+  virtual ActionAtomistic* castToActionAtomistic() noexcept {
+    return nullptr;
+  }
+  virtual ActionWithVirtualAtom* castToActionWithVirtualAtom() noexcept {
+    return nullptr;
+  }
+  virtual PbcAction* castToPbcAction() noexcept {
+    return nullptr;
+  }
+  virtual ActionToPutData* castToActionToPutData() noexcept {
+    return nullptr;
+  }
+  virtual ActionToGetData* castToActionToGetData() noexcept {
+    return nullptr;
+  }
+  virtual DomainDecomposition* castToDomainDecomposition() noexcept {
+    return nullptr;
+  }
+  virtual ActionForInterface* castToActionForInterface() noexcept {
+    return nullptr;
+  }
+  virtual ActionShortcut* castToActionShortcut() noexcept {
+    return nullptr;
+  }
 };
 
 /////////////////////
@@ -352,12 +379,12 @@ public:
 
 inline
 const std::string & Action::getLabel()const {
-  return label;
+  return actionLabel;
 }
 
 inline
 const std::string & Action::getName()const {
-  return name;
+  return actionName;
 }
 
 template<class T>
@@ -366,16 +393,18 @@ void Action::parse(const std::string&key,T&t) {
   plumed_massert(keywords.exists(key),"keyword " + key + " has not been registered");
 
   // Now try to read the keyword
-  std::string def;
-  bool present=Tools::findKeyword(line,key);
-  bool found=Tools::parse(line,key,t,replica_index);
-  if(present && !found) error("keyword " + key +" could not be read correctly");
+  auto [present, found] = linemap.readAndRemove(key,t,replica_index);
+
+  if(present && !found) {
+    error("keyword " + key +" could not be read correctly");
+  }
 
   // If it isn't read and it is compulsory see if a default value was specified
   if ( !found && (keywords.style(key,"compulsory") || keywords.style(key,"hidden")) ) {
+    std::string def;
     if( keywords.getDefaultValue(key,def) ) {
       if( def.length()==0 || !Tools::convertNoexcept(def,t) ) {
-        plumed_error() <<"ERROR in action "<<name<<" with label "<<label<<" : keyword "<<key<<" has weird default value";
+        plumed_error() <<"ERROR in action "<<actionName<<" with label "<<actionLabel<<" : keyword "<<key<<" has weird default value";
       }
       defaults += " " + key + "=" + def;
     } else if( keywords.style(key,"compulsory") ) {
@@ -388,43 +417,61 @@ template<class T>
 bool Action::parseNumbered(const std::string&key, const int no, T&t) {
   // Check keyword has been registered
   plumed_massert(keywords.exists(key),"keyword " + key + " has not been registered");
-  if( !keywords.numbered(key) ) error("numbered keywords are not allowed for " + key );
+  if( !keywords.numbered(key) ) {
+    error("numbered keywords are not allowed for " + key );
+  }
 
   // Now try to read the keyword
-  std::string num; Tools::convert(no,num);
-  return Tools::parse(line,key+num,t,replica_index);
+  std::string num;
+  Tools::convert(no,num);
+  auto [present, found] = linemap.readAndRemove(key+num,t,replica_index);
+  return found;
 }
 
 template<class T>
 void Action::parseVector(const std::string&key,std::vector<T>&t) {
   // Check keyword has been registered
   plumed_massert(keywords.exists(key), "keyword " + key + " has not been registered");
-  unsigned size=t.size(); bool skipcheck=false;
-  if(size==0) skipcheck=true;
-
+  unsigned size=t.size();
+  bool skipcheck=false;
+  if(size==0) {
+    skipcheck=true;
+  }
   // Now try to read the keyword
-  std::string def; T val;
-  bool present=Tools::findKeyword(line,key);
-  bool found=Tools::parseVector(line,key,t,replica_index);
-  if(present && !found) error("keyword " + key +" could not be read correctly");
+  auto [present, found] = linemap.readAndRemoveVector(key,t,replica_index);
+  if(present && !found) {
+    error("keyword " + key +" could not be read correctly");
+  }
 
   // Check vectors size is correct (not if this is atoms or ARG)
   if( !keywords.style(key,"atoms") && found ) {
 //     bool skipcheck=false;
 //     if( keywords.style(key,"compulsory") ){ keywords.getDefaultValue(key,def); skipcheck=(def=="nosize"); }
-    if( !skipcheck && t.size()!=size ) error("vector read in for keyword " + key + " has the wrong size");
+    if( !skipcheck && t.size()!=size ) {
+      error("vector read in for keyword " + key + " has the wrong size");
+    }
   }
 
   // If it isn't read and it is compulsory see if a default value was specified
   if ( !found && (keywords.style(key,"compulsory") || keywords.style(key,"hidden")) ) {
+    T val;
+    std::string def;
     if( keywords.getDefaultValue(key,def) ) {
       if( def.length()==0 || !Tools::convertNoexcept(def,val) ) {
-        plumed_error() <<"ERROR in action "<<name<<" with label "<<label<<" : keyword "<<key<<" has weird default value";
+        plumed_error() <<"ERROR in action "<<actionName<<" with label "<<actionLabel<<" : keyword "<<key<<" has weird default value";
       } else {
         if(t.size()>0) {
-          for(unsigned i=0; i<t.size(); ++i) t[i]=val;
-          defaults += " " + key + "=" + def; for(unsigned i=1; i<t.size(); ++i) defaults += "," + def;
-        } else { t.push_back(val); defaults += " " + key + "=" + def; }
+          for(unsigned i=0; i<t.size(); ++i) {
+            t[i]=val;
+          }
+          defaults += " " + key + "=" + def;
+          for(unsigned i=1; i<t.size(); ++i) {
+            defaults += "," + def;
+          }
+        } else {
+          t.push_back(val);
+          defaults += " " + key + "=" + def;
+        }
       }
     } else if( keywords.style(key,"compulsory") ) {
       error("keyword " + key + " is compulsory for this action");
@@ -435,19 +482,27 @@ void Action::parseVector(const std::string&key,std::vector<T>&t) {
 }
 
 template<class T>
-bool Action::parseNumberedVector(const std::string&key, const int no, std::vector<T>&t) {
+bool Action::parseNumberedVector(const std::string&key,
+                                 const int no,
+                                 std::vector<T>&t) {
   plumed_massert(keywords.exists(key),"keyword " + key + " has not been registered");
-  if( !keywords.numbered(key) ) error("numbered keywords are not allowed for " + key );
+  if( !keywords.numbered(key) ) {
+    error("numbered keywords are not allowed for " + key );
+  }
 
-  unsigned size=t.size(); bool skipcheck=false;
-  if(size==0) skipcheck=true;
-  std::string num; Tools::convert(no,num);
-  bool present=Tools::findKeyword(line,key);
-  bool found=Tools::parseVector(line,key+num,t,replica_index);
-  if(present && !found) error("keyword " + key +" could not be read correctly");
+  unsigned size=t.size();
+  bool skipcheck=size==0;
+  std::string num;
+  Tools::convert(no,num);
+  auto [present, found] = linemap.readAndRemoveVector(key+num,t,replica_index);
+  if(present && !found) {
+    error("keyword " + key +" could not be read correctly");
+  }
 
   if(  keywords.style(key,"compulsory") ) {
-    if (!skipcheck && found && t.size()!=size ) error("vector read in for keyword " + key + num + " has the wrong size");
+    if (!skipcheck && found && t.size()!=size ) {
+      error("vector read in for keyword " + key + num + " has the wrong size");
+    }
   } else if ( !found ) {
     t.resize(0);
   }
@@ -456,7 +511,7 @@ bool Action::parseNumberedVector(const std::string&key, const int no, std::vecto
 
 inline
 void Action::deactivate() {
-  options.clear();
+  actionOptions.clear();
   active=false;
 }
 
@@ -467,7 +522,7 @@ bool Action::isActive()const {
 
 inline
 bool Action::isOptionOn(const std::string &s)const {
-  return options.count(s);
+  return actionOptions.count(s);
 }
 
 inline

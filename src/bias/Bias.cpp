@@ -30,8 +30,7 @@ Bias::Bias(const ActionOptions&ao):
   ActionPilot(ao),
   ActionWithValue(ao),
   ActionWithArguments(ao),
-  outputForces(getNumberOfArguments(),0.0)
-{
+  outputForces(getNumberOfArguments(),0.0) {
   addComponentWithDerivatives("bias");
   componentIsNotPeriodic("bias");
   valueBias=getPntrToComponent("bias");
@@ -52,8 +51,9 @@ void Bias::registerKeywords( Keywords& keys ) {
   ActionPilot::registerKeywords(keys);
   ActionWithValue::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
+  keys.addInputKeyword("compulsory","ARG","scalar","the labels of the scalars on which the bias will act");
   keys.add("hidden","STRIDE","the frequency with which the forces due to the bias should be calculated.  This can be used to correctly set up multistep algorithms");
-  keys.addOutputComponent("bias","default","the instantaneous value of the bias potential");
+  keys.addOutputComponent("bias","default","scalar","the instantaneous value of the bias potential");
 }
 
 void Bias::apply() {
@@ -67,21 +67,38 @@ void Bias::apply() {
     }
   }
 
-  f.assign(noa,0.0);
+  accumForces.assign(noa,0.0);
   forces.resize(noa);
 
   bool at_least_one_forced=false;
   for(unsigned i=0; i<ncp; ++i) {
     if(getPntrToComponent(i)->applyForce(forces)) {
       at_least_one_forced=true;
-      for(unsigned j=0; j<noa; j++) f[j]+=forces[j];
+      for(unsigned j=0; j<noa; j++) {
+        accumForces[j]+=forces[j];
+      }
+      //it may be faster like this(needs some measurements):
+      //(it produces ~20 less asm instructions)
+      /*
+      auto aF = accumForces.begin();
+      auto f = forces.begin();
+      //accumForces and forces have the same size:
+      while (aF!=accumForces.end()) {
+        *aF+=*f;
+        ++aF;
+        ++f;
+      }
+      */
     }
   }
 
-  if(at_least_one_forced && !onStep()) error("you are biasing a bias with an inconsistent STRIDE");
+  if(at_least_one_forced && !onStep()) {
+    error("you are biasing a bias with an inconsistent STRIDE");
+  }
 
-  if(at_least_one_forced) for(unsigned i=0; i<noa; ++i) {
-      getPntrToArgument(i)->addForce(f[i]);
+  if(at_least_one_forced)
+    for(unsigned i=0; i<noa; ++i) {
+      getPntrToArgument(i)->addForce(accumForces[i]);
     }
 
 }

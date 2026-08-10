@@ -19,14 +19,30 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "core/ActionWithMatrix.h"
+#include "core/ActionShortcut.h"
 #include "core/ActionRegister.h"
 
 //+PLUMEDOC MCOLVAR VORONOI
 /*
 Do a voronoi analysis
 
-\par Examples
+This shortcut allows you to perform a [Voronoi analysis](https://en.wikipedia.org/wiki/Voronoi_diagram).
+The input to this action is a rectangular matrix that describes the distances between two sets of points.
+The points for which this action is receiving distances between could be atom positions or they could represent the
+dissimilarities between various trajectory frames that have been stored using [COLLECT_FRAMES](COLLECT_FRAMES.md).
+In the example below the matrix of input distances are distances between the positions of atoms:
+
+```plumed
+d: DISTANCE_MATRIX GROUPA=1-10 GROUPB=11-100
+v: VORONOI ARG=d
+ones: ONES SIZE=90
+c: MATRIX_VECTOR_PRODUCT ARG=v,ones
+PRINT ARG=c FILE=colvar
+```
+
+The VORONOI action outputs a rectangular matrix, $V$, with the same shape as the input matrix, $D$. $V_{ij}$
+is 1 if $D_{ij}$ is the shortest distance in row $i$.
+
 
 */
 //+ENDPLUMEDOC
@@ -34,52 +50,25 @@ Do a voronoi analysis
 namespace PLMD {
 namespace matrixtools {
 
-class Voronoi : public ActionWithMatrix {
+class Voronoi : public ActionShortcut {
 public:
   static void registerKeywords( Keywords& keys );
   explicit Voronoi(const ActionOptions&);
-  void prepare() override ;
-  unsigned getNumberOfDerivatives() override { return 0; }
-  unsigned getNumberOfColumns() const override { return getConstPntrToComponent(0)->getShape()[1]; }
-  void setupForTask( const unsigned& task_index, std::vector<unsigned>& indices, MultiValue& myvals ) const override {}
-  void performTask( const std::string& controller, const unsigned& index1, const unsigned& index2, MultiValue& myvals ) const override {}
-  void runEndOfRowJobs( const unsigned& ival, const std::vector<unsigned> & indices, MultiValue& myvals ) const override {}
-  void gatherStoredValue( const unsigned& valindex, const unsigned& code, const MultiValue& myvals,
-                          const unsigned& bufstart, std::vector<double>& buffer ) const override ;
 };
 
 PLUMED_REGISTER_ACTION(Voronoi,"VORONOI")
 
 void Voronoi::registerKeywords( Keywords& keys ) {
-  ActionWithMatrix::registerKeywords(keys); keys.use("ARG");
-  keys.setValueDescription("a matrix in which element ij is equal to one if the ij component of the input matrix is lower than all the ik elements of the matrix where k is not j and zero otherwise");
+  ActionShortcut::registerKeywords(keys);
+  keys.addInputKeyword("compulsory","ARG","matrix","the distance/adjacency matrix that should be used to perform the voronoi analysis");
+  keys.setValueDescription("matrix","a matrix in which element ij is equal to one if the ij component of the input matrix is lower than all the ik elements of the matrix where k is not j and zero otherwise");
+  keys.needsAction("NEIGHBORS");
 }
 
-Voronoi::Voronoi(const ActionOptions&ao):
+Voronoi::Voronoi(const ActionOptions& ao):
   Action(ao),
-  ActionWithMatrix(ao)
-{
-  if( getNumberOfArguments()!=1 ) error("should be one arguments to this action, a matrix");
-  if( getPntrToArgument(0)->getRank()!=2 || getPntrToArgument(0)->hasDerivatives() ) error("argument to this action should be a matrix");
-  if( getPntrToArgument(0)->getShape()[1]>getPntrToArgument(0)->getShape()[0] ) warning("would expect number of columns in matrix to exceed number of rows");
-  getPntrToArgument(0)->buildDataStore(); std::vector<unsigned> shape( getPntrToArgument(0)->getShape() );
-  addValue( shape ); setNotPeriodic(); getPntrToComponent(0)->buildDataStore();
-}
-
-void Voronoi::prepare() {
-  Value* myval = getPntrToComponent(0);
-  if( myval->getShape()[0]==getPntrToArgument(0)->getShape()[0] && myval->getShape()[1]==getPntrToArgument(0)->getShape()[1] ) return;
-  std::vector<unsigned> shape( getPntrToArgument(0)->getShape() ); myval->setShape(shape);
-}
-
-void Voronoi::gatherStoredValue( const unsigned& valindex, const unsigned& code, const MultiValue& myvals,
-                                 const unsigned& bufstart, std::vector<double>& buffer ) const {
-  Value* arg0 = getPntrToArgument(0); unsigned nv = 0; std::size_t cc=code; double minmax = arg0->get( cc*arg0->getShape()[1] );
-  for(unsigned i=0; i<arg0->getShape()[1]; ++i) {
-    double value = arg0->get( code*arg0->getShape()[1] + i );
-    if( value<minmax ) { minmax = value; nv = i; }
-  }
-  buffer[bufstart + code*arg0->getShape()[1] + nv] = 1;
+  ActionShortcut(ao) {
+  readInputLine( getShortcutLabel() + ": NEIGHBORS NLOWEST=1 " + convertInputLineToString() );
 }
 
 }

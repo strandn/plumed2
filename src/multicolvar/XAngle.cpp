@@ -27,7 +27,19 @@
 /*
 Calculate the angle between an arbitrary vector and the positive x direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [DISTANCE](DISTANCE.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angles between the x-axis and the vector connecting atom 3 to atom 5 and between the x-axis
+and the vector connecting atom 1 to atom 2.  The minimum of these two quantities is then output
+
+```plumed
+d1: XANGLES ATOMS1=3,5 ATOMS2=1,2 MIN={BETA=0.1}
+PRINT ARG=d1.min FILE=colvar
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -36,7 +48,19 @@ Calculate the angle between an arbitrary vector and the positive x direction
 /*
 Calculate the angle between an arbitrary vector and the positive y direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [DISTANCE](DISTANCE.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angles between the y-axis and the vector connecting atom 3 to atom 5 and between the y-axis
+and the vector connecting atom 1 to atom 2.  The minimum of these two quantities is then output
+
+```plumed
+d1: YANGLES ATOMS1=3,5 ATOMS2=1,2 MIN={BETA=0.1}
+PRINT ARG=d1.min FILE=colvar
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -45,7 +69,19 @@ Calculate the angle between an arbitrary vector and the positive y direction
 /*
 Calculate the angle between an arbitrary vector and the positive z direction
 
-\par Examples
+__As you can see if you expand the inputs below, you can achieve what this shortcut action does by using [DISTANCE](DISTANCE.md) together with [CUSTOM](CUSTOM.md),
+[BETWEEN](BETWEEN.md), [LESS_THAN](LESS_THAN.md), [SUM](SUM.md) and [MEAN](MEAN.md).  We strongly encourage you to use these actions instead as using them will provide
+you with a clearer understanding of the equations you are using.__
+
+The following input tells plumed to calculate the angles between the z-axis and the vector connecting atom 3 to atom 5 and between the z-axis
+and the vector connecting atom 1 to atom 2.  The minimum of these two quantities is then output
+
+```plumed
+d1: ZANGLES ATOMS1=3,5 ATOMS2=1,2 MIN={BETA=0.1}
+PRINT ARG=d1.min FILE=colvar
+```
+
+Notice that this command is a shortcut. You can thus learn more about how to use PLUMED by examining the expanded version of the input above.
 
 */
 //+ENDPLUMEDOC
@@ -67,20 +103,27 @@ PLUMED_REGISTER_ACTION(XAngle,"ZANGLES")
 void XAngle::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
   keys.add("numbered","ATOMS","the pairs of atoms that you would like to calculate the angles for");
-  keys.reset_style("ATOMS","atoms"); MultiColvarShortcuts::shortcutKeywords( keys );
-  keys.needsAction("DISTANCE"); keys.needsAction("COMBINE"); keys.needsAction("CUSTOM");
+  keys.reset_style("ATOMS","atoms");
+  MultiColvarShortcuts::shortcutKeywords( keys );
+  keys.needsAction("DISTANCE");
+  keys.needsAction("COMBINE");
+  keys.needsAction("CUSTOM");
+  keys.setDeprecated("DISTANCE");
 }
 
 XAngle::XAngle(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
+  ActionShortcut(ao) {
   // Create distances
   std::string dline = getShortcutLabel() + "_dists: DISTANCE COMPONENTS";
   for(unsigned i=1;; ++i) {
-    std::string atstring; parseNumbered("ATOMS",i,atstring);
-    if( atstring.length()==0 ) break;
-    std::string num; Tools::convert( i, num );
+    std::string atstring;
+    parseNumbered("ATOMS",i,atstring);
+    if( atstring.length()==0 ) {
+      break;
+    }
+    std::string num;
+    Tools::convert( i, num );
     dline += " ATOMS" + num + "=" + atstring;
   }
   readInputLine( dline );
@@ -91,9 +134,15 @@ XAngle::XAngle(const ActionOptions& ao):
   readInputLine( getShortcutLabel() + "_norm_y: CUSTOM ARG=" + getShortcutLabel() + "_dists.y," + getShortcutLabel() + "_norm FUNC=x/y PERIODIC=NO");
   readInputLine( getShortcutLabel() + "_norm_z: CUSTOM ARG=" + getShortcutLabel() + "_dists.z," + getShortcutLabel() + "_norm FUNC=x/y PERIODIC=NO");
   // Now compute the angles with matheval
-  if( getName()=="XANGLES" ) readInputLine( getShortcutLabel() + "_ang: CUSTOM FUNC=acos(x) PERIODIC=NO ARG=" + getShortcutLabel() + "_norm_x");
-  if( getName()=="YANGLES" ) readInputLine( getShortcutLabel() + "_ang: CUSTOM FUNC=acos(x) PERIODIC=NO ARG=" + getShortcutLabel() + "_norm_y");
-  if( getName()=="ZANGLES" ) readInputLine( getShortcutLabel() + "_ang: CUSTOM FUNC=acos(x) PERIODIC=NO ARG=" + getShortcutLabel() + "_norm_z");
+  if( getName()=="XANGLES" ) {
+    readInputLine( getShortcutLabel() + "_ang: CUSTOM FUNC=acos(x) PERIODIC=NO ARG=" + getShortcutLabel() + "_norm_x");
+  }
+  if( getName()=="YANGLES" ) {
+    readInputLine( getShortcutLabel() + "_ang: CUSTOM FUNC=acos(x) PERIODIC=NO ARG=" + getShortcutLabel() + "_norm_y");
+  }
+  if( getName()=="ZANGLES" ) {
+    readInputLine( getShortcutLabel() + "_ang: CUSTOM FUNC=acos(x) PERIODIC=NO ARG=" + getShortcutLabel() + "_norm_z");
+  }
   // Add shortcuts to label
   MultiColvarShortcuts::expandFunctions( getShortcutLabel(), getShortcutLabel() + "_ang", "", this );
 }

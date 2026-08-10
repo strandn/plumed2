@@ -30,11 +30,10 @@ namespace PLMD {
 
 class ActionToGetData :
   public ActionPilot,
-  public ActionWithArguments
-{
+  public ActionWithArguments {
 private:
 /// What do you want to collect to pass back to python
-  enum {val,deriv,force} gtype;
+  enum class dataType {val,deriv,force} gtype;
 /// This holds the pointer that we are setting
   std::unique_ptr<DataPassingObject> mydata;
 /// This temporarily holds the data so it can be passed out
@@ -51,7 +50,9 @@ public:
 /// Actually set the values for the output
   void calculate();
   void apply() {}
-  ActionToGetData* castToActionToGetData() noexcept final { return this; }
+  ActionToGetData* castToActionToGetData() noexcept final {
+    return this;
+  }
 };
 
 }

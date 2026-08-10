@@ -33,17 +33,17 @@ namespace isdb {
 /*
 Selects an argument based on the value of a SELECTOR.
 
-You should read the documentation for \ref SELECTOR to understand this action better.
+You should read the documentation for [SELECTOR](SELECTOR.md) to understand this action better.
 
-\par Examples
+## Examples
 
-In this example we use a simulated-tempering like approach activated by the \ref RESCALE action.
+In this example we use a simulated-tempering like approach activated by the [RESCALE](RESCALE.md) action.
 For each value of the scale parameter, we perform an independent Parallel Bias Metadynamics
-simulation (see \ref PBMETAD). At each moment of the simulation, only one of the \ref PBMETAD
-actions is activated, based on the current value of the associated \ref SELECTOR.
-The \ref SELECT action can then be used to print out the value of the (active) \ref PBMETAD bias potential.
+simulation (see [PBMETAD](PBMETAD.md)). At each moment of the simulation, only one of the [PBMETAD](PBMETAD.md)
+actions is activated, based on the current value of the associated [SELECTOR](SELECTOR.md).
+The [SELECT](SELECT.md) action can then be used to print out the value of the (active) [PBMETAD](PBMETAD.md) bias potential.
 
-\plumedfile
+```plumed
 ene:  ENERGY
 d: DISTANCE ATOMS=1,2
 
@@ -61,13 +61,12 @@ W0=1000 BIASFACTOR=100.0 BSTRIDE=2000 BFILE=bias.dat
 pbactive: SELECT ARG=pbmetad0.bias,pbmetad1.bias SELECTOR=GAMMA
 
 PRINT ARG=pbactive STRIDE=100 FILE=COLVAR
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
 
-class Select : public function::Function
-{
+class Select : public function::Function {
   std::string selector_;
 
 public:
@@ -80,18 +79,17 @@ PLUMED_REGISTER_ACTION(Select,"SELECT")
 
 void Select::registerKeywords(Keywords& keys) {
   Function::registerKeywords(keys);
-  keys.use("ARG");
   keys.add("compulsory","SELECTOR","name of the variable used to select");
-  keys.setValueDescription("the value of the selected argument");
+  keys.setValueDescription("scalar","the value of the selected argument");
 }
 
 Select::Select(const ActionOptions&ao):
-  Action(ao), Function(ao)
-{
+  Action(ao), Function(ao) {
   // name of selector
   parse("SELECTOR", selector_);
 
-  addValueWithDerivatives(); setNotPeriodic();
+  addValueWithDerivatives();
+  setNotPeriodic();
   checkRead();
 
   log.printf("  select based on %s\n",selector_.c_str());
@@ -99,15 +97,18 @@ Select::Select(const ActionOptions&ao):
 
 }
 
-void Select::calculate()
-{
+void Select::calculate() {
   unsigned iselect = static_cast<unsigned>(plumed.passMap[selector_]);
 
   // check if iselect is smaller than the number of arguments
-  if(iselect>=getNumberOfArguments()) error("the value of the SELECTOR is greater than the number of arguments!");
+  if(iselect>=getNumberOfArguments()) {
+    error("the value of the SELECTOR is greater than the number of arguments!");
+  }
 
   // put all the derivatives to zero
-  for(unsigned i=0; i<getNumberOfArguments(); ++i) setDerivative(i, 0.0);
+  for(unsigned i=0; i<getNumberOfArguments(); ++i) {
+    setDerivative(i, 0.0);
+  }
 
   // set value and derivative for selected argument
   setValue(getArgument(iselect));

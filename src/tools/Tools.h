@@ -26,6 +26,7 @@
 #include "Vector.h"
 #include "Tensor.h"
 #include "small_vector/small_vector.h"
+#include <string_view>
 #include <vector>
 #include <string>
 #include <cctype>
@@ -43,6 +44,7 @@
 #include <unordered_map>
 #include <map>
 #include <condition_variable>
+#include <type_traits>
 
 namespace PLMD {
 
@@ -59,6 +61,12 @@ constexpr double kBoltzmann(0.0083144621);
 /// \ingroup TOOLBOX
 /// PI
 constexpr double pi(3.141592653589793238462643383279502884197169399375105820974944592307);
+/// \ingroup TOOLBOX
+/// PI / 2
+constexpr double halfpi=PLMD::pi*0.5;
+/// \ingroup TOOLBOX
+/// PI * 2
+constexpr double twopi=PLMD::pi*2.0;
 
 constexpr double dp2cutoff(6.25);
 
@@ -85,17 +93,26 @@ class Tools {
   static bool convertToInt(const std::string & str,T &t);
 /// @brief the  recursive part of the template fastpow implementation
   template <int exp, typename T=double, std::enable_if_t< (exp >=0), bool> = true>
-  static inline /*consteval*/ T fastpow_rec(T base, T result);
+  static constexpr inline T fastpow_rec(T base, T result);
 public:
+  static constexpr std::string_view replicaToken="@replicas:";
 /// Split the line in words using separators.
 /// It also take into account parenthesis. Outer parenthesis found are removed from
 /// output, and the text between them is considered as a single word. Only the
 /// outer parenthesis are processed, to allow nesting them.
 /// parlevel, if not NULL, is increased or decreased according to the number of opened/closed parenthesis
-  static std::vector<std::string> getWords(std::string_view line,const char* sep=NULL,int* parlevel=NULL,const char* parenthesis="{", const bool& delete_parenthesis=true);
+  static std::vector<std::string> getWords(std::string_view line,
+      const char* sep=NULL,
+      int* parlevel=NULL,
+      const char* parenthesis="{",
+      bool delete_parenthesis=true);
 /// Faster version
 /// This version does not parse parenthesis and operates on a preallocated small_vector of string_view's
-  static void getWordsSimple(gch::small_vector<std::string_view> & words,std::string_view line);
+  static void getWordsSimple(gch::small_vector<std::string_view> & words,
+                             std::string_view line);
+  static void getWordsSimple(gch::small_vector<std::string_view> & words,
+                             std::string_view line,
+                             std::string_view sep);
 /// Get a line from the file pointer ifile
   static bool getline(FILE*,std::string & line);
 /// Get a parsed line from the file pointer ifile
@@ -103,7 +120,7 @@ public:
 /// resulting line into an array of words
   static bool getParsedLine(IFile&ifile,std::vector<std::string> & line, const bool trimcomments=true);
 /// compare two string in a case insensitive manner
-  static bool caseInSensStringCompare(const std::string & str1, const std::string &str2);
+  static bool caseInSensStringCompare(std::string_view str1, std::string_view str2);
 /// Convert a string to a double, reading it
   static bool convertNoexcept(const std::string & str,double & t);
 /// Convert a string to a long double, reading it
@@ -137,24 +154,41 @@ public:
 /// Remove trailing comments
   static void trimComments(std::string & s);
 /// Apply pbc for a unitary cell
-  static double pbc(double);
+  template <typename T>
+  static double pbc(T);
 /// Retrieve a key from a vector of options.
 /// It finds a key starting with "key=" or equal to "key" and copy the
 /// part after the = on s. E.g.:
 /// line.push_back("aa=xx");
 /// getKey(line,"aa",s);
 /// will set s="xx"
-  static bool getKey(std::vector<std::string>& line,const std::string & key,std::string & s,int rep=-1);
-/// Find a keyword on the input line, eventually deleting it, and saving its value to val
+  static bool getKey(std::vector<std::string>& line,
+                     const std::string & key,
+                     std::string & s,
+                     int rep=-1);
+  static std::string_view unravelReplicas(std::string_view argument,
+                                          int rep=-1);
   template <typename T,typename U>
   static void convert(const T & t,U & u) {
     plumed_assert(convertNoexcept(t,u)) <<"Error converting  "<<t;
   }
+/// Find a keyword on the input line, eventually deleting it, and saving its value to val
   template <typename T>
-  static bool parse(std::vector<std::string>&line,const std::string&key,T&val,int rep=-1);
+  static bool parse(std::vector<std::string>&line,
+                    const std::string&key,
+                    T&val,
+                    int rep=-1);
+/// Parse the argument and eventually unrave the variant for the current replica
+  template <typename T>
+  static bool parse(std::string_view argument, T&val);
 /// Find a keyword on the input line, eventually deleting it, and saving its value to a vector
   template <class T>
   static bool parseVector(std::vector<std::string>&line,const std::string&key,std::vector<T>&val,int rep=-1);
+  template <class T>
+  static bool parseVector(
+    const std::string_view argument,
+    std::vector<T>&val,
+    int rep=-1) ;
 /// Find a keyword without arguments on the input line
   static bool parseFlag(std::vector<std::string>&line,const std::string&key,bool&val);
 /// Find a keyword on the input line, just reporting if it exists or not
@@ -178,15 +212,16 @@ public:
 /// extension("pippo/.t")="" whereas extension("pippo/a.t")="t"
   static std::string extension(const std::string&);
 /// Fast int power
-  static double fastpow(double base,int exp);
+  template <typename T>
+  static constexpr inline T fastpow(T base,int exp);
 /// Fast int power for power known at compile time
   template <int exp, typename T=double>
-  static inline /*consteval*/ T fastpow(T base);
+  static constexpr inline T fastpow(T base);
 /// Modified 0th-order Bessel function of the first kind
   static double bessel0(const double& val);
 /// Check if a string full starts with string start.
-/// Same as full.find(start)==0
-  static bool startWith(const std::string & full,const std::string &start);
+/// Same as full.find(start)==0, but faster
+  static bool startWith(std::string_view full, std::string_view start);
   /**
     Tool to create a vector of raw pointers from a vector of unique_pointers (const version).
   Returning a vector is fast in C++11. It can be used in order to feed a vector<unique_ptr<T>>
@@ -225,7 +260,7 @@ public:
 /// In case system calls to change dir are not available it throws an exception.
 /// \warning By construction, changing directory breaks thread safety! Use with care.
   class DirectoryChanger {
-    const std::filesystem::path path;
+    const std::filesystem::path originalpath;
   public:
     explicit DirectoryChanger(const char*path);
     ~DirectoryChanger();
@@ -236,22 +271,30 @@ public:
     return std::make_unique<T>(std::forward<Args>(args)...);
   }
 
-  static void set_to_zero(double*ptr,unsigned n) {
-    for(unsigned i=0; i<n; i++) ptr[i]=0.0;
+  template <typename T>
+  static void set_to_zero(T*ptr, const unsigned n) {
+    const auto end=ptr+n;
+    for(; ptr < end; ++ptr) {
+      *ptr=T(0.0);
+    }
   }
 
-  template<unsigned n>
-  static void set_to_zero(std::vector<VectorGeneric<n>> & vec) {
+  template<typename T, unsigned n>
+  static void set_to_zero(std::vector<VectorTyped<T,n>> & vec) {
     unsigned s=vec.size();
-    if(s==0) return;
-    set_to_zero(&vec[0][0],s*n);
+    if(s==0) {
+      return;
+    }
+    set_to_zero(vec[0].data(),s*n);
   }
 
-  template<unsigned n,unsigned m>
-  static void set_to_zero(std::vector<TensorGeneric<n,m>> & vec) {
+  template<typename T, unsigned n,unsigned m>
+  static void set_to_zero(std::vector<TensorTyped<T,n,m>> & vec) {
     unsigned s=vec.size();
-    if(s==0) return;
-    set_to_zero(&vec[0](0,0),s*n*m);
+    if(s==0) {
+      return;
+    }
+    set_to_zero(vec[0].data(),s*n*m);
   }
 
   static std::unique_ptr<std::lock_guard<std::mutex>> molfile_lock();
@@ -267,13 +310,17 @@ public:
   /// Deletion would be slower instead. It's not even implemented yet.
   template<class T>
   class FastStringUnorderedMap {
-    std::unordered_map<std::string_view,T> map;
-    std::vector<std::unique_ptr<const char[]>> keys;
-
+    using container=std::unordered_map<std::string_view,T>;
+    using keytype = std::unique_ptr<const char[]>;
+    using keyholder = std::vector<keytype>;
+    container map;
+    keyholder keys;
     // see https://stackoverflow.com/questions/34596768/stdunordered-mapfind-using-a-type-different-than-the-key-type
-    std::unique_ptr<const char[]> conv(std::string_view str) {
+    static keytype conv(std::string_view const str) {
       auto p=std::make_unique<char[]>(str.size()+1);
-      std::memcpy(p.get(), str.data(), str.size()+1);
+      std::memcpy(p.get(), str.data(), str.size());
+      //the string_view might be a view of a longer string, so the last char might not be null
+      p[str.size()]='\0';
       return p;
     }
 
@@ -288,21 +335,23 @@ public:
 
     T& operator[]( const std::string_view & key ) {
       auto f=map.find(key);
-      if(f!=map.end()) return f->second;
+      if(f!=map.end()) {
+        return f->second;
+      }
       keys.push_back(conv(key));
       return map[keys.back().get()];
     }
 
-    auto begin() {
+    auto begin() noexcept {
       return map.begin();
     }
-    auto end() {
+    auto end() noexcept {
       return map.end();
     }
-    auto begin() const {
+    auto begin() const noexcept {
       return map.begin();
     }
-    auto end() const {
+    auto end() const noexcept {
       return map.end();
     }
     auto find(const std::string_view & key) {
@@ -340,10 +389,9 @@ public:
     class Handler {
       CriticalSectionWithKey* section{nullptr};
       Key key;
-      Handler(CriticalSectionWithKey* section,const Key& key):
-        section(section),
-        key(key)
-      {
+      Handler(CriticalSectionWithKey* mysection,const Key& mykey):
+        section(mysection),
+        key(mykey) {
         section->start(key);
       }
       friend class CriticalSectionWithKey;
@@ -357,14 +405,15 @@ public:
       /// Move constructor.
       Handler(Handler && handler) noexcept :
         section(handler.section),
-        key(std::move(handler.key))
-      {
+        key(std::move(handler.key)) {
         handler.section=nullptr;
       };
       /// Move assignment.
       Handler & operator=(Handler && handler) noexcept {
         if(this!=&handler) {
-          if(section) section->stop(key);
+          if(section) {
+            section->stop(key);
+          }
           section=handler.section;
           key=std::move(handler.key);
         }
@@ -373,7 +422,9 @@ public:
       }
       /// Destructor
       ~Handler() {
-        if(section) section->stop(key);
+        if(section) {
+          section->stop(key);
+        }
       }
     };
 
@@ -382,42 +433,99 @@ public:
     }
 
   };
-
+///Correct the "escape sequences" from regexes to be compatible with the json format
+///
+///C++ wants a raw string (like `R"<<(content)<<"`) for the regexes
+///and the python package json (and the json format itself actually)
+/// wants the various '\' to be escaped with and '\' becasue the interpreter tries
+/// to read anything that begins with '\' as an escape sequence (it does not know that it is an input for a regex)
+///
+/// For example '\n' will not cause an error but it will be intepreted as and explicit newline, so we we want '\\n' in the json
+/// whereas '\.' will cause an erron when read by python
+  static std::string convertRegexForJson (const std::string& command);
 };
 
 template <class T>
-bool Tools::parse(std::vector<std::string>&line,const std::string&key,T&val,int rep) {
+bool Tools::parse(std::vector<std::string>&line,
+                  const std::string&key,
+                  T&val,
+                  int rep) {
   std::string s;
-  if(!getKey(line,key+"=",s,rep)) return false;
-  if(s.length()>0 && !convertNoexcept(s,val))return false;
+  if(!getKey(line,key+"=",s,rep)) {
+    return false;
+  }
+  if(s.length()>0 && !convertNoexcept(s,val)) {
+    return false;
+  }
   return true;
 }
 
 template <class T>
+bool Tools::parse(std::string_view argument,
+                  T&val) {
+//NOTE: this expects the '@replica:' on the argument to be resolved by the caller
+  return argument.length()>0 && convertNoexcept(std::string(argument),val);
+}
+
+template <class T>
 bool Tools::parseVector(std::vector<std::string>&line,const std::string&key,std::vector<T>&val,int rep) {
-  std::string s;
-  if(!getKey(line,key+"=",s,rep)) return false;
+  std::string argument;
+  if(!getKey(line,key+"=",argument,rep)) {
+    return false;
+  }
   val.clear();
-  std::vector<std::string> words=getWords(s,"\t\n ,");
-  for(unsigned i=0; i<words.size(); ++i) {
+  //needs to get the parenteses
+  std::vector<std::string> argWords=getWords(argument,"\t\n ,");
+  val.reserve(argWords.size());
+  for(unsigned i=0; i<argWords.size(); ++i) {
     T v;
-    std::string s=words[i];
-    const std::string multi("@replicas:");
-    if(rep>=0 && startWith(s,multi)) {
-      s=s.substr(multi.length(),s.length());
+    std::string s=argWords[i];
+    if(rep>=0 && startWith(s,replicaToken)) {
+      s=s.substr(replicaToken.length(),s.length());
       std::vector<std::string> words=getWords(s,"\t\n ,");
       plumed_assert(rep<static_cast<int>(words.size()));
       s=words[rep];
     }
-    if(!convertNoexcept(s,v))return false;
+    if(!convertNoexcept(s,v)) {
+      return false;
+    }
     val.push_back(v);
   }
   return true;
 }
 
+template <class T>
+bool Tools::parseVector(
+  const std::string_view argument,
+  std::vector<T>&val,
+  int rep) {
+//NOTE: this expects the '@replica' on the argument of the whole vector to be resolved by the caller
+  val.clear();
+  gch::small_vector<std::string_view> words;
+  getWordsSimple(words,argument,"\t\n ,");
+  val.reserve(words.size());
+  for(unsigned i=0; i<words.size(); ++i) {
+    T v;
+    auto s=std::string(unravelReplicas(words[i],rep));
+    // The erase/remove is there, because @ndx:{file tag} was not passing in some tests
+    s.erase(std::remove_if(s.begin(),s.end(),
+    [](unsigned char x) {
+      switch (x) {
+      case '{':
+      case '}':
+        return true;
+      }
+      return false;
+    }),s.end());
+    if(!convertNoexcept(s,v)) {
+      return false;
+    }
+    val.push_back(v);
+  }
+  return true;
+}
 template<typename T>
-void Tools::removeDuplicates(std::vector<T>& vec)
-{
+void Tools::removeDuplicates(std::vector<T>& vec) {
   std::sort(vec.begin(), vec.end());
   vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
@@ -435,21 +543,30 @@ bool Tools::parseFlag(std::vector<std::string>&line,const std::string&key,bool&v
 }
 
 /// beware: this brings any number into a pbc that ranges from -0.5 to 0.5
-inline
-double Tools::pbc(double x) {
+template <typename T>
+inline double Tools::pbc(T x) {
 #ifdef __PLUMED_PBC_WHILE
-  while (x>0.5) x-=1.0;
-  while (x<-0.5) x+=1.0;
+  while (x>0.5) {
+    x-=1.0;
+  }
+  while (x<-0.5) {
+    x+=1.0;
+  }
   return x;
 #else
   if constexpr (std::numeric_limits<int>::round_style == std::round_toward_zero) {
-    constexpr double offset=100.0;
-    const double y=x+offset;
-    if(y>=0) return y-int(y+0.5);
-    else     return y-int(y-0.5);
+    constexpr T offset=100.0;
+    x+=offset;
+    if(x>=0) {
+      return x-int(x+0.5);
+    } else {
+      return x-int(x-0.5);
+    }
   } else if constexpr (std::numeric_limits<int>::round_style == std::round_to_nearest) {
     return x-int(x);
-  } else return x-floor(x+0.5);
+  } else {
+    return x-floor(x+0.5);
+  }
 #endif
 }
 
@@ -461,18 +578,17 @@ bool Tools::convertNoexcept(T i,std::string & str) {
   return true;
 }
 
-inline
-double Tools::fastpow(double base, int exp)
-{
+template <typename T>
+constexpr inline T Tools::fastpow(T base, int exp) {
   if(exp<0) {
     exp=-exp;
     base=1.0/base;
   }
   double result = 1.0;
-  while (exp)
-  {
-    if (exp & 1)
+  while (exp) {
+    if (exp & 1) {
       result *= base;
+    }
     exp >>= 1;
     base *= base;
   }
@@ -481,7 +597,7 @@ double Tools::fastpow(double base, int exp)
 }
 
 template <int exp, typename T, std::enable_if_t< (exp >=0), bool>>
-inline T Tools::fastpow_rec(T const base, T result) {
+constexpr inline T Tools::fastpow_rec(T const base, T result) {
   if constexpr (exp == 0) {
     return result;
   }
@@ -492,7 +608,7 @@ inline T Tools::fastpow_rec(T const base, T result) {
 }
 
 template <int exp, typename T>
-inline T Tools::fastpow(T const base) {
+constexpr inline T Tools::fastpow(T const base) {
   if constexpr (exp<0) {
     return  fastpow_rec<-exp,T>(1.0/base,1.0);
   } else {
@@ -503,18 +619,21 @@ inline T Tools::fastpow(T const base) {
 template<typename T>
 std::vector<T*> Tools::unique2raw(const std::vector<std::unique_ptr<T>> & x) {
   std::vector<T*> v(x.size());
-  for(unsigned i=0; i<x.size(); i++) v[i]=x[i].get();
+  for(unsigned i=0; i<x.size(); i++) {
+    v[i]=x[i].get();
+  }
   return v;
 }
 
 template<typename T>
 std::vector<const T*> Tools::unique2raw(const std::vector<std::unique_ptr<const T>> & x) {
   std::vector<const T*> v(x.size());
-  for(unsigned i=0; i<x.size(); i++) v[i]=x[i].get();
+  for(unsigned i=0; i<x.size(); i++) {
+    v[i]=x[i].get();
+  }
   return v;
 }
 
 }
 
 #endif
-

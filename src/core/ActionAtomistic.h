@@ -34,6 +34,8 @@ namespace PLMD {
 
 class Pbc;
 class PDB;
+class GenericMolInfo;
+class Tree;
 
 namespace colvar {
 class SelectMassCharge;
@@ -42,8 +44,7 @@ class SelectMassCharge;
 /// \ingroup MULTIINHERIT
 /// Action used to create objects that access the positions of the atoms from the MD code
 class ActionAtomistic :
-  virtual public Action
-{
+  virtual public Action {
   friend class Group;
   friend class DomainDecomposition;
   friend class colvar::SelectMassCharge;
@@ -58,11 +59,11 @@ class ActionAtomistic :
 /// unique_local should be an ordered set since we later create a vector containing the corresponding indexes
   bool unique_local_needs_update;
   std::vector<AtomNumber>  unique_local;
-  std::vector<Vector>   positions;       // positions of the needed atoms
+  std::vector<Vector>   actionPositions;       // positions of the needed atoms
   double                energy;
   Value*                boxValue;
   ForwardDecl<Pbc>      pbc_fwd;
-  Pbc&                  pbc=*pbc_fwd;
+  Pbc&                  actionPbc=*pbc_fwd;
   std::vector<double>   masses;
   std::vector<double>   charges;
 
@@ -76,10 +77,15 @@ class ActionAtomistic :
   bool                  donotretrieve;
   bool                  donotforce;
 
+  // EMST
+  GenericMolInfo* actionMoldat{nullptr};
+  std::unique_ptr<Tree> tree;
+
 /// Values that hold information about atom positions and charges
   std::vector<Value*>   xpos, ypos, zpos, masv, chargev;
   void updateUniqueLocal( const bool& useunique, const std::vector<int>& g2l );
 protected:
+  bool                  massesWereSet;
   bool                  chargesWereSet;
   void setExtraCV(const std::string &name);
 /// Used to interpret whether this index is a virtual atom or a real atom
@@ -110,6 +116,10 @@ public:
   const Tensor & getBox()const;
 /// Get the array of all positions
   const std::vector<Vector> & getPositions()const;
+/// Get the array of all masses
+  const std::vector<double>& getMasses()const;
+/// Get the array of all charges
+  const std::vector<double>& getCharges( const bool allowempty=false )const;
 /// Get the virial that is acting
   Tensor getVirial() const ;
 /// Get energy
@@ -125,7 +135,9 @@ public:
 /// Get a reference to force on energy
   double & modifyForceOnEnergy();
 /// Get number of available atoms
-  unsigned getNumberOfAtoms()const {return indexes.size();}
+  unsigned getNumberOfAtoms()const {
+    return indexes.size();
+  }
 /// Compute the pbc distance between two positions
   Vector pbcDistance(const Vector&,const Vector&)const;
 /// Applies  PBCs to a seriens of positions or distances
@@ -159,11 +171,15 @@ public:
 /// not going to be retrieved. Can be used for optimization. Notice that
 /// calling getPosition(int) in an Action where DoNotRetrieve() was called might
 /// lead to undefined behavior.
-  void doNotRetrieve() {donotretrieve=true;}
+  void doNotRetrieve() {
+    donotretrieve=true;
+  }
 /// Skip atom forces - use with care.
 /// If this function is called during initialization, then forces are
 /// not going to be propagated. Can be used for optimization.
-  void doNotForce() {donotforce=true;}
+  void doNotForce() {
+    donotforce=true;
+  }
 /// Make atoms whole, assuming they are in the proper order
   void makeWhole();
 public:
@@ -191,23 +207,30 @@ public:
   void readAtomsFromPDB( const PDB& pdb ) override;
 /// Transfer the gradients
   void getGradient( const unsigned& ind, Vector& deriv, std::map<AtomNumber,Vector>& gradients ) const ;
-  ActionAtomistic* castToActionAtomistic() noexcept final { return this; }
+  ActionAtomistic* castToActionAtomistic() noexcept final {
+    return this;
+  }
   virtual bool actionHasForces();
 };
 
 inline
 const Vector & ActionAtomistic::getPosition(int i)const {
-  return positions[i];
+  return actionPositions[i];
 }
 
 inline
 double ActionAtomistic::getMass(int i)const {
+  if( !massesWereSet ) {
+    log.printf("WARNING: masses were not passed to plumed\n");
+  }
   return masses[i];
 }
 
 inline
 double ActionAtomistic::getCharge(int i) const {
-  if( !chargesWereSet ) error("charges were not passed to plumed");
+  if( !chargesWereSet ) {
+    error("charges were not passed to plumed");
+  }
   return charges[i];
 }
 
@@ -223,7 +246,20 @@ AtomNumber ActionAtomistic::getAbsoluteIndex(int i)const {
 
 inline
 const std::vector<Vector> & ActionAtomistic::getPositions()const {
-  return positions;
+  return actionPositions;
+}
+
+inline
+const std::vector<double> & ActionAtomistic::getMasses()const {
+  return masses;
+}
+
+inline
+const std::vector<double> & ActionAtomistic::getCharges( const bool allowempty )const {
+  if( !allowempty && !chargesWereSet ) {
+    error("charges were not passed to plumed");
+  }
+  return charges;
 }
 
 inline
@@ -233,7 +269,7 @@ const double & ActionAtomistic::getEnergy()const {
 
 inline
 const Tensor & ActionAtomistic::getBox()const {
-  return pbc.getBox();
+  return actionPbc.getBox();
 }
 
 inline
@@ -243,7 +279,7 @@ double & ActionAtomistic::modifyForceOnEnergy() {
 
 inline
 const Pbc & ActionAtomistic::getPbc() const {
-  return pbc;
+  return actionPbc;
 }
 
 inline
@@ -300,7 +336,7 @@ void ActionAtomistic::addForce( const std::pair<std::size_t, std::size_t>& a, co
 
 inline
 Vector ActionAtomistic::pbcDistance(const Vector &v1,const Vector &v2)const {
-  return pbc.distance(v1,v2);
+  return actionPbc.distance(v1,v2);
 }
 
 }

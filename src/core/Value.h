@@ -29,10 +29,12 @@
 #include "tools/Tools.h"
 #include "tools/AtomNumber.h"
 #include "tools/Vector.h"
+#include "tools/View.h"
 
 namespace PLMD {
 
 class OFile;
+class Communicator;
 class ActionWithValue;
 class ActionAtomistic;
 
@@ -46,8 +48,10 @@ class ActionAtomistic;
 /// objects.  However, if you find a use for a tempory PLMD::Value in some method
 /// you are implementing please feel free to use it.
 class Value {
+  friend struct ArgumentsBookkeeping;
   friend class ActionWithValue;
   friend class ActionWithVector;
+  friend class ActionWithMatrix;
   friend class ActionAtomistic;
   friend class ActionWithArguments;
   friend class ActionWithVirtualAtom;
@@ -56,15 +60,15 @@ class Value {
   friend class DataPassingObjectTyped;
 private:
 /// The action in which this quantity is calculated
-  ActionWithValue* action;
+  ActionWithValue* action=nullptr;
 /// Had the value been set
-  bool value_set;
+  bool value_set=false;
 /// The value of the quantity
   std::vector<double> data;
 /// The force acting on this quantity
   std::vector<double> inputForce;
 /// A flag telling us we have a force acting on this quantity
-  bool hasForce;
+  bool hasForce=false;
 /// The way this value is used in the code
 /// normal = regular value that is determined during calculate
 /// constant = constnt value that is determined during startup and that doesn't change during simulation
@@ -79,27 +83,29 @@ private:
   std::map<AtomNumber,Vector> gradients;
 /// The name of this quantiy
   std::string name;
-/// Are we storing the data for this value if it is vector or matrix
-  bool storedata;
 /// What is the shape of the value (0 dimensional=scalar, n dimensional with derivatives=grid, 1 dimensional no derivatives=vector, 2 dimensional no derivatives=matrix)
-  std::vector<unsigned> shape;
+  std::vector<std::size_t> shape;
 /// Does this quanity have derivatives
-  bool hasDeriv;
+  bool hasDeriv=true;
 /// Variables for storing data
-  unsigned bufstart, streampos, matpos, ngrid_der, ncols, book_start;
+  unsigned bufstart=0;
+  unsigned ngrid_der=0;
+  std::size_t ncols=0;
 /// If we are storing a matrix is it symmetric?
-  bool symmetric;
+  bool symmetric=false;
 /// This is a bookeeping array that holds the non-zero elements of the "sparse" matrix
   std::vector<unsigned> matrix_bookeeping;
 /// Is this quantity periodic
-  enum {unset,periodic,notperiodic} periodicity;
+  enum {unset,periodic,notperiodic} periodicity=unset;
 /// Various quantities that describe the domain of this value
-  std::string str_min, str_max;
-  double min,max;
-  double max_minus_min;
-  double inv_max_minus_min;
+  std::string str_min;
+  std::string str_max;
+  double min=0.0;
+  double max=0.0;
+  double max_minus_min=0.0;
+  double inv_max_minus_min=0.0;
 /// Is the derivative of this quantity zero when the value is zero
-  bool derivativeIsZeroWhenValueIsZero;
+  bool derivativeIsZeroWhenValueIsZero=false;
 /// Complete the setup of the periodicity
   void setupPeriodicity();
 // bring value within PBCs
@@ -108,11 +114,11 @@ public:
 /// A constructor that can be used to make Vectors of values
   Value();
 /// A constructor that can be used to make Vectors of named values
-  explicit Value(const std::string& name);
+  explicit Value(const std::string& valname);
 /// A constructor that is used throughout the code to setup the value poiters
-  Value(ActionWithValue* av, const std::string& name, const bool withderiv,const std::vector<unsigned>&ss=std::vector<unsigned>());
+  Value(ActionWithValue* av, const std::string& valname, const bool withderiv,const std::vector<std::size_t>&ss=std::vector<std::size_t>());
 /// Set the shape of the Value
-  void setShape( const std::vector<unsigned>&ss );
+  void setShape( const std::vector<std::size_t>&ss );
 /// Set the value of the function
   void set(double);
 /// Set the value of the stored data
@@ -121,8 +127,14 @@ public:
   void add(double);
 /// Add something to the ith element of the data array
   void add(const std::size_t& n, const double& v );
+/// Get the location of this element of in the store
+  std::size_t getIndexInStore( const std::size_t& ival ) const ;
 /// Get the value of the function
-  double get( const std::size_t& ival=0, const bool trueind=true ) const;
+  double get( const std::size_t ival=0, const bool trueind=true ) const;
+/// A variant of get() for checking that at least one of the values on the row is !=0
+  bool checkValueIsActiveForMMul(std::size_t task) const;
+/// A variant of get() for assigning data to an external view (assuems trueind=false), returns the number of arguments assigned
+  std::size_t assignValues(View<double> target);
 /// Find out if the value has been set
   bool valueHasBeenSet() const;
 /// Check if the value is periodic
@@ -155,10 +167,14 @@ public:
   void clearInputForce();
 /// Special method for clearing forces on variables used by DataPassingObject
   void clearInputForce( const std::vector<AtomNumber>& index );
+/// Set hasForce equal to true
+  void addForce();
 /// Add some force on this value
   void addForce(double f);
 /// Add some force on the ival th component of this value
   void addForce( const std::size_t& ival, double f, const bool trueind=true );
+  ///Add forces from a vector, imples trueInd=false and retunrs the number of forces assigned
+  std::size_t addForces(View<const double> f);
 /// Get the value of the force on this colvar
   double getForce( const std::size_t& ival=0 ) const ;
 /// Apply the forces to the derivatives using the chain rule (if there are no forces this routine returns false)
@@ -181,15 +197,17 @@ public:
 /// Get the rank of the object that is contained in this value
   unsigned getRank() const ;
 /// Get the shape of the object that is contained in this value
-  const std::vector<unsigned>& getShape() const ;
-/// This turns on storing of vectors/matrices
-  void buildDataStore( const bool forprint=false );
+  const std::vector<std::size_t>& getShape() const ;
 /// Reshape the storage for sparse matrices
   void reshapeMatrixStore( const unsigned& n );
+/// Copy the matrix bookeeping stuff
+  void copyBookeepingArrayFromArgument( Value* myarg );
 /// Set the symmetric flag equal true for this matrix
   void setSymmetric( const bool& sym );
 /// Get the total number of scalars that are stored here
-  unsigned getNumberOfValues() const ;
+  std::size_t getNumberOfValues() const ;
+/// Get the number of values that are actually stored here once sparse matrices are taken into account
+  std::size_t getNumberOfStoredValues() const ;
 /// Get the number of threads to use when assigning this value
   unsigned getGoodNumThreads( const unsigned& j, const unsigned& k ) const ;
 /// These are used for passing around the data in this value when we are doing replica exchange
@@ -198,36 +216,31 @@ public:
 /// These are used for making constant values
   bool isConstant() const ;
   void setConstant();
+  void reshapeConstantValue( const std::vector<std::size_t>& sh );
 /// Check if forces have been added on this value
   bool forcesWereAdded() const ;
 /// Set a bool that tells us if the derivative is zero when the value is zero true
   void setDerivativeIsZeroWhenValueIsZero();
 /// Return a bool that tells us if the derivative is zero when the value is zero
   bool isDerivativeZeroWhenValueIsZero() const ;
-///
-  unsigned getPositionInStream() const ;
-/// This stuff handles where to look for the start of the row that contains the row of the matrix
-  void setPositionInMatrixStash( const unsigned& p );
-  unsigned getPositionInMatrixStash() const ;
-/// This stuff handles where to keep the bookeeping stuff for storing the sparse matrix
-  void setMatrixBookeepingStart( const unsigned& b );
-  unsigned getMatrixBookeepingStart() const ;
 /// Convert the input index to its corresponding indices
   void convertIndexToindices(const std::size_t& index, std::vector<unsigned>& indices ) const ;
 /// Print out all the values in this Value
   void print( OFile& ofile ) const ;
+/// Print out all the forces in this Value
+  void printForce( OFile& ofile ) const ;
 /// Are we to ignore the stored value
   bool ignoreStoredValue(const std::string& n) const ;
 /// Set a matrix element to be non zero
   void setMatrixBookeepingElement( const unsigned& i, const unsigned& n );
 ///
-  unsigned getRowLength( const unsigned& irow ) const ;
+  unsigned getRowLength( const std::size_t& irow ) const ;
 ///
-  unsigned getRowIndex( const unsigned& irow, const unsigned& jind ) const ;
-/// Are we storing this value
-  bool valueIsStored() const ;
+  unsigned getRowIndex( std::size_t irow, std::size_t jind ) const ;
 ///
-  unsigned getNumberOfColumns() const ;
+  void setRowIndices( const std::size_t& irow, const std::vector<std::size_t>& ind );
+///
+  std::size_t getNumberOfColumns() const ;
 ///
   bool isSymmetric() const ;
 /// Retrieve the non-zero edges in a matrix
@@ -244,13 +257,17 @@ public:
   void push_back( const double& val );
 /// Get the type of value that is stored here
   std::string getValueType() const ;
+/// Check if all the elements in the value have the same value
+  bool allElementsEqual() const ;
 };
 
 inline
 void Value::applyPeriodicity(const unsigned& ival) {
   if(periodicity==periodic) {
     data[ival]=min+difference(min,data[ival]);
-    if(data[ival]<min)data[ival]+=max_minus_min;
+    if(data[ival]<min) {
+      data[ival]+=max_minus_min;
+    }
   }
 }
 
@@ -270,7 +287,9 @@ void Value::add(double v) {
 
 inline
 void Value::add(const std::size_t& n, const double& v ) {
-  value_set=true; data[n]+=v; applyPeriodicity(n);
+  value_set=true;
+  data[n]+=v;
+  applyPeriodicity(n);
 }
 
 inline
@@ -286,7 +305,9 @@ const std::string& Value::getName()const {
 inline
 unsigned Value::getNumberOfDerivatives() const {
   plumed_massert(hasDeriv,"the derivatives array for this value has zero size");
-  if( shape.size()>0 ) return shape.size();
+  if( shape.size()>0 ) {
+    return shape.size();
+  }
   return data.size() - 1;
 }
 
@@ -303,8 +324,12 @@ bool Value::hasDerivatives() const {
 
 inline
 void Value::resizeDerivatives(int n) {
-  if( shape.size()>0 ) return;
-  if(hasDeriv) data.resize(1+n);
+  if( shape.size()>0 ) {
+    return;
+  }
+  if(hasDeriv) {
+    data.resize(1+n);
+  }
 }
 
 inline
@@ -321,22 +346,41 @@ void Value::setDerivative(unsigned i, double d) {
 
 inline
 void Value::clearInputForce() {
-  if( !hasForce ) return;
-  hasForce=false; std::fill(inputForce.begin(),inputForce.end(),0);
+  if( !hasForce ) {
+    return;
+  }
+  hasForce=false;
+  std::fill(inputForce.begin(),inputForce.end(),0);
 }
 
 inline
 void Value::clearInputForce( const std::vector<AtomNumber>& index ) {
-  if( !hasForce ) return;
-  hasForce=false; for(const auto & p : index) inputForce[p.index()]=0;
+  if( !hasForce ) {
+    return;
+  }
+  hasForce=false;
+  for(const auto & p : index) {
+    inputForce[p.index()]=0;
+  }
 }
 
 inline
 void Value::clearDerivatives( const bool force ) {
-  if( !force && (valtype==constant || valtype==average) ) return;
+  if( !force && (valtype==constant || valtype==average) ) {
+    return;
+  }
 
   value_set=false;
-  if( data.size()>1 ) std::fill(data.begin()+1, data.end(), 0);
+  if( shape.size()>0 ) {
+    std::fill(data.begin(), data.end(), 0);
+  } else if( data.size()>1 ) {
+    std::fill(data.begin()+1, data.end(), 0);
+  }
+}
+
+inline
+void Value::addForce() {
+  hasForce=true;
 }
 
 inline
@@ -366,7 +410,9 @@ double Value::difference(double d1,double d2)const {
     // remember: pbc brings the difference in a range of -0.5:0.5
     s=Tools::pbc(s);
     return s*max_minus_min;
-  } else plumed_merror("periodicity should be set to compute differences");
+  } else {
+    plumed_merror("periodicity should be set to compute differences");
+  }
 }
 
 inline
@@ -387,18 +433,32 @@ double Value::getMaxMinusMin()const {
 
 inline
 unsigned Value::getRank() const {
+  if( valtype==constant && shape.size()==1 && shape[0]==1 ) {
+    return 0;
+  }
   return shape.size();
 }
 
 inline
-const std::vector<unsigned>& Value::getShape() const {
+const std::vector<std::size_t>& Value::getShape() const {
   return shape;
 }
 
 inline
-unsigned Value::getNumberOfValues() const {
-  unsigned size=1; for(unsigned i=0; i<shape.size(); ++i) size *= shape[i];
+std::size_t Value::getNumberOfValues() const {
+  std::size_t size=1;
+  for(unsigned i=0; i<shape.size(); ++i) {
+    size *= shape[i];
+  }
   return size;
+}
+
+inline
+std::size_t Value::getNumberOfStoredValues() const {
+  if( getRank()==2 && !hasDeriv ) {
+    return shape[0]*ncols;
+  }
+  return getNumberOfValues();
 }
 
 inline
@@ -417,50 +477,40 @@ bool Value::isDerivativeZeroWhenValueIsZero() const {
 }
 
 inline
-unsigned Value::getPositionInStream() const {
-  return streampos;
-}
-
-inline
-unsigned Value::getPositionInMatrixStash() const {
-  return matpos;
-}
-
-inline
-void Value::setMatrixBookeepingStart( const unsigned& b ) {
-  book_start = b;
-}
-
-inline
-unsigned Value::getMatrixBookeepingStart() const {
-  return book_start;
-}
-
-inline
 void Value::setMatrixBookeepingElement( const unsigned& i, const unsigned& n ) {
   plumed_dbg_assert( i<matrix_bookeeping.size() );
   matrix_bookeeping[i]=n;
 }
 
 inline
-bool Value::valueIsStored() const {
-  return storedata;
-}
-
-inline
-unsigned Value::getRowLength( const unsigned& irow ) const {
+unsigned Value::getRowLength( const std::size_t& irow ) const {
+  if( matrix_bookeeping.size()==0 ) {
+    return 0;
+  }
   plumed_dbg_assert( (1+ncols)*irow<matrix_bookeeping.size() );
   return matrix_bookeeping[(1+ncols)*irow];
 }
 
 inline
-unsigned Value::getRowIndex( const unsigned& irow, const unsigned& jind ) const {
-  plumed_dbg_assert( (1+ncols)*irow+1+jind<matrix_bookeeping.size() && jind<matrix_bookeeping[(1+ncols)*irow] );
+unsigned Value::getRowIndex(const std::size_t irow, const std::size_t jind ) const {
+  plumed_dbg_massert( (1+ncols)*irow+1+jind<matrix_bookeeping.size() && jind<matrix_bookeeping[(1+ncols)*irow], "failing in value " + name );
   return matrix_bookeeping[(1+ncols)*irow+1+jind];
 }
 
 inline
-unsigned Value::getNumberOfColumns() const {
+void Value::setRowIndices( const std::size_t& irow, const std::vector<std::size_t>& ind ) {
+  plumed_dbg_massert( (1+ncols)*irow+1+ind.size()<=matrix_bookeeping.size(), "problem in " + name );
+  std::size_t istart = (1+ncols)*irow;
+  matrix_bookeeping[istart] = ind.size();
+  ++istart;
+  for(unsigned i=0; i<ind.size(); ++i) {
+    matrix_bookeeping[istart] = ind[i];
+    ++istart;
+  }
+}
+
+inline
+std::size_t Value::getNumberOfColumns() const {
   return ncols;
 }
 

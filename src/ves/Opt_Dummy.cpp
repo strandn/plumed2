@@ -37,11 +37,12 @@ This is dummy optimizer that can be used for debugging. It will not update the
 coefficients but can be used to monitor the gradient and Hessian for a given
 VES bias.
 
-\par Examples
+## Examples
 
 In the following input we use the OPT_DUMMY to monitor the gradient and
 Hessian for a given VES bias every 1 iteration.
-\plumedfile
+
+```plumed
 phi:   TORSION ATOMS=5,7,9,15
 
 bf1: BF_FOURIER ORDER=5 MINIMUM=-pi MAXIMUM=pi
@@ -66,7 +67,7 @@ OPT_DUMMY ...
   HESSIAN_OUTPUT=1
   HESSIAN_FMT=%12.6f
 ... OPT_DUMMY
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -96,8 +97,7 @@ void Opt_Dummy::registerKeywords(Keywords& keys) {
 
 
 Opt_Dummy::Opt_Dummy(const ActionOptions&ao):
-  PLUMED_VES_OPTIMIZER_INIT(ao)
-{
+  PLUMED_VES_OPTIMIZER_INIT(ao) {
   log.printf("  fake optimizer that does not update coefficients\n");
   log.printf("  can be used to monitor gradient and Hessian for debugging purposes\n");
   bool monitor_hessian = false;
@@ -105,8 +105,7 @@ Opt_Dummy::Opt_Dummy(const ActionOptions&ao):
   if(monitor_hessian) {
     turnOnHessian();
     log.printf("  the Hessian will also be monitored\n");
-  }
-  else {
+  } else {
     turnOffHessian();
   }
   turnOffCoeffsOutputFiles();

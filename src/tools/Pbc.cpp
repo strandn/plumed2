@@ -23,28 +23,54 @@
 #include "Tools.h"
 #include "Exception.h"
 #include "LatticeReduction.h"
-#include <iostream>
-#include "Random.h"
 #include <cmath>
 
 namespace PLMD {
 
 Pbc::Pbc():
-  type(unset)
-{
+  type(unset) {
   box.zero();
   invBox.zero();
 }
 
-void Pbc::buildShifts(gch::small_vector<Vector,maxshiftsize> shifts[2][2][2])const {
+void Pbc::toACCDevice()const  {
+  if(type!=unset && type!=orthorombic) {
+    plumed_merror("Current openACC implementation only works with unset or orthorombic pbcs");
+  }
+#pragma acc enter data copyin(this[0:1], type)
+  box.toACCDevice();
+  invBox.toACCDevice();
+}
+void Pbc::removeFromACCDevice() const {
+  invBox.removeFromACCDevice();
+  box.removeFromACCDevice();
+  // just delete
+#pragma acc exit data delete(type, this[0:1])
+}
+
+// Pbc::Pbc(const Pbc& other):
+//   type(other.type),
+//   box(other.box),
+//    invBox(other.invBox),
+//   reduced(other.reduced),
+//   invReduced(other.invReduced)
+// {}
+
+void Pbc::buildShifts(gch::small_vector<Vector,maxshiftsize> newshifts[2][2][2])const {
   const double small=1e-28;
 
 // clear all shifts
-  for(int i=0; i<2; i++) for(int j=0; j<2; j++) for(int k=0; k<2; k++) shifts[i][j][k].clear();
+  for(int i=0; i<2; i++)
+    for(int j=0; j<2; j++)
+      for(int k=0; k<2; k++) {
+        newshifts[i][j][k].clear();
+      }
 
 // enumerate all possible shifts
 // since box is reduced, only 27 shifts have to be attempted
-  for(int l=-1; l<=1; l++) for(int m=-1; m<=1; m++) for(int n=-1; n<=1; n++) {
+  for(int l=-1; l<=1; l++)
+    for(int m=-1; m<=1; m++)
+      for(int n=-1; n<=1; n++) {
 
 // int/double shift vectors
         const int ishift[3]= {l,m,n};
@@ -52,11 +78,16 @@ void Pbc::buildShifts(gch::small_vector<Vector,maxshiftsize> shifts[2][2][2])con
 
 // count how many components are != 0
         unsigned count=0;
-        for(int s=0; s<3; s++) if(ishift[s]!=0) count++;
+        for(int s=0; s<3; s++)
+          if(ishift[s]!=0) {
+            count++;
+          }
 
 // skips trivial (0,0,0) and cases with three shifts
 // only 18 shifts survive past this point
-        if(count==0 || count==3) continue;
+        if(count==0 || count==3) {
+          continue;
+        }
 
 // check if that Wigner-Seitz face is perpendicular to the axis.
 // this allows to eliminate shifts in symmetric cells.
@@ -65,35 +96,52 @@ void Pbc::buildShifts(gch::small_vector<Vector,maxshiftsize> shifts[2][2][2])con
         Vector cosdir=matmul(reduced,transpose(reduced),dshift);
         double dp=dotProduct(dshift,cosdir);
         double ref=modulo2(dshift)*modulo2(cosdir);
-        if(std::fabs(ref-dp*dp)<small) continue;
+        if(std::fabs(ref-dp*dp)<small) {
+          continue;
+        }
 
 // here we start pruning depending on the sign of the scaled coordinate
-        for(int i=0; i<2; i++) for(int j=0; j<2; j++) for(int k=0; k<2; k++) {
+        for(int i=0; i<2; i++)
+          for(int j=0; j<2; j++)
+            for(int k=0; k<2; k++) {
 
               const int block[3]= {2*i-1,2*j-1,2*k-1};
 
 // skip cases where shift would bring too far from origin
               bool skip=false;
-              for(int s=0; s<3; s++) if(ishift[s]*block[s]>0) skip=true;
-              if(skip) continue;
+              for(int s=0; s<3; s++)
+                if(ishift[s]*block[s]>0) {
+                  skip=true;
+                }
+              if(skip) {
+                continue;
+              }
               skip=true;
               for(int s=0; s<3; s++) {
 // check that the components of cosdir along the non-shifted directions
 // have the proper sign
-                if(((1-ishift[s]*ishift[s])*block[s])*cosdir[s]<-small) skip=false;
+                if(((1-ishift[s]*ishift[s])*block[s])*cosdir[s]<-small) {
+                  skip=false;
+                }
               }
-              if(skip)continue;
+              if(skip) {
+                continue;
+              }
 
 // if we arrive to this point, shift is eligible and is added to the list
-              shifts[i][j][k].push_back(matmul(transpose(reduced),dshift));
+              newshifts[i][j][k].push_back(matmul(transpose(reduced),dshift));
             }
       }
 }
 
 void Pbc::fullSearch(Vector&d)const {
-  if(type==unset) return;
+  if(type==unset) {
+    return;
+  }
   Vector s=matmul(invReduced.transpose(),d);
-  for(int i=0; i<3; i++) s[i]=Tools::pbc(s[i]);
+  for(int i=0; i<3; i++) {
+    s[i]=Tools::pbc(s[i]);
+  }
   d=matmul(reduced.transpose(),s);
   const int smax=4;
   Vector a0(reduced.getRow(0));
@@ -101,7 +149,9 @@ void Pbc::fullSearch(Vector&d)const {
   Vector a2(reduced.getRow(2));
   Vector best(d);
   double lbest=d.modulo2();
-  for(int i=-smax; i<=smax; i++) for(int j=-smax; j<=smax; j++) for(int k=-smax; k<=smax; k++) {
+  for(int i=-smax; i<=smax; i++)
+    for(int j=-smax; j<=smax; j++)
+      for(int k=-smax; k<=smax; k++) {
         Vector trial=d+i*a0+j*a1+k*a2;
         double ltrial=trial.modulo2();
         if(ltrial<lbest) {
@@ -115,23 +165,34 @@ void Pbc::fullSearch(Vector&d)const {
 void Pbc::setBox(const Tensor&b) {
   box=b;
 // detect type:
-  const double epsilon=1e-28;
+  constexpr double boxEpsilon=1e-28;
 
   type=unset;
   double det=box.determinant();
-  if(det*det<epsilon) return;
+  if(det*det<boxEpsilon) {
+    return;
+  }
 
   bool cxy=false;
   bool cxz=false;
   bool cyz=false;
-  if(box(0,1)*box(0,1)<epsilon && box(1,0)*box(1,0)<epsilon) cxy=true;
-  if(box(0,2)*box(0,2)<epsilon && box(2,0)*box(2,0)<epsilon) cxz=true;
-  if(box(1,2)*box(1,2)<epsilon && box(2,1)*box(2,1)<epsilon) cyz=true;
+  if(box(0,1)*box(0,1)<boxEpsilon && box(1,0)*box(1,0)<boxEpsilon) {
+    cxy=true;
+  }
+  if(box(0,2)*box(0,2)<boxEpsilon && box(2,0)*box(2,0)<boxEpsilon) {
+    cxz=true;
+  }
+  if(box(1,2)*box(1,2)<boxEpsilon && box(2,1)*box(2,1)<boxEpsilon) {
+    cyz=true;
+  }
 
   invBox=box.inverse();
 
-  if(cxy && cxz && cyz) type=orthorombic;
-  else type=generic;
+  if(cxy && cxz && cyz) {
+    type=orthorombic;
+  } else {
+    type=generic;
+  }
 
   if(type==orthorombic) {
     reduced=box;
@@ -151,8 +212,11 @@ void Pbc::setBox(const Tensor&b) {
 }
 
 double Pbc::distance( const bool pbc, const Vector& v1, const Vector& v2 ) const {
-  if(pbc) { return ( distance(v1,v2) ).modulo(); }
-  else { return ( delta(v1,v2) ).modulo(); }
+  if(pbc) {
+    return ( distance(v1,v2) ).modulo();
+  } else {
+    return ( delta(v1,v2) ).modulo();
+  }
 }
 
 void Pbc::apply(std::vector<Vector>& dlist, unsigned max_index) const {
@@ -160,18 +224,32 @@ void Pbc::apply(std::vector<Vector>& dlist, unsigned max_index) const {
 }
 
 void Pbc::apply(VectorView dlist, unsigned max_index) const {
-  if (max_index==0) max_index=dlist.size();
+  if (max_index==0) {
+    max_index=dlist.size();
+  }
   if(type==unset) {
     // do nothing
   } else if(type==orthorombic) {
 #ifdef __PLUMED_PBC_WHILE
     for(unsigned k=0; k<max_index; ++k) {
-      while(dlist[k][0]>hdiag[0])   dlist[k][0]-=diag[0];
-      while(dlist[k][0]<=mdiag[0])  dlist[k][0]+=diag[0];
-      while(dlist[k][1]>hdiag[1])   dlist[k][1]-=diag[1];
-      while(dlist[k][1]<=mdiag[1])  dlist[k][1]+=diag[1];
-      while(dlist[k][2]>hdiag[2])   dlist[k][2]-=diag[2];
-      while(dlist[k][2]<=mdiag[2])  dlist[k][2]+=diag[2];
+      while(dlist[k][0]>hdiag[0]) {
+        dlist[k][0]-=diag[0];
+      }
+      while(dlist[k][0]<=mdiag[0]) {
+        dlist[k][0]+=diag[0];
+      }
+      while(dlist[k][1]>hdiag[1]) {
+        dlist[k][1]-=diag[1];
+      }
+      while(dlist[k][1]<=mdiag[1]) {
+        dlist[k][1]+=diag[1];
+      }
+      while(dlist[k][2]>hdiag[2]) {
+        dlist[k][2]-=diag[2];
+      }
+      while(dlist[k][2]<=mdiag[2]) {
+        dlist[k][2]+=diag[2];
+      }
     }
 #else
     for(unsigned k=0; k<max_index; ++k) {
@@ -216,7 +294,10 @@ void Pbc::apply(VectorView dlist, unsigned max_index) const {
       dlist[k][1]  = best[1];
       dlist[k][2]  = best[2];
     }
-  } else plumed_merror("unknown pbc type");
+  }
+  // throws are not compatible with GPUs
+  // so the `plumed_merror("unknown pbc type");` must be anticipated by
+  // a check before running the whole calculation
 }
 
 Vector Pbc::distance(const Vector&v1,const Vector&v2,int*nshifts)const {
@@ -226,11 +307,17 @@ Vector Pbc::distance(const Vector&v1,const Vector&v2,int*nshifts)const {
   } else if(type==orthorombic) {
 #ifdef __PLUMED_PBC_WHILE
     for(unsigned i=0; i<3; i++) {
-      while(d[i]>hdiag[i]) d[i]-=diag[i];
-      while(d[i]<=mdiag[i]) d[i]+=diag[i];
+      while(d[i]>hdiag[i]) {
+        d[i]-=diag[i];
+      }
+      while(d[i]<=mdiag[i]) {
+        d[i]+=diag[i];
+      }
     }
 #else
-    for(int i=0; i<3; i++) d[i]=Tools::pbc(d[i]*invBox(i,i))*box(i,i);
+    for(int i=0; i<3; i++) {
+      d[i]=Tools::pbc(d[i]*invBox(i,i))*box(i,i);
+    }
 #endif
   } else if(type==generic) {
     Vector s=matmul(d,invReduced);
@@ -252,7 +339,9 @@ Vector Pbc::distance(const Vector&v1,const Vector&v2,int*nshifts)const {
         Vector best(d);
         double lbest(modulo2(best));
 // loop over possible shifts:
-        if(nshifts) *nshifts+=myshifts.size();
+        if(nshifts) {
+          *nshifts+=myshifts.size();
+        }
         for(unsigned i=0; i<myshifts.size(); i++) {
           Vector trial=d+myshifts[i];
           double ltrial=modulo2(trial);
@@ -264,7 +353,119 @@ Vector Pbc::distance(const Vector&v1,const Vector&v2,int*nshifts)const {
         d=best;
       }
     }
-  } else plumed_merror("unknown pbc type");
+  } else {
+    plumed_merror("unknown pbc type");
+  }
+  return d;
+}
+
+Vector Pbc::distance(const Vector&v1,const Vector&v2)const {
+  Vector d=delta(v1,v2);
+  if(type==unset) {
+    // do nothing
+  } else if(type==orthorombic) {
+#ifdef __PLUMED_PBC_WHILE
+    for(unsigned i=0; i<3; i++) {
+      while(d[i]>hdiag[i]) {
+        d[i]-=diag[i];
+      }
+      while(d[i]<=mdiag[i]) {
+        d[i]+=diag[i];
+      }
+    }
+#else
+    for(int i=0; i<3; i++) {
+      d[i]=Tools::pbc(d[i]*invBox(i,i))*box(i,i);
+    }
+#endif
+  } else if(type==generic) {
+    Vector s=matmul(d,invReduced);
+// check if images have to be computed:
+//    if((std::fabs(s[0])+std::fabs(s[1])+std::fabs(s[2])>0.5)){
+// NOTICE: the check in the previous line, albeit correct, is breaking many regtest
+//         since it does not apply Tools::pbc in many cases. Moreover, it does not
+//         introduce a significant gain. I thus leave it out for the moment.
+    if constexpr (true) {
+// bring to -0.5,+0.5 region in scaled coordinates:
+      for(int i=0; i<3; i++) {
+        s[i]=Tools::pbc(s[i]);
+      }
+      d=matmul(s,reduced);
+// check if shifts have to be attempted:
+      if((std::fabs(s[0])+std::fabs(s[1])+std::fabs(s[2])>0.5)) {
+// list of shifts is specific for that "octant" (depends on signs of s[i]):
+        const auto & myshifts(shifts[(s[0]>0?1:0)][(s[1]>0?1:0)][(s[2]>0?1:0)]);
+        Vector best(d);
+        double lbest(modulo2(best));
+// loop over possible shifts:
+        for(unsigned i=0; i<myshifts.size(); i++) {
+          Vector trial=d+myshifts[i];
+          double ltrial=modulo2(trial);
+          if(ltrial<lbest) {
+            lbest=ltrial;
+            best=trial;
+          }
+        }
+        d=best;
+      }
+    }
+    // no throws on the GPU
+  } //else plumed_merror("unknown pbc type");
+  return d;
+}
+
+Vector3f Pbc::distance(const Vector3f&v1,const Vector3f&v2)const {
+  Vector3f d=delta(v1,v2);
+  if(type==unset) {
+    // do nothing
+  } else if(type==orthorombic) {
+#ifdef __PLUMED_PBC_WHILE
+    for(unsigned i=0; i<3; i++) {
+      while(d[i]>hdiag[i]) {
+        d[i]-=diag[i];
+      }
+      while(d[i]<=mdiag[i]) {
+        d[i]+=diag[i];
+      }
+    }
+#else
+    for(int i=0; i<3; i++) {
+      d[i]=Tools::pbc(d[i]*invBox(i,i))*box(i,i);
+    }
+#endif
+  } else if(type==generic) {
+    Vector3f s=matmul(d,invReduced);
+// check if images have to be computed:
+//    if((std::fabs(s[0])+std::fabs(s[1])+std::fabs(s[2])>0.5)){
+// NOTICE: the check in the previous line, albeit correct, is breaking many regtest
+//         since it does not apply Tools::pbc in many cases. Moreover, it does not
+//         introduce a significant gain. I thus leave it out for the moment.
+    if constexpr (true) {
+// bring to -0.5,+0.5 region in scaled coordinates:
+      for(int i=0; i<3; i++) {
+        s[i]=Tools::pbc(s[i]);
+      }
+      d=matmul(s,reduced);
+// check if shifts have to be attempted:
+      if((std::fabs(s[0])+std::fabs(s[1])+std::fabs(s[2])>0.5)) {
+// list of shifts is specific for that "octant" (depends on signs of s[i]):
+        const auto & myshifts(shifts[(s[0]>0?1:0)][(s[1]>0?1:0)][(s[2]>0?1:0)]);
+        Vector3f best(d);
+        double lbest(modulo2(best));
+// loop over possible shifts:
+        for(unsigned i=0; i<myshifts.size(); i++) {
+          Vector3f trial=sumT(d,myshifts[i]);
+          double ltrial=modulo2(trial);
+          if(ltrial<lbest) {
+            lbest=ltrial;
+            best=trial;
+          }
+        }
+        d=best;
+      }
+    }
+    // no throws on the GPU
+  } //else plumed_merror("unknown pbc type");
   return d;
 }
 
@@ -272,8 +473,15 @@ Vector Pbc::realToScaled(const Vector&d)const {
   return matmul(invBox.transpose(),d);
 }
 
+Vector3f Pbc::realToScaled(const Vector3f&d)const {
+  return matmul(invBox.transpose(),d).convert<float>();
+}
+
 Vector Pbc::scaledToReal(const Vector&d)const {
   return matmul(box.transpose(),d);
+}
+Vector3f Pbc::scaledToReal(const Vector3f&d)const {
+  return matmul(box.transpose(),d).convert<float>();
 }
 
 bool Pbc::isOrthorombic()const {

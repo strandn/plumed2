@@ -33,27 +33,26 @@ namespace cltools {
 
 //+PLUMEDOC TOOLS manual
 /*
-manual is a tool that you can use to construct the manual page for
-a particular action
+manual is a tool that you can use to construct the manual page for a particular action
 
 The manual constructed by this action is in html. In all probability you will never need to use this
-tool. However, it is used within the scripts that generate the html manual for PLUMED.  If you need to use this
-tool outside those scripts the input is specified using the following command line arguments.
+tool. However, it is was within the scripts that generate the old html manual for PLUMED.
 
-\par Examples
+WE WILL POSSIBILY DELETE THIS COMMAND SOON AS IT IS NO LONGER USED TO CONSTRUCT THE MANUAL
+
+## Examples
 
 The following generates the html manual for the action DISTANCE.
-\verbatim
-plumed manual --action DISTANCE
-\endverbatim
 
+```plumed
+plumed manual --action DISTANCE
+```
 
 */
 //+ENDPLUMEDOC
 
 class Manual:
-  public CLTool
-{
+  public CLTool {
 public:
   static void registerKeywords( Keywords& keys );
   explicit Manual(const CLToolOptions& co );
@@ -73,22 +72,27 @@ void Manual::registerKeywords( Keywords& keys ) {
 }
 
 Manual::Manual(const CLToolOptions& co ):
-  CLTool(co)
-{
-  inputdata=commandline;
+  CLTool(co) {
+  inputdata=inputType::commandline;
 }
 
 int Manual::main(FILE* in, FILE*out,Communicator& pc) {
 
   std::string action;
-  if( !parse("--action",action) ) return 1;
+  if( !parse("--action",action) ) {
+    return 1;
+  }
   std::cerr<<"LIST OF DOCUMENTED ACTIONS:\n";
   std::cerr<<actionRegister()<<"\n";
   std::cerr<<"LIST OF DOCUMENTED COMMAND LINE TOOLS:\n";
   std::cerr<<cltoolRegister()<<"\n\n";
-  bool vimout; parseFlag("--vim",vimout);
-  bool spellout; parseFlag("--spelling",spellout);
-  if( vimout && spellout ) error("can only use one of --vim and --spelling at a time");
+  bool vimout;
+  parseFlag("--vim",vimout);
+  bool spellout;
+  parseFlag("--spelling",spellout);
+  if( vimout && spellout ) {
+    error("can only use one of --vim and --spelling at a time");
+  }
   if( !actionRegister().printManual(action,vimout,spellout) && !cltoolRegister().printManual(action,spellout) ) {
     std::fprintf(stderr,"specified action is not registered\n");
     return 1;

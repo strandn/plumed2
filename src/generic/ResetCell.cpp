@@ -38,54 +38,47 @@ namespace generic {
 /*
 This action is used to rotate the full cell
 
-This can be used to modify the periodic box. Notice that
+Rotating the full cell is useful if you want to modify the periodic box. Notice that
 this is done at fixed scaled coordinates,
 so that also atomic coordinates for the entire system are affected.
-To see what effect try
-the \ref DUMPATOMS directive to output the atomic positions.
+To see what effect try using [DUMPATOMS](DUMPATOMS.md) directive to output the atomic positions.
 
 Also notice that PLUMED propagate forces correctly so that you can add a bias on a CV computed
-after rotation. See also \ref FIT_TO_TEMPLATE
+after rotation. You can read the documentation for [FIT_TO_TEMPLATE](FIT_TO_TEMPLATE.md) for more
+detail.
 
 Currently, only TYPE=TRIANGULAR is implemented, which allows one to reset
-the cell to a lower triangular one. Namely, a proper rotation is found that allows
-rotating the box so that the first lattice vector is in the form (ax,0,0),
+the cell to a lower triangular one. This command finds a proper rotation
+rotates the box so that the first lattice vector is in the form (ax,0,0),
 the second lattice vector is in the form (bx,by,0), and the third lattice vector is
 arbitrary.
 
-\attention
-The implementation of this action is available but should be considered in testing phase. Please report any
-strange behavior.
+!!! caution ""
 
-\attention
-This directive modifies the stored position at the precise moment
-it is executed. This means that only collective variables
-which are below it in the input script will see the corrected positions.
-Unless you
-know exactly what you are doing, leave the default stride (1), so that
-this action is performed at every MD step.
+    The implementation of this action is available but should be considered in testing phase. Please report any
+    strange behavior.
 
-\par Examples
+!!! caution ""
+
+    This directive modifies the stored position at the precise moment
+    it is executed. This means that only collective variables
+    which are below it in the input script will see the corrected positions.
+    Unless you
+    know exactly what you are doing, leave the default stride (1), so that
+    this action is performed at every MD step.
+
+## Examples
 
 Reset cell to be triangular after a rototranslational fit
-\plumedfile
+
+```plumed
+#SETTINGS INPUTFILES=regtest/basic/rt63/align.pdb
 DUMPATOMS FILE=dump-original.xyz ATOMS=1-20
-FIT_TO_TEMPLATE STRIDE=1 REFERENCE=ref.pdb TYPE=OPTIMAL
+FIT_TO_TEMPLATE STRIDE=1 REFERENCE=regtest/basic/rt63/align.pdb TYPE=OPTIMAL
 DUMPATOMS FILE=dump-fit.xyz ATOMS=1-20
-RESET_CELL TYPE=TRIANGULAR
+RESET_CELL TYPE=TRIANGULAR STRIDE=1
 DUMPATOMS FILE=dump-reset.xyz ATOMS=1-20
-\endplumedfile
-
-The reference file for the FIT_TO_TEMPLATE is just a normal pdb file with the format shown below:
-
-\auxfile{ref.pdb}
-ATOM      8  HT3 ALA     2      -1.480  -1.560   1.212  1.00  1.00      DIA  H
-ATOM      9  CAY ALA     2      -0.096   2.144  -0.669  1.00  1.00      DIA  C
-ATOM     10  HY1 ALA     2       0.871   2.385  -0.588  1.00  1.00      DIA  H
-ATOM     12  HY3 ALA     2      -0.520   2.679  -1.400  1.00  1.00      DIA  H
-ATOM     14  OY  ALA     2      -1.139   0.931  -0.973  1.00  1.00      DIA  O
-END
-\endauxfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -93,8 +86,7 @@ END
 
 class ResetCell:
   public ActionPilot,
-  public ActionAtomistic
-{
+  public ActionAtomistic {
   std::string type;
   Tensor rotation,newbox;
   Value* boxValue;
@@ -118,23 +110,25 @@ void ResetCell::registerKeywords( Keywords& keys ) {
 ResetCell::ResetCell(const ActionOptions&ao):
   Action(ao),
   ActionPilot(ao),
-  ActionAtomistic(ao)
-{
+  ActionAtomistic(ao) {
   type.assign("TRIANGULAR");
   parse("TYPE",type);
 
   log<<"  type: "<<type<<"\n";
-  if(type!="TRIANGULAR") error("undefined type "+type);
+  if(type!="TRIANGULAR") {
+    error("undefined type "+type);
+  }
 
   pbc_action=plumed.getActionSet().selectWithLabel<PbcAction*>("Box");
-  if( !pbc_action ) error("cannot reset cell if box has not been set");
+  if( !pbc_action ) {
+    error("cannot reset cell if box has not been set");
+  }
   boxValue=pbc_action->copyOutput(0);
 }
 
 
 void ResetCell::calculate() {
-  Pbc & pbc(pbc_action->getPbc());
-  Tensor box=pbc.getBox();
+  Tensor box=pbc_action->getPbc().getBox();
 
 // moduli of lattice vectors
   double a=modulo(box.getRow(0));
@@ -153,7 +147,9 @@ void ResetCell::calculate() {
   newbox[2][1]=c*(bc-ac*ab)/std::sqrt(1-ab*ab);
   newbox[2][2]=std::sqrt(c*c-newbox[2][0]*newbox[2][0]-newbox[2][1]*newbox[2][1]);
 
-  if(determinant(newbox)*determinant(box)<0) newbox[2][2]=-newbox[2][2];
+  if(determinant(newbox)*determinant(box)<0) {
+    newbox[2][2]=-newbox[2][2];
+  }
 
 // rotation matrix from old to new coordinates
   rotation=transpose(matmul(inverse(box),newbox));
@@ -161,12 +157,12 @@ void ResetCell::calculate() {
 // rotate all coordinates
   unsigned nat = getTotAtoms();
   for(unsigned i=0; i<nat; i++) {
-    std::pair<std::size_t,std::size_t> a = getValueIndices( AtomNumber::index(i));
-    Vector ato=matmul(rotation,getGlobalPosition(a));
-    setGlobalPosition(a,ato);
+    std::pair<std::size_t,std::size_t> valIndex = getValueIndices( AtomNumber::index(i));
+    Vector ato=matmul(rotation,getGlobalPosition(valIndex));
+    setGlobalPosition(valIndex,ato);
   }
 // rotate box
-  pbc.setBox(newbox);
+  pbc_action->getPbc().setBox(newbox);
 }
 
 void ResetCell::apply() {
@@ -192,13 +188,20 @@ void ResetCell::apply() {
 // of the virial matrix equal to their symmetric ones.
 // GB
   Tensor virial;
-  for(unsigned i=0; i<3; ++i) for(unsigned j=0; j<3; ++j) virial[i][j]=boxValue->getForce( 3*i+j );
+  for(unsigned i=0; i<3; ++i)
+    for(unsigned j=0; j<3; ++j) {
+      virial[i][j]=boxValue->getForce( 3*i+j );
+    }
   virial[0][1]=virial[1][0];
   virial[0][2]=virial[2][0];
   virial[1][2]=virial[2][1];
 // rotate back virial
-  virial=matmul(transpose(rotation),matmul(virial,rotation)); boxValue->clearInputForce();
-  for(unsigned i=0; i<3; ++i) for(unsigned j=0; j<3; ++j) boxValue->addForce( 3*i+j, virial(i,j) );
+  virial=matmul(transpose(rotation),matmul(virial,rotation));
+  boxValue->clearInputForce();
+  for(unsigned i=0; i<3; ++i)
+    for(unsigned j=0; j<3; ++j) {
+      boxValue->addForce( 3*i+j, virial(i,j) );
+    }
 
 
 }

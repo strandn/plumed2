@@ -33,53 +33,57 @@ namespace ves {
 /*
 Cubic B spline basis functions.
 
-\attention
-__These basis functions do not form orthogonal bases. We recommend using wavelets (\ref BF_WAVELETS) instead that do for orthogonal bases__.
+!!! attention ""
 
-A basis using cubic B spline functions according to \cite habermann_multidimensional_2007. See \cite ValssonPampel_Wavelets_2022 for full details.
+    __These basis functions do not form orthogonal bases. We recommend using wavelets ([BF_WAVELETS](BF_WAVELETS.md)) instead that do for orthogonal bases__.
+
+A basis using cubic B spline functions according to the first paper cited below. See the second paper cited below for full details.
 
 The mathematical expression of the individual splines is given by
-\f{align*}{
+$$
+\begin{aligned}
   h\left(x\right) =
   \begin{cases}
     \left(2 - \lvert x \rvert\right)^3, & 1 \leq \lvert x \rvert \leq 2\\
     4 - 6\lvert x \rvert^2 + 3 \lvert x \rvert^3,\qquad & \lvert x \rvert \leq 1\\
     0, & \text{elsewhere}.
   \end{cases}
-\f}
+\end{aligned}
+$$
 
-The full basis consists of equidistant splines at positions \f$\mu_i\f$ which are optimized in their height:
-\f{align*}{
+The full basis consists of equidistant splines at positions $\mu_i$ which are optimized in their height:
+$$
   f_i\left(x\right) = h\left(\frac{x-\mu_i}{\sigma}\right)
-\f}
+$$
 
-Note that the distance between individual splines cannot be chosen freely but is equal to the width: \f$\mu_{i+1} = \mu_{i} + \sigma\f$.
+Note that the distance between individual splines cannot be chosen freely but is equal to the width: $\mu_{i+1} = \mu_{i} + \sigma$.
 
 
 The ORDER keyword of the basis set determines the number of equally sized sub-intervalls to be used.
-On the borders of each of these sub-intervalls the mean \f$\mu_i\f$ of a spline function is placed.
+On the borders of each of these sub-intervalls the mean $\mu_i$ of a spline function is placed.
 
-The total number of basis functions is \f$\text{ORDER}+4\f$ as the constant \f$f_{0}(x)=1\f$, as well as the two splines with means just outside the interval are also included.
+The total number of basis functions is $\text{ORDER}+4$ as the constant $f_{0}(x)=1$, as well as the two splines with means just outside the interval are also included.
 
 As an example two adjacent basis functions can be seen below.
 The full basis consists of shifted splines in the full specified interval.
 
-\image html ves_basisf-splines.png
+![A graph illustrating the cubic B spline basisfunctions](figures/ves_basisf-splines.png)
 
 When the splines are used for a periodic CV (with the PERIODIC keyword),
-the sub-intervals are chosen in the same way, but only \f$\text{ORDER}+1\f$ functions
+the sub-intervals are chosen in the same way, but only $\text{ORDER}+1$ functions
 are required to fill it (the ones at the boundary coincide and the ones outside
 can be omitted).
 
 To avoid 'blind' optimization of the basis functions outside the currently sampled area, it is often beneficial to use the OPTIMIZATION_THRESHOLD keyword of the VES_LINEAR_EXPANSION (set it to a small value, e.g. 1e-6)
 
-\par Examples
+## Examples
+
 The bias is expanded with cubic B splines in the intervall from 0.0 to 10.0 specifying an order of 20.
 This results in 24 basis functions.
 
-\plumedfile
+```plumed
 bf: BF_CUBIC_B_SPLINES MINIMUM=0.0 MAXIMUM=10.0 ORDER=20
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -106,11 +110,12 @@ void BF_CubicBsplines::registerKeywords(Keywords& keys) {
   keys.add("optional","NORMALIZATION","the normalization factor that is used to normalize the basis functions by dividing the values. By default it is 2.");
   keys.addFlag("PERIODIC", false, "Use periodic version of basis set.");
   keys.remove("NUMERICAL_INTEGRALS");
+  keys.addDOI("10.1007/s10614-007-9092-4");
+  keys.addDOI("10.1021/acs.jctc.2c00197");
 }
 
 BF_CubicBsplines::BF_CubicBsplines(const ActionOptions&ao):
-  PLUMED_VES_BASISFUNCTIONS_INIT(ao)
-{
+  PLUMED_VES_BASISFUNCTIONS_INIT(ao) {
   log.printf("  Cubic B spline basis functions, see and cite ");
   log << plumed.cite("Pampel and Valsson, J. Chem. Theory Comput. 18, 4127-4141 (2022) - DOI:10.1021/acs.jctc.2c00197");
 
@@ -120,7 +125,9 @@ BF_CubicBsplines::BF_CubicBsplines(const ActionOptions&ao):
 
   bool periodic = false;
   parseFlag("PERIODIC",periodic);
-  if (periodic) {addKeywordToList("PERIODIC",periodic);}
+  if (periodic) {
+    addKeywordToList("PERIODIC",periodic);
+  }
 
   // 1 constant, getOrder() on interval, 1 (left) + 2 (right) at boundaries if not periodic
   unsigned int num_BFs = periodic ? getOrder()+1U : getOrder()+4U;
@@ -128,7 +135,9 @@ BF_CubicBsplines::BF_CubicBsplines(const ActionOptions&ao):
 
   double normfactor_=2.0;
   parse("NORMALIZATION",normfactor_);
-  if(normfactor_!=2.0) {addKeywordToList("NORMALIZATION",normfactor_);}
+  if(normfactor_!=2.0) {
+    addKeywordToList("NORMALIZATION",normfactor_);
+  }
   inv_normfactor_=1.0/normfactor_;
 
   periodic ? setPeriodic() : setNonPeriodic();
@@ -161,7 +170,11 @@ void BF_CubicBsplines::getAllValues(const double arg, double& argT, bool& inside
     values[i] = spline(argx, derivs[i]);
     derivs[i] *= inv_spacing_;
   }
-  if(!inside_range) {for(unsigned int i=0; i<derivs.size(); i++) {derivs[i]=0.0;}}
+  if(!inside_range) {
+    for(unsigned int i=0; i<derivs.size(); i++) {
+      derivs[i]=0.0;
+    }
+  }
 }
 
 
@@ -178,14 +191,12 @@ double BF_CubicBsplines::spline(const double arg, double& deriv) const {
   if(x > 2) {
     value=0.0;
     deriv=0.0;
-  }
-  else if(x >= 1) {
+  } else if(x >= 1) {
     value = ((2.0-x)*(2.0-x)*(2.0-x));
     deriv = dx*(-3.0*(2.0-x)*(2.0-x));
     // value=((2.0-x)*(2.0-x)*(2.0-x))/6.0;
     // deriv=-x*x*(2.0-x)*(2.0-x);
-  }
-  else {
+  } else {
     value = 4.0-6.0*x*x+3.0*x*x*x;
     deriv = dx*(-12.0*x+9.0*x*x);
     // value=x*x*x*0.5-x*x+2.0/3.0;

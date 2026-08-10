@@ -21,11 +21,11 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "MoreThan.h"
 #include "FunctionShortcut.h"
+#include "FunctionOfScalar.h"
 #include "FunctionOfVector.h"
 #include "FunctionOfMatrix.h"
 #include "core/ActionRegister.h"
 
-#include <cmath>
 
 namespace PLMD {
 namespace function {
@@ -34,77 +34,133 @@ namespace function {
 /*
 Use a switching function to determine how many of the input variables are more than a certain cutoff.
 
-\par Examples
+This action takes one argument, $r$ and evaluates the following function:
 
-*/
-//+ENDPLUMEDOC
+$$
+w(s) = 1 - s(r)
+$$
 
-//+PLUMEDOC FUNCTION MORE_THAN_VECTOR
-/*
-Use a switching function to determine how many of elements in the input vector are more than a certain cutoff.
+In this equation $s(r)$ is one of the switching functions described in the documentation for the action [LESS_THAN](LESS_THAN.md).
+The output value $w$ is thus a number between 0 and 1 that tells you if the input value is greater than some cutoff.  Furthermore,
+the value of $w$ smoothly from zero to one as the input value $r$ crosses the threshold of interest so any function of this value
+is differentiable.
 
-\par Examples
+The following example, shows how we can apply the function above on the instantaneous value of the distance between atom 1 and 2.
+The MORE_THAN action here is used to determine whether the input distance is greater than 0.2 nm.
 
-*/
-//+ENDPLUMEDOC
+```plumed
+d: DISTANCE ATOMS=1,2
+b: MORE_THAN ARG=d R_0=0.2 D_0=0.0 NN=6 MM=12
+```
 
-//+PLUMEDOC COLVAR MORE_THAN_MATRIX
-/*
-Transform all the elements of a matrix using a switching function that is one when the input value is larger than a threshold
+In the above input the rational switching function that is described in the documentation for [LESS_THAN](LESS_THAN.md) is used to
+transform the input distance. However, we would recommend using the following syntax rather than the one above:
 
-\par Examples
+```plumed
+d: DISTANCE ATOMS=1,2
+b: MORE_THAN ARG=d SWITCH={RATIONAL R_0=0.2}
+```
+
+as this syntax allows you to use all the switching function options described in the documentation for [LESS_THAN](LESS_THAN.md) here in place of RATIONAL.
+
+## Transforming the square
+
+If you have computed the square of the distance you can use the flag SQUARED to indicate that the input
+quantity is the square of the distance as indicated below:
+
+```plumed
+d: DISTANCE COMPONENTS ATOMS=1,2
+dm: CUSTOM ARG=d.x,d.y,d.z FUNC=x*x+y*y+z*z PERIODIC=NO
+s: MORE_THAN ARG=dm SQUARED SWITCH={RATIONAL R_0=0.2}
+```
+
+This option can be useful for improving performance by removing the expensive square root operations.
+
+## Non rank zero arguments
+
+Instead of passing a single scalar in the input to the `MORE_THAN` action you can pass a single vector as shown here:
+
+```plumed
+d: DISTANCE ATOMS1=1,2 ATOMS2=3,4 ATOMS3=5,6 ATOMS4=7,8
+b: MORE_THAN ARG=d SWITCH={RATIONAL R_0=0.2}
+```
+
+The input to the `MORE_THAN` action here is a vector with four elements. The output from the action `b` is similarly
+a vector with four elements. In calculating the elements of this vector PLUMED applies the function described in the previous
+section on each of the distances in turn. The first element of `b` thus tells you if the distance between atoms 1 and 2 is between
+greater than 0.2 nm, the second element tells you if the distance between atoms 3 and 4 is greater than 0.2 nm and so on.
+
+You can use the commands in the above example input to evaluate the number of distances that greater than a threshold as follows:
+
+```plumed
+d: DISTANCE ATOMS1=1,2 ATOMS2=3,4 ATOMS3=5,6 ATOMS4=7,8
+b: MORE_THAN ARG=d SWITCH={RATIONAL R_0=0.2}
+s: SUM ARG=b PERIODIC=NO
+PRINT ARG=s FILE=colvar
+```
+
+The final scalar that is output here is evaluated using the following summation:
+
+$$
+s = \sum_i 1 - s(d_i)
+$$
+
+where the sum over $i$ here runs over the four distances in the above expression. This scalar tells you the number of distances that are
+more than 0.2 nm.
+
+Notice that you can do something similar with a matrix as input as shown below:
+
+```plumed
+d: DISTANCE_MATRIX GROUPA=1-10 GROUPB=11-20
+b: MORE_THAN ARG=d SWITCH={RATIONAL R_0=0.2}
+s: SUM ARG=b PERIODIC=NO
+PRINT ARG=s FILE=colvar
+```
+
+This input tells PLUMED to calculate the 100 distances between the atoms in the two input groups. The final value that is printed to the colvar file then
+tells you how many of these distances are greater than 0.2 nm.
+
+## The MASK keyword
+
+Consider the following input:
+
+```plumed
+# Fixed virtual atom which serves as the probe volume's center (pos. in nm)
+center: FIXEDATOM AT=2.5,2.5,2.5
+# Vector in which element i is one if atom i is in sphere of interest and zero otherwise
+sphere: INSPHERE ATOMS=1-400 CENTER=center RADIUS={GAUSSIAN D_0=0.5 R_0=0.01 D_MAX=0.52}
+# Compute the coordination numbers
+adj: CONTACT_MATRIX GROUP=1-400 SWITCH={RATIONAL R_0=0.3 D_MAX=1.0} MASK=sphere
+ones: ONES SIZE=400
+coord: MATRIX_VECTOR_PRODUCT ARG=adj,ones
+# Determine if coordination numbers are more than 4 or not
+lt: MORE_THAN ARG=coord MASK=sphere SWITCH={RATIONAL R_0=4.0}
+# And calculate how many atoms in the region of interst have a coordination number that is less than four
+ltsphere: CUSTOM ARG=lt,sphere FUNC=x*y PERIODIC=NO
+cv: SUM ARG=ltsphere PERIODIC=NO
+PRINT ARG=cv FILE=colvar
+```
+
+This input calculates the total number of atoms that are within a spherical region that is centered on the point $(2.5,2.5,2.5)$ and have a
+coordination number that is more than 4.  Notice that to reduce the computational expense we use the MASK keyword in the input to
+[CONTACT_MATRIX](CONTACT_MATRIX.md) so PLUMED knows to not bother calculating the coordination numbers of atoms that are not within the spherical region of
+interest. Further notice that we have also used this MASK keyword in the input to MORE_THAN to prevent PLUMED from transforming the coordination numbers
+that have not been calculated with the switching function to get a further speed up.
+
+Using the MASK keyword in this way is necessary if the input argument is a vector. If the input argument is a matrix then you should never need to use the
+MASK keyword. PLUMED will use the sparsity pattern for the input matrix to reduce the number of transformations that are performed within MORE_THAN.
 
 */
 //+ENDPLUMEDOC
 
 typedef FunctionShortcut<MoreThan> MoreThanShortcut;
 PLUMED_REGISTER_ACTION(MoreThanShortcut,"MORE_THAN")
+typedef FunctionOfScalar<MoreThan> ScalarMoreThan;
+PLUMED_REGISTER_ACTION(ScalarMoreThan,"MORE_THAN_SCALAR")
 typedef FunctionOfVector<MoreThan> VectorMoreThan;
 PLUMED_REGISTER_ACTION(VectorMoreThan,"MORE_THAN_VECTOR")
 typedef FunctionOfMatrix<MoreThan> MatrixMoreThan;
 PLUMED_REGISTER_ACTION(MatrixMoreThan,"MORE_THAN_MATRIX")
 
-void MoreThan::registerKeywords(Keywords& keys) {
-  keys.add("compulsory","NN","6","The n parameter of the switching function ");
-  keys.add("compulsory","MM","0","The m parameter of the switching function; 0 implies 2*NN");
-  keys.add("compulsory","D_0","0.0","The d_0 parameter of the switching function");
-  keys.add("compulsory","R_0","The r_0 parameter of the switching function");
-  keys.add("optional","SWITCH","This keyword is used if you want to employ an alternative to the continuous swiching function defined above. "
-           "The following provides information on the \\ref switchingfunction that are available. "
-           "When this keyword is present you no longer need the NN, MM, D_0 and R_0 keywords.");
-  keys.addFlag("SQUARED",false,"is the input quantity the square of the value that you would like to apply the switching function to");
-  keys.setValueDescription("a function that is one if the if the input is more than a threshold");
-}
-
-void MoreThan::read( ActionWithArguments* action ) {
-  if( action->getNumberOfArguments()!=1 ) action->error("should only be one argument to more_than actions");
-  if( action->getPntrToArgument(0)->isPeriodic() ) action->error("cannot use this function on periodic functions");
-
-
-  std::string sw,errors;
-  action->parse("SWITCH",sw);
-  if(sw.length()>0) {
-    switchingFunction.set(sw,errors);
-    if( errors.length()!=0 ) action->error("problem reading SWITCH keyword : " + errors );
-  } else {
-    int nn=6; int mm=0; double d0=0.0; double r0=0.0; action->parse("R_0",r0);
-    if(r0<=0.0) action->error("R_0 should be explicitly specified and positive");
-    action->parse("D_0",d0); action->parse("NN",nn); action->parse("MM",mm);
-    switchingFunction.set(nn,mm,r0,d0);
-  }
-  action->log<<"  using switching function with cutoff "<<switchingFunction.description()<<"\n";
-  action->parseFlag("SQUARED",squared);
-  if( squared ) action->log<<"  input quantity is square of quantity that switching function acts upon\n";
-}
-
-void MoreThan::calc( const ActionWithArguments* action, const std::vector<double>& args, std::vector<double>& vals, Matrix<double>& derivatives ) const {
-  plumed_dbg_assert( args.size()==1 );
-  if( squared ) vals[0] = 1.0 - switchingFunction.calculateSqr( args[0], derivatives(0,0) );
-  else vals[0] = 1.0 - switchingFunction.calculate( args[0], derivatives(0,0) );
-  derivatives(0,0) = -args[0]*derivatives(0,0);
-}
-
 }
 }
-
-

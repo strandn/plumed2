@@ -49,7 +49,7 @@ namespace PLMD {
 namespace function {
 namespace pytorch {
 
-//+PLUMEDOC PYTORCH_FUNCTION PYTORCH_MODEL
+//+PLUMEDOC FUNCTION PYTORCH_MODEL
 /*
 Load a PyTorch model compiled with TorchScript.
 
@@ -57,26 +57,28 @@ This can be a function defined in Python or a more complex model, such as a neur
 
 By default it is assumed that the model is saved as: `model.ptc`, unless otherwise indicated by the `FILE` keyword. The function automatically checks for the number of output dimensions and creates a component for each of them. The outputs are called node-i with i between 0 and N-1 for N outputs.
 
-Note that this function requires \ref installation-libtorch LibTorch C++ library. Check the instructions in the \ref PYTORCH page to enable the module.
+Note that this function requires an installation of the LibTorch C++ library. Check the instructions on [the module page](module_pytorch.md) for instructions on how to enable the module.
 
-\par Examples
+## Examples
+
 Load a model called `torch_model.ptc` that takes as input two dihedral angles and returns two outputs.
 
-\plumedfile
-#SETTINGS AUXFILE=regtest/pytorch/rt-pytorch_model_2d/torch_model.ptc
+```plumed
 phi: TORSION ATOMS=5,7,9,15
 psi: TORSION ATOMS=7,9,15,17
-model: PYTORCH_MODEL FILE=torch_model.ptc ARG=phi,psi
+model: PYTORCH_MODEL ...
+  FILE=regtest/pytorch/rt-pytorch_model_2d/torch_model.ptc
+  ARG=phi,psi
+...
 PRINT FILE=COLVAR ARG=model.node-0,model.node-1
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
 
 
 class PytorchModel :
-  public Function
-{
+  public Function {
   unsigned _n_in;
   unsigned _n_out;
   torch::jit::script::Module _model;
@@ -94,7 +96,6 @@ PLUMED_REGISTER_ACTION(PytorchModel,"PYTORCH_MODEL")
 
 void PytorchModel::registerKeywords(Keywords& keys) {
   Function::registerKeywords(keys);
-  keys.use("ARG");
   keys.add("optional","FILE","Filename of the PyTorch compiled model");
   keys.addOutputComponent("node", "default", "Model outputs");
 }
@@ -106,8 +107,7 @@ std::vector<float> PytorchModel::tensor_to_vector(const torch::Tensor& x) {
 
 PytorchModel::PytorchModel(const ActionOptions&ao):
   Action(ao),
-  Function(ao)
-{
+  Function(ao) {
   // print libtorch version
   std::stringstream ss;
   ss << TORCH_VERSION_MAJOR << "." << TORCH_VERSION_MINOR << "." << TORCH_VERSION_PATCH;
@@ -134,8 +134,7 @@ PytorchModel::PytorchModel(const ActionOptions&ao):
     infile.close();
     if (exist) {
       plumed_merror("Cannot load FILE: '"+fname+"'. Please check that it is a Pytorch compiled model (exported with 'torch.jit.trace' or 'torch.jit.script').");
-    }
-    else {
+    } else {
       plumed_merror("The FILE: '"+fname+"' does not exist.");
     }
   }
@@ -200,8 +199,9 @@ void PytorchModel::calculate() {
 
   // retrieve arguments
   vector<float> current_S(_n_in);
-  for(unsigned i=0; i<_n_in; i++)
+  for(unsigned i=0; i<_n_in; i++) {
     current_S[i]=getArgument(i);
+  }
   //convert to tensor
   torch::Tensor input_S = torch::tensor(current_S).view({1,_n_in}).to(device);
   input_S.set_requires_grad(true);
@@ -223,8 +223,9 @@ void PytorchModel::calculate() {
     vector<float> der = this->tensor_to_vector ( gradient );
     string name_comp = "node-"+std::to_string(j);
     //set derivatives of component j
-    for(unsigned i=0; i<_n_in; i++)
+    for(unsigned i=0; i<_n_in; i++) {
       setDerivative( getPntrToComponent(name_comp),i, der[i] );
+    }
   }
 
   //set CV values

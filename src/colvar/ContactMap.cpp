@@ -32,42 +32,43 @@ namespace colvar {
 /*
 Calculate the distances between a number of pairs of atoms and transform each distance by a switching function.
 
+This CV calculates a series of distances between pairs of atoms and transforms them by a switching function.
 The transformed distance can be compared with a reference value in order to calculate the squared distance
 between two contact maps. Each distance can also be weighted for a given value. CONTACTMAP can be used together
-with \ref FUNCPATHMSD to define a path in the contactmap space.
+with [FUNCPATHMSD](FUNCPATHMSD.md) to define a path in contactmap space as was done in the 2008 paper by Bonomi that
+is cited below.
 
 The individual contact map distances related to each contact can be accessed as components
 named `cm.contact-1`, `cm.contact-2`, etc, assuming that the label of the CONTACTMAP is `cm`.
 
-\par Examples
+## Examples
 
 The following example calculates switching functions based on the distances between atoms
 1 and 2, 3 and 4 and 4 and 5. The values of these three switching functions are then output
 to a file named colvar.
 
-\plumedfile
-CONTACTMAP ATOMS1=1,2 ATOMS2=3,4 ATOMS3=4,5 ATOMS4=5,6 SWITCH={RATIONAL R_0=1.5} LABEL=f1
+```plumed
+f1: CONTACTMAP ATOMS1=1,2 ATOMS2=3,4 ATOMS3=4,5 ATOMS4=5,6 SWITCH={RATIONAL R_0=1.5}
 PRINT ARG=f1.* FILE=colvar
-\endplumedfile
+```
 
 The following example calculates the difference of the current contact map with respect
 to a reference provided. In this case REFERENCE is the fraction of contact that is formed
 (i.e. the distance between two atoms transformed with the SWITCH), while R_0 is the contact
 distance. WEIGHT gives the relative weight of each contact to the final distance measure.
 
-\plumedfile
-CONTACTMAP ...
-ATOMS1=1,2 REFERENCE1=0.1 WEIGHT1=0.5
-ATOMS2=3,4 REFERENCE2=0.5 WEIGHT2=1.0
-ATOMS3=4,5 REFERENCE3=0.25 WEIGHT3=1.0
-ATOMS4=5,6 REFERENCE4=0.0 WEIGHT4=0.5
-SWITCH={RATIONAL R_0=1.5}
-LABEL=cmap
-CMDIST
-... CONTACTMAP
+```plumed
+cmap: CONTACTMAP ...
+  ATOMS1=1,2 REFERENCE1=0.1 WEIGHT1=0.5
+  ATOMS2=3,4 REFERENCE2=0.5 WEIGHT2=1.0
+  ATOMS3=4,5 REFERENCE3=0.25 WEIGHT3=1.0
+  ATOMS4=5,6 REFERENCE4=0.0 WEIGHT4=0.5
+  SWITCH={RATIONAL R_0=1.5}
+  CMDIST
+...
 
 PRINT ARG=cmap FILE=colvar
-\endplumedfile
+```
 
 The next example calculates calculates fraction of native contacts (Q)
 for Trp-cage mini-protein. R_0 is the distance at which the switch function is guaranteed to
@@ -78,26 +79,24 @@ the reference value to be formed; instead for lambda values of 1.5–1.8 are usu
 BETA is the softness of the switch function, default is 50nm.
 WEIGHT is the 1/(number of contacts) giving equal weight to each contact.
 
-When using native contact Q switch function, please cite \cite best2013
+When using native contact Q switch function, please cite the 2013 paper from Best from the bibliography below
 
-\plumedfile
+```plumed
 # The full (much-longer) example available in regtest/basic/rt72/
 
-CONTACTMAP ...
-ATOMS1=1,67 SWITCH1={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.4059} WEIGHT1=0.003597
-ATOMS2=1,68 SWITCH2={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.4039} WEIGHT2=0.003597
-ATOMS3=1,69 SWITCH3={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3215} WEIGHT3=0.003597
-ATOMS4=5,61 SWITCH4={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.4277} WEIGHT4=0.003597
-ATOMS5=5,67 SWITCH5={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3851} WEIGHT5=0.003597
-ATOMS6=5,68 SWITCH6={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3811} WEIGHT6=0.003597
-ATOMS7=5,69 SWITCH7={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3133} WEIGHT7=0.003597
-LABEL=cmap
-SUM
-... CONTACTMAP
+cmap: CONTACTMAP ...
+   ATOMS1=1,67 SWITCH1={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.4059} WEIGHT1=0.003597
+   ATOMS2=1,68 SWITCH2={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.4039} WEIGHT2=0.003597
+   ATOMS3=1,69 SWITCH3={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3215} WEIGHT3=0.003597
+   ATOMS4=5,61 SWITCH4={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.4277} WEIGHT4=0.003597
+   ATOMS5=5,67 SWITCH5={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3851} WEIGHT5=0.003597
+   ATOMS6=5,68 SWITCH6={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3811} WEIGHT6=0.003597
+   ATOMS7=5,69 SWITCH7={Q R_0=0.01 BETA=50.0 LAMBDA=1.5 REF=0.3133} WEIGHT7=0.003597
+   SUM
+...
 
 PRINT ARG=cmap FILE=colvar
-\endplumedfile
-(See also \ref switchingfunction)
+```
 
 */
 //+ENDPLUMEDOC
@@ -135,10 +134,14 @@ void ContactMap::registerKeywords( Keywords& keys ) {
            "You can either specify a global weight value using WEIGHT or one "
            "weight value for each contact.");
   keys.reset_style("SWITCH","compulsory");
+  keys.linkActionInDocs("SWITCH","LESS_THAN");
   keys.addFlag("SUM",false,"calculate the sum of all the contacts in the input");
   keys.addFlag("CMDIST",false,"calculate the distance with respect to the provided reference contact map");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
-  keys.addOutputComponent("contact","default","By not using SUM or CMDIST each contact will be stored in a component");
+  keys.addOutputComponent("contact","default","scalar","By not using SUM or CMDIST each contact will be stored in a component");
+  keys.setValueDescription("scalar","the sum of all the switching function on all the distances");
+  keys.addDOI("10.1021/ja803652f");
+  keys.addDOI("10.1073/pnas.1311599110");
 }
 
 ContactMap::ContactMap(const ActionOptions&ao):
@@ -147,12 +150,13 @@ ContactMap::ContactMap(const ActionOptions&ao):
   serial(false),
   docomp(true),
   dosum(false),
-  docmdist(false)
-{
+  docmdist(false) {
   parseFlag("SERIAL",serial);
   parseFlag("SUM",dosum);
   parseFlag("CMDIST",docmdist);
-  if(docmdist==true&&dosum==true) error("You cannot use SUM and CMDIST together");
+  if(docmdist==true&&dosum==true) {
+    error("You cannot use SUM and CMDIST together");
+  }
   bool nopbc=!pbc;
   parseFlag("NOPBC",nopbc);
   pbc=!nopbc;
@@ -161,39 +165,61 @@ ContactMap::ContactMap(const ActionOptions&ao):
   std::vector<AtomNumber> t, ga_lista, gb_lista;
   for(int i=1;; ++i ) {
     parseAtomList("ATOMS", i, t );
-    if( t.empty() ) break;
+    if( t.empty() ) {
+      break;
+    }
 
     if( t.size()!=2 ) {
-      std::string ss; Tools::convert(i,ss);
+      std::string ss;
+      Tools::convert(i,ss);
       error("ATOMS" + ss + " keyword has the wrong number of atoms");
     }
-    ga_lista.push_back(t[0]); gb_lista.push_back(t[1]);
+    ga_lista.push_back(t[0]);
+    gb_lista.push_back(t[1]);
     t.resize(0);
 
     // Add a value for this contact
-    std::string num; Tools::convert(i,num);
-    if(!dosum&&!docmdist) {addComponentWithDerivatives("contact-"+num); componentIsNotPeriodic("contact-"+num);}
+    std::string num;
+    Tools::convert(i,num);
+    if(!dosum&&!docmdist) {
+      addComponentWithDerivatives("contact-"+num);
+      componentIsNotPeriodic("contact-"+num);
+    }
   }
   // Create neighbour lists
   nl=Tools::make_unique<NeighborList>(ga_lista,gb_lista,serial,true,pbc,getPbc(),comm);
 
   // Read in switching functions
-  std::string errors; sfs.resize( ga_lista.size() ); unsigned nswitch=0;
+  std::string errors;
+  sfs.resize( ga_lista.size() );
+  unsigned nswitch=0;
   for(unsigned i=0; i<ga_lista.size(); ++i) {
-    std::string num, sw1; Tools::convert(i+1, num);
-    if( !parseNumbered( "SWITCH", i+1, sw1 ) ) break;
-    nswitch++; sfs[i].set(sw1,errors);
-    if( errors.length()!=0 ) error("problem reading SWITCH" + num + " keyword : " + errors );
+    std::string num, sw1;
+    Tools::convert(i+1, num);
+    if( !parseNumbered( "SWITCH", i+1, sw1 ) ) {
+      break;
+    }
+    nswitch++;
+    sfs[i].set(sw1,errors);
+    if( errors.length()!=0 ) {
+      error("problem reading SWITCH" + num + " keyword : " + errors );
+    }
   }
   if( nswitch==0 ) {
-    std::string sw; parse("SWITCH",sw);
-    if(sw.length()==0) error("no switching function specified use SWITCH keyword");
+    std::string sw;
+    parse("SWITCH",sw);
+    if(sw.length()==0) {
+      error("no switching function specified use SWITCH keyword");
+    }
     for(unsigned i=0; i<ga_lista.size(); ++i) {
       sfs[i].set(sw,errors);
-      if( errors.length()!=0 ) error("problem reading SWITCH keyword : " + errors );
+      if( errors.length()!=0 ) {
+        error("problem reading SWITCH keyword : " + errors );
+      }
     }
   } else if( nswitch!=sfs.size()  ) {
-    std::string num; Tools::convert(nswitch+1, num);
+    std::string num;
+    Tools::convert(nswitch+1, num);
     error("missing SWITCH" + num + " keyword");
   }
 
@@ -201,7 +227,9 @@ ContactMap::ContactMap(const ActionOptions&ao):
   nswitch=0;
   reference.resize(ga_lista.size(), 0.);
   for(unsigned i=0; i<ga_lista.size(); ++i) {
-    if( !parseNumbered( "REFERENCE", i+1, reference[i] ) ) break;
+    if( !parseNumbered( "REFERENCE", i+1, reference[i] ) ) {
+      break;
+    }
     nswitch++;
   }
   if( nswitch==0 ) {
@@ -211,13 +239,17 @@ ContactMap::ContactMap(const ActionOptions&ao):
       nswitch++;
     }
   }
-  if(nswitch == 0 && docmdist) error("with CMDIST one must use REFERENCE to setup the reference contact map");
+  if(nswitch == 0 && docmdist) {
+    error("with CMDIST one must use REFERENCE to setup the reference contact map");
+  }
 
   // Read in weight values
   nswitch=0;
   weight.resize(ga_lista.size(), 1.0);
   for(unsigned i=0; i<ga_lista.size(); ++i) {
-    if( !parseNumbered( "WEIGHT", i+1, weight[i] ) ) break;
+    if( !parseNumbered( "WEIGHT", i+1, weight[i] ) ) {
+      break;
+    }
     nswitch++;
   }
   if( nswitch==0 ) {
@@ -235,11 +267,13 @@ ContactMap::ContactMap(const ActionOptions&ao):
   }
 
   if(dosum) {
-    addValueWithDerivatives(); setNotPeriodic();
+    addValueWithDerivatives();
+    setNotPeriodic();
     log.printf("  colvar is sum of all contacts in contact map\n");
   }
   if(docmdist) {
-    addValueWithDerivatives(); setNotPeriodic();
+    addValueWithDerivatives();
+    setNotPeriodic();
     log.printf("  colvar is distance between the contact map matrix and the provided reference matrix\n");
   }
 
@@ -312,12 +346,16 @@ void ContactMap::calculate() {
 
   if(!serial) {
     comm.Sum(&ncoord,1);
-    if(!deriv.empty()) comm.Sum(&deriv[0][0],3*deriv.size());
+    if(!deriv.empty()) {
+      comm.Sum(&deriv[0][0],3*deriv.size());
+    }
     comm.Sum(&virial[0][0],9);
   }
 
   if( !docomp ) {
-    for(unsigned i=0; i<deriv.size(); ++i) setAtomsDerivatives(i,deriv[i]);
+    for(unsigned i=0; i<deriv.size(); ++i) {
+      setAtomsDerivatives(i,deriv[i]);
+    }
     setValue           (ncoord);
     setBoxDerivatives  (virial);
   }

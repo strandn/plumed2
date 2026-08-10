@@ -13,7 +13,7 @@ SUBDIRS := $(SRCDIRS) user-doc developer-doc regtest macports vim json astyle py
 SUBDIRSCLEAN:=$(addsuffix .clean,$(SUBDIRS))
 
      
-.PHONY: all lib clean $(SRCDIRS) doc docclean check installcheck cppcheck distclean all_plus_docs macports codecheck plumedcheck astyle nmcheck
+.PHONY: all lib clean $(SRCDIRS) doc docclean check check_failed installcheck cppcheck distclean all_plus_docs macports codecheck plumedcheck astyle nmcheck
 
 # if machine dependent configuration has been found:
 ifdef GCCDEP
@@ -32,7 +32,7 @@ all_plus_docs:
 lib:
 	$(MAKE)	-C src
 
-install:
+install: all
 	$(MAKE) -C src install
 
 uninstall:
@@ -54,7 +54,7 @@ test: src
 
 # doxygen
 doc:
-	$(MAKE) -C user-doc
+	$(MAKE) -C new-manual
 	$(MAKE) -C developer-doc
 
 docs:
@@ -65,6 +65,10 @@ docs:
 check:
 	LD_LIBRARY_PATH="$(realpath .)/src/lib":${LD_LIBRARY_PATH} PLUMED_PREPEND_PATH="$(realpath .)/src/lib" $(MAKE) -C regtest
 	$(MAKE) -C regtest checkfail
+
+check_failed:
+	LD_LIBRARY_PATH="$(realpath .)/src/lib":${LD_LIBRARY_PATH} PLUMED_PREPEND_PATH="$(realpath .)/src/lib" $(MAKE) -C regtest
+	$(MAKE) -C regtest checkfail_onlyfailed
 
 # perform tests using the installed version of plumed
 installcheck:
@@ -110,6 +114,15 @@ codecheck:
 plumedcheck:
 	$(MAKE) -C src plumedcheck
 
+cppcheck-local:
+	$(MAKE) -C src cppcheck-local
+
+codecheck-local:
+	$(MAKE) -C src codecheck-local
+
+plumedcheck-local:
+	$(MAKE) -C src plumedcheck-local
+
 macports:
 	$(MAKE) -C macports
 
@@ -127,6 +140,8 @@ config.status: configure
 astyle:
 	$(MAKE) -C astyle
 	$(MAKE) -C src astyle
+	$(MAKE) -C plugins astyle
+	@which ruff &> /dev/null && ./pythonformatter.sh || echo "ruff not found, cannot format python files"
 
 ifeq ($(use_debug_glibcxx),yes)
 nmcheck:

@@ -31,16 +31,14 @@ namespace generic {
 /*
 Conditional update of other actions.
 
-
 This action can be used to enable and disable the update step for the following actions
-depending on the value of its arguments. This allows for example to extract snapshots
+depending on the value of its arguments. This allows one to extract snapshots
 with value of some CVs in a given range.
 
 When called with MORE_THAN and/or LESS_THAN keywords, this action starts an if block.
 The block is executed if all the arguments are less than all the respective values
 in the LESS_THAN keyword (if present) and all the arguments are more than all the
-respective values
-in the MORE_THAN keyword (if present).
+respective values in the MORE_THAN keyword (if present).
 
 When called with the END flag, this action ends the corresponding IF block.
 Notice that in this case one should also provide the ARG keyword. It is recommended to
@@ -51,17 +49,31 @@ Of course, blocks can be nested at will.
 There are many potential usages for this keyword. One might e.g. decide to analyze some variable
 only when another variable is within a given range.
 
-\warning
-Notice that not all the possible usage make
-particular sense. For example, conditionally updating a \ref METAD keyword
-(that is: adding hills only if a variable is within a given range)
-can lead to unexpected results.
+!!! caution ""
 
-\par Examples
+    Notice that not all the possible usage make
+    particular sense. For example, conditionally updating a \ref METAD keyword
+    (that is: adding hills only if a variable is within a given range)
+    can lead to unexpected results.
 
-The following input instructs plumed dump all the snapshots where an atom is in touch with
+## Examples
+
+The following input instructs plumed to dump all the snapshots in which atoms 1 and 2 are within
+0.3 nm of each other:
+
+```plumed
+d: DISTANCE ATOMS=1,2
+UPDATE_IF ARG=d LESS_THAN=0.3 STRIDE=1
+DUMPATOMS ATOMS=@mdatoms FILE=output.xyz
+UPDATE_IF ARG=d END
+```
+
+Notice, that the STRIDE is set equal to one by default.  You will likely always want to set it to this value.
+
+The following input instructs plumed to dump all the snapshots where an atom is in touch with
 the solute.
-\plumedfile
+
+```plumed
 solute: GROUP ATOMS=1-124
 coord: COORDINATION GROUPA=solute GROUPB=500 R_0=0.5
 
@@ -71,15 +83,14 @@ coord: COORDINATION GROUPA=solute GROUPB=500 R_0=0.5
 UPDATE_IF ARG=coord MORE_THAN=0.5
 DUMPATOMS ATOMS=solute,500 FILE=output.xyz
 UPDATE_IF ARG=coord END
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
 
 class UpdateIf:
   public ActionPilot,
-  public ActionWithArguments
-{
+  public ActionWithArguments {
   std::vector<double> lower;
   std::vector<double> upper;
   bool on;
@@ -100,7 +111,7 @@ void UpdateIf::registerKeywords(Keywords& keys) {
   Action::registerKeywords(keys);
   ActionPilot::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
-  keys.use("ARG");
+  keys.addInputKeyword("compulsory","ARG","scalar","the labels of values that should be used to make the decision on whether to update or not");
   keys.add("compulsory","STRIDE","1","the frequency with which the quantities of interest should be output");
   keys.addFlag("END",false,"end");
   keys.add("optional","LESS_THAN","upper bound");
@@ -112,17 +123,28 @@ UpdateIf::UpdateIf(const ActionOptions&ao):
   ActionPilot(ao),
   ActionWithArguments(ao),
   on(false),
-  end(false)
-{
+  end(false) {
   parseFlag("END",end);
   parseVector("LESS_THAN",upper);
   parseVector("MORE_THAN",lower);
-  if(end && upper.size()!=0) error("END and LESS_THAN are not compatible");
-  if(end && lower.size()!=0) error("END and MORE_THAN are not compatible");
-  if(upper.size()==0) upper.assign(getNumberOfArguments(),+std::numeric_limits<double>::max());
-  if(lower.size()==0) lower.assign(getNumberOfArguments(),-std::numeric_limits<double>::max());
-  if(upper.size()!=getNumberOfArguments()) error("LESS_THAN should have the same size as ARG");
-  if(lower.size()!=getNumberOfArguments()) error("MORE_THAN should have the same size as ARG");
+  if(end && upper.size()!=0) {
+    error("END and LESS_THAN are not compatible");
+  }
+  if(end && lower.size()!=0) {
+    error("END and MORE_THAN are not compatible");
+  }
+  if(upper.size()==0) {
+    upper.assign(getNumberOfArguments(),+std::numeric_limits<double>::max());
+  }
+  if(lower.size()==0) {
+    lower.assign(getNumberOfArguments(),-std::numeric_limits<double>::max());
+  }
+  if(upper.size()!=getNumberOfArguments()) {
+    error("LESS_THAN should have the same size as ARG");
+  }
+  if(lower.size()!=getNumberOfArguments()) {
+    error("MORE_THAN should have the same size as ARG");
+  }
   for(unsigned i=0; i<getNumberOfArguments(); ++i) {
     log<<"  boundaries for argument "<<i<<"    "<<lower[i]<<" "<<upper[i]<<"\n";
   }
@@ -136,15 +158,21 @@ void UpdateIf::prepare() {
 void UpdateIf::calculate() {
   on=true;
   for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-    if(getArgument(i)>=upper[i] || getArgument(i)<=lower[i]) on=false;
+    if(getArgument(i)>=upper[i] || getArgument(i)<=lower[i]) {
+      on=false;
+    }
   }
 }
 
 void UpdateIf::beforeUpdate() {
-  if(end) plumed.updateFlagsPop();
-  else {
-    if(on) plumed.updateFlagsPush(plumed.updateFlagsTop());
-    else   plumed.updateFlagsPush(false);
+  if(end) {
+    plumed.updateFlagsPop();
+  } else {
+    if(on) {
+      plumed.updateFlagsPush(plumed.updateFlagsTop());
+    } else {
+      plumed.updateFlagsPush(false);
+    }
   }
 }
 

@@ -29,6 +29,9 @@
 #include "tools/Log.h"
 #include "tools/DLLoader.h"
 #include "tools/Random.h"
+#include "tools/TrajectoryParser.h"
+#include "tools/AtomDistribution.h"
+#include "tools/AtomDistributionFiles.h"
 
 #include <cstdio>
 #include <string>
@@ -41,54 +44,63 @@
 #include <algorithm>
 #include <chrono>
 #include <string_view>
+#include <optional>
 
 namespace PLMD {
 namespace cltools {
 
 //+PLUMEDOC TOOLS benchmark
 /*
-benchmark is a lightweight reimplementation of driver focused on running benchmarks
+benchmark is a lightweight reimplementation of [driver](driver.md) that can be used to run benchmark calculations
 
-The main difference wrt driver is that it generates a trajectory in memory rather than reading it
-from a file. This allows to better time the overhead of the plumed library, without including
-the time needed to read the trajectory.
+The main difference between [driver](driver.md) and benchmark is that benchmark generates a trajectory in memory rather than reading a
+trajectory from a file. This approach is better for timing the overhead of the plumed library.  If you do similar benchmarking with driver
+the timings you get are dominated by the time spent doing the I/O operations that are required to read the trajectory.
 
-It is also possible to load a separate version of the plumed kernel. This enables running
-benchmarks agaist previous plumed versions in a controlled setting, where systematic errors
-in the comparison are minimized.
+## Basic usage
 
-\par Examples
+If you want to use benchmark you first create a sample `plumed.dat` file for testing. For example:
 
-First, you should create a sample `plumed.dat` file for testing. For instance:
-
-\plumedfile
+```plumed
 WHOLEMOLECULES ENTITY0=1-10000
 p: POSITION ATOM=1
 RESTRAINT ARG=p.x KAPPA=1 AT=0
-\endplumedfile
+```
 
-Then you can test the performance of this input with the following command:
-\verbatim
+You can then run this benchmark using the following command:
+
+```plumed
 plumed benchmark
-\endverbatim
+```
 
-You can also test a different (older) version of PLUMED with the same input. To do so,
-you should run
-\verbatim
+Notice, that benchmark will read an input file called `plumed.dat` by default.  You can specify a different name for you PLUMED input file
+by using the `--plumed` flag.
+
+## Running with a different PLUMED version
+
+If you want to run a benchmark against a previous plumed version in a controlled setting you can do so by using the command:
+
+```plumed
 plumed-runtime benchmark --kernel /path/to/lib/libplumedKernel.so
-\endverbatim
+```
 
-\warning It is necessary to use the `plumed-runtime` executable here to avoid conflicts between different
-plumed versions. You will find it in your path if you are using the non installed version of plumed,
-and in `$prefix/lib/plumed` if you installed plumed in $prefix,.
+If you use this command the version of PLUMED that is in your environment calls the version of the library that is specified using the
+`--kernel` flag.  Running the benchmark in this way ensures that you are running in a controlled setting, where systematic errors
+in the comparison are minimized.
 
-\par Comparing multiple versions
+!!! warning "using plumed-runtime"
 
-The best way to compare two versions of plumed on the same input is to pass multiple colon-separated kernels:
+    You use the `plumed-runtime` executable here to avoid conflicts between different
+    plumed versions. You will find the `plumed-runtime` executable in your path if you are using the non installed version of plumed,
+    and in `$prefix/lib/plumed` if you installed plumed in $prefix,.
 
-\verbatim
+## Comparing multiple versions
+
+The best way to compare two versions of plumed on the same input is to pass multiple colon-separated kernels as shown below:
+
+```plumed
 plumed-runtime benchmark --kernel /path/to/lib/libplumedKernel.so:/path2/to/lib/libplumedKernel.so:this
-\endverbatim
+```
 
 Here `this` means the kernel of the version with which you are running the benchmark. This comparison runs the three
 instances simultaneously (alternating them) so that systematic differences in the load of your machine will affect them
@@ -97,64 +109,67 @@ to the same extent.
 In case the different versions require modified plumed.dat files, or if you simply want to compare
 two different plumed input files that compute the same thing, you can also use multiple plumed input files:
 
-\verbatim
+```plumed
 plumed-runtime benchmark --kernel /path/to/lib/libplumedKernel.so:this --plumed plumed1.dat:plumed2.dat
-\endverbatim
+```
 
-Similarly, you might want to run two different inputs using the same kernel, which can be obtained with:
+Similarly, you might want to run two different inputs using the same kernel by using an input like this:
 
-\verbatim
+```plumed
 plumed-runtime benchmark --plumed plumed1.dat:plumed2.dat
-\endverbatim
+```
 
-\par Profiling
+## Profiling
 
-If you want to attach a profiler on the fly to the process, you might find it convenient to use `--nsteps -1`.
-The simulation will run forever and can be interrupted with CTRL-C. When interrupted, the result of the timers
+If you want to attach a profiler to the process on the fly, you might find it convenient to use `--nsteps -1`.
+This options ensures that the simulation runs forever unless interrupted with CTRL-C. When interrupted, the result of the timers
 should be displayed anyway.
-You can also run setting a maximum time with `--maxtime`.
+You can also set a maximum time for the calculating by using the `--maxtime` flag.
 
-If you run a profiler when testing multiple PLUMED versions you might be confused by which function is from
-each version. It is recommended to recompile separate instances with a separate C++ namespace (`-DPLMD=PLUMED_version_1`)
+If you run a profiler when testing multiple PLUMED versions it can be difficult to determine which function is from
+each version. We therefore recommended you recompile separate PLUMED instances with a separate C++ namespace (`-DPLMD=PLUMED_version_1`)
 so that you will be able to distinguish them. In addition, compiling with `CXXFLAGS="-g -O3"` will make the profiling
-report more complete, likely including code lines.
+report more complete and will likely highlight lines of code that are particularly computationally demanding.
 
-\par MPI runs
+## MPI runs
 
-You can run emulating a domain decomposition. This is done automatically if plumed has been compiled with MPI
-and you run with `mpirun`
+You can also run a benchmark that emulates a domain decomposition if plumed has been compiled with MPI
+and you run with `mpirun` and a command like the one shown below:
 
-\verbatim
+```plumed
 mpirun -np 4 plumed-runtime benchmark
-\endverbatim
+```
 
 If you load separate PLUMED instances as discussed above, they should all be compiled against the same MPI version.
 Notice that when using MPI signals (CTRL-C) might not work.
 
 Since some of the data transfer could happen asynchronously, you might want to use the `--sleep` option
 to simulate a lag between the `prepareCalc` and `performCalc` actions. This part of the calculation will not contribute
-to timer, but will obviously slow down your test.
+to the output timings, but will obviously slow down your test.
 
-\par Output
+## Output
 
-In the output you will see the usual reports about timing produced by the internal
+In the output you will see the usual reports about timings produced by the internal
 timers of the tested plumed instances.
-In addition, this tool will monitor the timing externally, with some slightly different criterion:
+
+In addition, this tool monitors the timing externally, with some slightly different criterion:
+
 - First, the initialization (construction of the input) will be shown with a separate timer,
   as well as the timing for the first step.
 - Second, the timer corresponding to the calculation will be split in three parts, reporting
   execution of the first 20% (warm-up) and the next two blocks of 40% each.
-- Finally, you might notice some discrepancy because some of the actions that are usually
+- Finally, you might notice some discrepancies because some of the actions that are usually
   not expensive are not included in the internal timers. The external timer will
-  thus provide a better estimate of the total elapsed time, including everything.
+  thus provide a better estimate of the total elapsed time that includes everything.
 
 The internal timers are still useful to monitor what happens at the different stages
-and, with \ref DEBUG `DETAILED_TIMERS`, what happens in each action.
+of the calculattion.  If you want more detailed information you can also use a
+[DEBUG](DEBUG.md) action with the `DETAILED_TIMERS`, to determine how much time is spnt in each action.
 
 When you run multiple version, a comparative analisys of the time spent within PLUMED in the various
-instances will be done, showing the ratio between the total time and the time measured on the first
-instance, which will act as a reference. Errors will be estimated with bootstrapping. The warm-up phase will be discarded for
-this analysis.
+instances will be done.  For each PLUMED instance you run, this analysis shows the ratio between the total time each PLUMED instance ran for and the total time the first
+PLUMED instance ran for. In other words, the first time that the first PLUMED instance ran for is used as the basis for comparisons. Errors on these estimates of the timings
+are calculated using bootstrapping and the warm-up phase is discarded in the analysis.
 
 */
 //+ENDPLUMEDOC
@@ -195,7 +210,11 @@ private:
 extern "C" void signalHandler(int signal) {
   if (signal == SIGINT) {
     signalReceived.store(true);
-    fprintf(stderr, "Signal handler called\n");
+    fprintf(stderr, "Signal interrupt received\n");
+  }
+  if (signal == SIGTERM) {
+    signalReceived.store(true);
+    fprintf(stderr, "Signal termination received\n");
   }
 }
 
@@ -212,11 +231,13 @@ struct KernelBase {
     path(path_),
     plumed_dat(plumed_dat_),
     handle([&]() {
-    if(path_=="this") return PlumedHandle();
-    else return PlumedHandle::dlopen(path.c_str());
+    if(path_=="this") {
+      return PlumedHandle();
+    } else {
+      return PlumedHandle::dlopen(path.c_str());
+    }
   }()),
-  stopwatch(*log_)
-  {
+  stopwatch(*log_) {
   }
 };
 
@@ -228,8 +249,7 @@ struct Kernel :
   Log* log=nullptr;
   Kernel(const std::string & path_,const std::string & the_plumed_dat, Log* log_):
     KernelBase(path_,the_plumed_dat,log_),
-    log(log_)
-  {
+    log(log_) {
   }
 
   ~Kernel() {
@@ -245,13 +265,11 @@ struct Kernel :
 
   Kernel(Kernel && other) noexcept:
     KernelBase(std::move(other)),
-    log(other.log)
-  {
+    log(other.log) {
     other.log=nullptr; // ensure no log is done in the moved away object
   }
 
-  Kernel & operator=(Kernel && other) noexcept
-  {
+  Kernel & operator=(Kernel && other) noexcept {
     if(this != &other) {
       KernelBase::operator=(std::move(other));
       log=other.log;
@@ -261,183 +279,91 @@ struct Kernel :
   }
 };
 
-namespace  {
 
-class UniformSphericalVector {
-  //double rminCub;
-  double rCub;
-
-public:
-  //assuming rmin=0
-  UniformSphericalVector(const double rmax):
-    rCub (rmax*rmax*rmax/*-rminCub*/) {}
-  PLMD::Vector operator()(Random& rng) {
-    double rho = std::cbrt (/*rminCub + */rng.RandU01()*rCub);
-    double theta =std::acos (2.0*rng.RandU01() -1.0);
-    double phi = 2.0 * PLMD::pi * rng.RandU01();
-    return Vector (
-             rho * sin (theta) * cos (phi),
-             rho * sin (theta) * sin (phi),
-             rho * cos (theta));
-  }
-};
-
-///Acts as a template for any distribution
-struct AtomDistribution {
-  virtual void positions(std::vector<Vector>& posToUpdate, unsigned /*step*/, Random&)=0;
-  virtual void box(std::vector<double>& box, unsigned /*natoms*/, unsigned /*step*/, Random&) {
-    std::fill(box.begin(), box.end(),0);
-  };
-  virtual ~AtomDistribution() noexcept {}
-};
-
-struct theLine:public AtomDistribution {
-  void positions(std::vector<Vector>& posToUpdate, unsigned step, Random&rng) override {
-    auto nat = posToUpdate.size();
-    UniformSphericalVector usv(0.5);
-
-    for (unsigned i=0; i<nat; ++i) {
-      posToUpdate[i] = Vector(i, 0, 0) + usv(rng);
-    }
-  }
-};
-
-struct uniformSphere:public AtomDistribution {
-  void positions(std::vector<Vector>& posToUpdate, unsigned /*step*/, Random& rng) override {
-
-    //giving more or less a cubic udm of volume for each atom: V=nat
-    const double rmax= std::cbrt ((3.0/(4.0*PLMD::pi)) * posToUpdate.size());
-
-    UniformSphericalVector usv(rmax);
-    auto s=posToUpdate.begin();
-    auto e=posToUpdate.end();
-    //I am using the iterators:this is slightly faster,
-    // enough to overcome the cost of the vtable that I added
-    for (unsigned i=0; s!=e; ++s,++i) {
-      *s = usv (rng);
-    }
-
-  }
-  void box(std::vector<double>& box, unsigned natoms, unsigned /*step*/, Random&) override {
-    const double rmax= 2.0*std::cbrt((3.0/(4.0*PLMD::pi)) * natoms);
-    box[0]=rmax; box[1]=0.0;  box[2]=0.0;
-    box[3]=0.0;  box[4]=rmax; box[5]=0.0;
-    box[6]=0.0;  box[7]=0.0;  box[8]=rmax;
-
-  }
-};
-
-struct twoGlobs: public AtomDistribution {
-  virtual void positions(std::vector<Vector>& posToUpdate, unsigned /*step*/, Random&rng) {
-    //I am using two unigform spheres and 2V=n
-    const double rmax= std::cbrt ((3.0/(8.0*PLMD::pi)) * posToUpdate.size());
-
-    UniformSphericalVector usv(rmax);
-    std::array<Vector,2> centers{
-      PLMD::Vector{0.0,0.0,0.0},
-//so they do not overlap
-      PLMD::Vector{2.0*rmax,2.0*rmax,2.0*rmax}
-    };
-    std::generate(posToUpdate.begin(),posToUpdate.end(),[&]() {
-      //RandInt is only declared
-      // return usv (rng) + centers[rng.RandInt(1)];
-      return usv (rng) + centers[rng.RandU01()>0.5];
-    });
-  }
-
-  virtual void box(std::vector<double>& box, unsigned natoms, unsigned /*step*/, Random&) {
-
-    const double rmax= 4.0 * std::cbrt ((3.0/(8.0*PLMD::pi)) * natoms);
-    box[0]=rmax; box[1]=0.0;  box[2]=0.0;
-    box[3]=0.0;  box[4]=rmax; box[5]=0.0;
-    box[6]=0.0;  box[7]=0.0;  box[8]=rmax;
-  };
-};
-
-struct uniformCube:public AtomDistribution {
-  void positions(std::vector<Vector>& posToUpdate, unsigned /*step*/, Random& rng) override {
-    //giving more or less a cubic udm of volume for each atom: V = nat
-    const double rmax = std::cbrt(static_cast<double>(posToUpdate.size()));
-
-
-
-    // std::generate(posToUpdate.begin(),posToUpdate.end(),[&]() {
-    //   return Vector (rndR(rng),rndR(rng),rndR(rng));
-    // });
-    auto s=posToUpdate.begin();
-    auto e=posToUpdate.end();
-    //I am using the iterators:this is slightly faster,
-    // enough to overcome the cost of the vtable that I added
-    for (unsigned i=0; s!=e; ++s,++i) {
-      *s = Vector (rng.RandU01()*rmax,rng.RandU01()*rmax,rng.RandU01()*rmax);
-    }
-  }
-  void box(std::vector<double>& box, unsigned natoms, unsigned /*step*/, Random&) override {
-    //+0.05 to avoid overlap
-    const double rmax= std::cbrt(natoms)+0.05;
-    box[0]=rmax; box[1]=0.0;  box[2]=0.0;
-    box[3]=0.0;  box[4]=rmax; box[5]=0.0;
-    box[6]=0.0;  box[7]=0.0;  box[8]=rmax;
-
-  }
-};
-
-struct tiledSimpleCubic:public AtomDistribution {
-  void positions(std::vector<Vector>& posToUpdate, unsigned /*step*/, Random& rng) override {
-    //Tiling the space in this way will not tests 100% the pbc, but
-    //I do not think that write a spacefilling curve, like Hilbert, Peano or Morton
-    //could be a good idea, in this case
-    const unsigned rmax = std::ceil(std::cbrt(static_cast<double>(posToUpdate.size())));
-
-    auto s=posToUpdate.begin();
-    auto e=posToUpdate.end();
-    //I am using the iterators:this is slightly faster,
-    // enough to overcome the cost of the vtable that I added
-    for (unsigned k=0; k<rmax&&s!=e; ++k) {
-      for (unsigned j=0; j<rmax&&s!=e; ++j) {
-        for (unsigned i=0; i<rmax&&s!=e; ++i) {
-          *s = Vector (i,j,k);
-          ++s;
-        }
-      }
-    }
-  }
-  void box(std::vector<double>& box, unsigned natoms, unsigned /*step*/, Random&) override {
-    const double rmax= std::ceil(std::cbrt(static_cast<double>(natoms)));;
-    box[0]=rmax; box[1]=0.0;  box[2]=0.0;
-    box[3]=0.0;  box[4]=rmax; box[5]=0.0;
-    box[6]=0.0;  box[7]=0.0;  box[8]=rmax;
-
-  }
-};
-std::unique_ptr<AtomDistribution> getAtomDistribution(std::string_view atomicDistr) {
-  std::unique_ptr<AtomDistribution> distribution;
-  if(atomicDistr == "line") {
-    distribution = std::make_unique<theLine>();
-  } else if (atomicDistr == "cube") {
-    distribution = std::make_unique<uniformCube>();
-  } else if (atomicDistr == "sphere") {
-    distribution = std::make_unique<uniformSphere>();
-  } else if (atomicDistr == "globs") {
-    distribution = std::make_unique<twoGlobs>();
-  } else if (atomicDistr == "sc") {
-    distribution = std::make_unique<tiledSimpleCubic>();
-  } else {
-    plumed_error() << R"(The atomic distribution can be only "line", "cube", "sphere", "globs" and "sc", the input was ")"
-                   << atomicDistr <<'"';
-  }
-  return distribution;
-}
-} //anonymus namespace for benchmark distributions
 class Benchmark:
-  public CLTool
-{
+  public CLTool {
 public:
   static void registerKeywords( Keywords& keys );
   explicit Benchmark(const CLToolOptions& co );
   int main(FILE* in, FILE*out,Communicator& pc) override;
+
   std::string description()const override {
     return "run a calculation with a fixed trajectory to find bottlenecks in PLUMED";
+  }
+
+  //this does the parsing
+  std::optional<std::unique_ptr<AtomDistribution>> parseAtomDistribution(Log& log) {
+    {
+      std::string trajectoryFile="";
+      int nn=0;
+      std::string trajectory_fmt="";
+      for (const auto & trj_type : TrajectoryParser::trajectoryOptions()) {
+        std::string tmp;
+        parse("--i"+trj_type, tmp);
+        if (tmp.length()>0) {
+          log << "Using --i"<<trj_type<<"=" << tmp << "\n";
+          trajectory_fmt=trj_type;
+          ++nn;
+          trajectoryFile=tmp;
+        }
+      }
+      bool use_molfile=false;
+#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
+      {
+        auto plugins_names=TrajectoryParser::getMolfilePluginsnames() ;
+        for(unsigned i=0; i<plugins_names.size(); i++) {
+          std::string molfile_key="--mf_"+plugins_names[i];
+          std::string traj_molfile;
+          parse(molfile_key,traj_molfile);
+          if(traj_molfile.length()>0) {
+            ++nn;
+            log << "Using --mf_"<<plugins_names[i]<<"=" << traj_molfile << "\n";
+            trajectoryFile=traj_molfile;
+            trajectory_fmt=plugins_names[i];
+            use_molfile=true;
+          }
+        }
+      }
+#endif
+      if(nn>1) {
+        std::fprintf(stderr,"ERROR: cannot provide more than one trajectory file\n");
+        //let the "main"
+        return std::nullopt;
+      }
+      if (nn==1) {
+        return std::make_unique<fileTraj>(
+                 trajectory_fmt,
+                 trajectoryFile,
+                 use_molfile,
+                 -1
+               );
+      }
+    }
+    std::string atomicDistr;
+    parse("--atom-distribution",atomicDistr);
+    if(atomicDistr != "") {
+      log << "Using --atom-distribution=" << atomicDistr << "\n";
+      return AtomDistribution::getAtomDistribution(atomicDistr);
+    }
+    return std::nullopt;
+  }
+
+//parse and evenually decorate the AtomDistribution
+  std::optional<std::unique_ptr<AtomDistribution>> createAtomDistribution(Log& log, unsigned nat) {
+    auto toret= parseAtomDistribution(log);
+    if (!toret.has_value()) {
+      return std::nullopt;
+    }
+
+    if(std::string trajectoryModifications="";
+        parse("--modify-trajectory",trajectoryModifications)) {
+
+      log << "Using --modify-trajectory=" << trajectoryModifications << "\n";
+      std::unique_ptr<AtomDistribution> tmp = std::move(*toret);
+      toret = AtomDistribution::decorateAtomDistribution(std::move(tmp),trajectoryModifications);
+    }
+
+    return toret;
   }
 };
 
@@ -445,21 +371,26 @@ PLUMED_REGISTER_CLTOOL(Benchmark,"benchmark")
 
 void Benchmark::registerKeywords( Keywords& keys ) {
   CLTool::registerKeywords( keys );
-  keys.add("compulsory","--plumed","plumed.dat","convert the input in this file to the html manual");
+  keys.add("compulsory","--plumed","plumed.dat","colon separated path(s) to the input file(s)");
   keys.add("compulsory","--kernel","this","colon separated path(s) to kernel(s)");
   keys.add("compulsory","--natoms","100000","the number of atoms to use for the simulation");
+  // Maybe "--natoms" can be more clear when calling --help if we use reset_style to "atoms"
   keys.add("compulsory","--nsteps","2000","number of steps of MD to perform (-1 means forever)");
   keys.add("compulsory","--maxtime","-1","maximum number of seconds (-1 means forever)");
   keys.add("compulsory","--sleep","0","number of seconds of sleep, mimicking MD calculation");
-  keys.add("compulsory","--atom-distribution","line","the kind of possible atomic displacement at each step");
+  keys.add("compulsory","--atom-distribution","line|wiggle 0.5","the kind of possible atomic displacement at each step");
+  // Maybe "--atom-distribution" can be more clear when calling --help if we use reset_style to "atoms"
+  keys.add("optional","--dump-trajectory","dump the trajectory to this file");
+  keys.addFlag("--ad-help",false,"print a small help text for the atom distributions");
   keys.addFlag("--domain-decomposition",false,"simulate domain decomposition, implies --shuffle");
   keys.addFlag("--shuffled",false,"reshuffle atoms");
+  TrajectoryParser::registerKeywords(keys);
+  keys.add("optional","--modify-trajectory","apply some modifications to the trajectory used in the benchmark, can modify a parsed file");
 }
 
 Benchmark::Benchmark(const CLToolOptions& co ):
-  CLTool(co)
-{
-  inputdata=commandline;
+  CLTool(co) {
+  inputdata=inputType::commandline;
 }
 
 
@@ -467,11 +398,12 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
   // deterministic initializations to avoid issues with MPI
   generator rng;
   PLMD::Random atomicGenerator;
-  std::unique_ptr<AtomDistribution> distribution;
 
   struct FileDeleter {
     void operator()(FILE*f) const noexcept {
-      if(f) std::fclose(f);
+      if(f) {
+        std::fclose(f);
+      }
     }
   };
 
@@ -483,8 +415,43 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
   } else {
     log.link(log_dev_null.get());
   }
-  log.setLinePrefix("BENCH:  ");
 
+  bool printADHelp=false;
+  parseFlag("--ad-help",printADHelp);
+  if (printADHelp) {
+    log << "Documentation for the atomic distributions:\n";
+    log << "\nThese are the basic atomic distributions:\n";
+    auto distrs = AtomDistribution::getDistributionDocumentation();
+    for(const auto& d:distrs) {
+      log.printf("%8s - %s\n\n",d.id.c_str(),d.doc.c_str());
+    }
+    auto modifiers = AtomDistribution::getDecoratorsDocumentation();
+
+    log << "\nThese are the modifiers that can be applied to any atomic distributions:\n";
+    for(const auto& d:modifiers) {
+      log.printf("%8s - %s\n\n",d.id.c_str(),d.doc.c_str());
+    }
+    log << R"==(
+To use these distributions in the benchmark you can simple the cli option --atom-distribution
+like:
+  --atom-distribution="sc", with no extra modifiers
+  --atom-distribution="line|wiggle 0.5", use the pipe for modify the base distribution
+  --atom-distribution="ifcc|scale 2.3|reply 2 1 1", do not add spaces before or after the pipes
+
+As an extra tool you can append more modificators with --modify-trajectory,
+it is not necessary since you can use --atom-distribution, but can be applied
+to a trajectory read from a file, for example "box" can be used for adding
+the pbcs to certain file parsers.
+Remember that --modify-trajectory accepts only  modifiers, with the
+same syntax of --atom-distribution
+  --modify-trajectory="box 5 5 5"
+  --modify-trajectory="box 0 1 1 1 1 0 1 0 1|reply 4 2 6"
+)==";
+    return 0;
+  }
+
+  log.setLinePrefix("BENCH:  ");
+  log <<"Welcome to PLUMED benchmark\n";
   std::vector<Kernel> kernels;
 
   // perform comparative analysis
@@ -511,7 +478,8 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
       log<<"Single run, skipping comparative analysis\n";
     } else if(size<10) {
       log<<"Too small sample, skipping comparative analysis\n";
-    } else try {
+    } else
+      try {
 
         log<<"Running comparative analysis, "<<numblocks<<" blocks with size "<<blocksize<<"\n";
 
@@ -519,7 +487,8 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
         std::uniform_int_distribution<> distrib(0, numblocks-1);
         std::vector<std::vector<long long int>> blocks(f->size());
 
-        { int i=0;
+        {
+          int i=0;
           for(auto it = f->rbegin(); it != f->rend(); ++it,++i) {
             size_t l=0;
             blocks[i].assign(numblocks,0);
@@ -541,16 +510,18 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
 
         //B are the bootstrap iterations
         for(unsigned b=0; b<B; b++) {
-          for(auto & c : choice) c=distrib(bootstrapRng);
-          long long int reference=0;
           for(auto & c : choice) {
+            c=distrib(bootstrapRng);
+          }
+          long long int reference=0;
+          for(const auto & c : choice) {
             reference+=blocks[0][c];
           }
           for(auto i=0ULL; i<blocks.size(); i++) {
             long long int estimate=0;
             // this would lead to separate bootstrap samples for each estimate:
             // for(auto & c : choice){c=distrib(bootstrapRng);}
-            for(auto & c : choice) {
+            for(const auto & c : choice) {
               estimate+=blocks[i][c];
             }
             ratios[i][b]=double(estimate)/double(reference);
@@ -576,7 +547,9 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
         log<<"Unexpected error during comparative analysis\n";
         log<<e.what()<<"\n";
       }
-    while(!f->empty()) f->pop_back();
+    while(!f->empty()) {
+      f->pop_back();
+    }
 
   };
   std::unique_ptr<decltype(kernels),decltype(kernels_deleter)> kernels_deleter_obj(&kernels,kernels_deleter);
@@ -589,6 +562,7 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
     {
       std::string paths;
       parse("--kernel",paths);
+      log <<"Using --kernel=" << paths << "\n";
       allpaths=Tools::getWords(paths,":");
     }
 
@@ -596,6 +570,7 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
     {
       std::string paths;
       parse("--plumed",paths);
+      log <<"Using --plumed=" << paths << "\n";
       allplumed=Tools::getWords(paths,":");
     }
 
@@ -604,7 +579,9 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
     // this check only works on MacOS
 #if defined(__APPLE__)
     // if any of the paths if different from "this", we check if libplumed was loaded locally to avoid conflicts.
-    if(std::any_of(allpaths.begin(),allpaths.end(),[](auto value) {return value != "this";})) {
+    if(std::any_of(allpaths.begin(),allpaths.end(),[](auto value) {
+    return value != "this";
+  })) {
       if(DLLoader::isPlumedGlobal()) {
         plumed_error()<<"It looks like libplumed is loaded in the global namespace, you cannot load a different version of the kernel\n"
                       <<"Please make sure you use the plumed-runtime executable and that the env var PLUMED_LOAD_NAMESPACE is not set to GLOBAL";
@@ -616,10 +593,18 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
       plumed_error() << "--kernel and --plumed should have either one element or the same number of elements";
     }
 
-    if(allplumed.size()>1 && allpaths.size()==1) for(unsigned i=1; i<allplumed.size(); i++) allpaths.push_back(allpaths[0]);
-    if(allplumed.size()==1 && allpaths.size()>1) for(unsigned i=1; i<allpaths.size(); i++) allplumed.push_back(allplumed[0]);
+    if(allplumed.size()>1 && allpaths.size()==1)
+      for(unsigned i=1; i<allplumed.size(); i++) {
+        allpaths.push_back(allpaths[0]);
+      }
+    if(allplumed.size()==1 && allpaths.size()>1)
+      for(unsigned i=1; i<allpaths.size(); i++) {
+        allplumed.push_back(allplumed[0]);
+      }
 
-    for(unsigned i=0; i<allpaths.size(); i++) kernels.emplace_back(allpaths[i],allplumed[i],&log);
+    for(unsigned i=0; i<allpaths.size(); i++) {
+      kernels.emplace_back(allpaths[i],allplumed[i],&log);
+    }
   }
 
   // reverse order so that log happens in the forward order:
@@ -628,33 +613,89 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
   // read other flags:
   bool shuffled=false;
   parseFlag("--shuffled",shuffled);
-  int nf; parse("--nsteps",nf);
-  unsigned natoms; parse("--natoms",natoms);
 
-  double maxtime; parse("--maxtime",maxtime);
+  int nf;
+  parse("--nsteps",nf);
+  log << "Using --nsteps=" << nf << "\n";
+  unsigned natoms;
+  parse("--natoms",natoms);
+  log << "Using --natoms=" << natoms << "\n";
+  double maxtime;
+  parse("--maxtime",maxtime);
+  log << "Using --maxtime=" << maxtime << "\n";
 
   bool domain_decomposition=false;
   parseFlag("--domain-decomposition",domain_decomposition);
-  if(pc.Get_size()>1) domain_decomposition=true;
-  if(domain_decomposition) shuffled=true;
+
+  if(pc.Get_size()>1) {
+    domain_decomposition=true;
+  }
+  if(domain_decomposition) {
+    shuffled=true;
+  }
+
+  if (shuffled) {
+    log << "Using --shuffled\n";
+  }
+  if (domain_decomposition) {
+    log << "Using --domain-decomposition\n";
+  }
 
   double timeToSleep;
   parse("--sleep",timeToSleep);
+  log << "Using --sleep=" << timeToSleep << "\n";
 
   std::vector<int> shuffled_indexes;
-
-  {
-    std::string atomicDistr;
-    parse("--atom-distribution",atomicDistr);
-    distribution = getAtomDistribution(atomicDistr);
+  std::unique_ptr<AtomDistribution> distribution;
+  if(auto checkDistr = createAtomDistribution(log,natoms);
+      checkDistr.has_value()) {
+    distribution = std::move (*checkDistr);
+    if (distribution->overrideNat(natoms)) {
+      log << "Distribution overrode --natoms, Using --natoms=" << natoms << "\n";
+    }
+  } else {
+    std::fprintf(stderr,"ERROR: problem with setting up the trajectory for the benchmark\n");
+    return 1;
   }
 
+  {
+    std::string fileToDump;
+    if(parse("--dump-trajectory",fileToDump)) {
+      log << "Saving the trajectory to \"" << fileToDump << "\" and exiting\n";
+      std::vector<double> cell(9);
+      std::vector<Vector> pos(natoms);
+      std::ofstream ofile(fileToDump);
+      if (nf<0) {
+        //if the user accidentally sets infinite steps, we set it to print only one
+        nf=1;
+      }
+      for(int step=0; step<nf; ++step) {
+        auto sw=kernels[0].stopwatch.startStop("TrajectoryGeneration");
+        distribution->frame(pos,cell,step,atomicGenerator);
+
+        ofile << natoms << "\n"
+              << cell[0] << " " << cell[1] << " " << cell[2] << " "
+              << cell[3] << " " << cell[4] << " " << cell[5] << " "
+              << cell[6] << " " << cell[7] << " " << cell[8]
+              << "\n";
+        for(unsigned i=0; i<natoms; ++i) {
+          ofile << "X\t" << pos[i]<< "\n";
+        }
+      }
+      ofile.close();
+      return 0;
+    }
+  }
+
+  log <<"Initializing the setup of the kernel(s)\n";
   const auto initial_time=std::chrono::high_resolution_clock::now();
 
   for(auto & k : kernels) {
     auto & p(k.handle);
     auto sw=k.stopwatch.startStop("A Initialization");
-    if(Communicator::plumedHasMPI() && domain_decomposition) p.cmd("setMPIComm",&pc.Get_comm());
+    if(Communicator::plumedHasMPI() && domain_decomposition) {
+      p.cmd("setMPIComm",&pc.Get_comm());
+    }
     p.cmd("setRealPrecision",(int)sizeof(double));
     p.cmd("setMDLengthUnits",1.0);
     p.cmd("setMDChargeUnits",1.0);
@@ -673,13 +714,17 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
 
   if(shuffled) {
     shuffled_indexes.resize(natoms);
-    for(unsigned i=0; i<natoms; i++) shuffled_indexes[i]=i;
+    for(unsigned i=0; i<natoms; i++) {
+      shuffled_indexes[i]=i;
+    }
     std::shuffle(shuffled_indexes.begin(),shuffled_indexes.end(),rng);
   }
 
   // non owning pointers, used for shuffling the execution order
   std::vector<Kernel*> kernels_ptr;
-  for(unsigned i=0; i<kernels.size(); i++) kernels_ptr.push_back(&kernels[i]);
+  for(unsigned i=0; i<kernels.size(); i++) {
+    kernels_ptr.push_back(&kernels[i]);
+  }
 
   int plumedStopCondition=0;
   bool fast_finish=false;
@@ -689,12 +734,12 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
   log<<"Use CTRL+C to stop at any time and collect timers (not working in MPI runs)\n";
   // trap signals:
   SignalHandlerGuard sigIntGuard(SIGINT, signalHandler);
-
+  SignalHandlerGuard sigTermGuard(SIGTERM, signalHandler);
 
   for(int step=0; nf<0 || step<nf; ++step) {
     std::shuffle(kernels_ptr.begin(),kernels_ptr.end(),rng);
-    distribution->positions(pos,step,atomicGenerator);
-    distribution->box(cell,natoms,step,atomicGenerator);
+    distribution->frame(pos,cell,step,atomicGenerator);
+
     double* pos_ptr;
     double* for_ptr;
     double* charges_ptr;
@@ -710,10 +755,14 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
       const auto myrank=pc.Get_rank();
       auto shift=0;
       n_local_atoms=nn;
-      if(myrank<excess) n_local_atoms+=1;
+      if(myrank<excess) {
+        n_local_atoms+=1;
+      }
       for(int i=0; i<myrank; i++) {
         shift+=nn;
-        if(i<excess) shift+=1;
+        if(i<excess) {
+          shift+=1;
+        }
       }
       pos_ptr=&pos[shift][0];
       for_ptr=&forces[shift][0];
@@ -730,10 +779,15 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
     }
 
     const char* sw_name;
-    if(part==0)      sw_name="B0 First step";
-    else if(part==1) sw_name="B1 Warm-up";
-    else if(part==2) sw_name="B2 Calculation part 1";
-    else             sw_name="B3 Calculation part 2";
+    if(part==0) {
+      sw_name="B0 First step";
+    } else if(part==1) {
+      sw_name="B1 Warm-up";
+    } else if(part==2) {
+      sw_name="B2 Calculation part 1";
+    } else {
+      sw_name="B3 Calculation part 2";
+    }
 
 
     for(unsigned i=0; i<kernels_ptr.size(); i++) {
@@ -760,7 +814,9 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
       {
         unsigned k=0;
         auto start=std::chrono::high_resolution_clock::now();
-        while(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-start).count()<(long long int)1e9*timeToSleep) k+=i*i;
+        while(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-start).count()<(long long int)1e9*timeToSleep) {
+          k+=i*i;
+        }
         std::fprintf(log_dev_null.get(),"%u",k);
       }
 
@@ -769,11 +825,17 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
         p.cmd("performCalc");
       }
 
-      if(kernels_ptr.size()>1 && part>1) kernels_ptr[i]->timings.push_back(kernels_ptr[i]->stopwatch.getLastCycle(sw_name));
-      if(plumedStopCondition || signalReceived.load()) fast_finish=true;
+      if(kernels_ptr.size()>1 && part>1) {
+        kernels_ptr[i]->timings.push_back(kernels_ptr[i]->stopwatch.getLastCycle(sw_name));
+      }
+      if(plumedStopCondition || signalReceived.load()) {
+        fast_finish=true;
+      }
     }
     auto elapsed=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-initial_time).count();
-    if(part==0) part=1;
+    if(part==0) {
+      part=1;
+    }
     if(part<2) {
       if((maxtime>0 && elapsed>(long long int)(0.2*1e9*maxtime)) || (nf>0 && step+1>=nf/5) || (maxtime<0 && nf<0 && step+1>=100)) {
         part=2;
@@ -787,14 +849,18 @@ int Benchmark::main(FILE* in, FILE*out,Communicator& pc) {
       }
     }
 
-    if(maxtime>0 && elapsed>(long long int)(1e9*maxtime)) fast_finish=true;
+    if(maxtime>0 && elapsed>(long long int)(1e9*maxtime)) {
+      fast_finish=true;
+    }
 
     {
       unsigned tmp=fast_finish;
       pc.Bcast(tmp,0);
       fast_finish=tmp;
     }
-    if(fast_finish) break;
+    if(fast_finish) {
+      break;
+    }
   }
 
   return 0;

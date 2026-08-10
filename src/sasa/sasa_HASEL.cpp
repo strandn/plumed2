@@ -38,23 +38,22 @@ using namespace std;
 namespace PLMD {
 namespace sasa {
 
-//+PLUMEDOC SASAMOD_COLVAR SASA_HASEL
+//+PLUMEDOC COLVAR SASA_HASEL
 /*
 Calculates the solvent accessible surface area (SASA) of a protein molecule, or other properties related to it.
 
-The atoms for which the SASA is desired should be indicated with the keyword ATOMS, and a pdb file of the protein must be provided in input with the MOLINFO keyword. The algorithm described in \cite Hasel1988 is used for the calculation. The radius of the solvent is assumed to be 0.14 nm, which is the radius of water molecules. Using the keyword NL_STRIDE it is also possible to specify the frequency with which the neighbor list for the calculation of SASA is updated (the default is every 10 steps).
+The atoms for which the SASA is desired should be indicated with the keyword ATOMS, and a pdb file of the protein must be provided in input with the MOLINFO keyword. The algorithm described in the first paper cited below is used for the calculation. The radius of the solvent is assumed to be 0.14 nm, which is the radius of water molecules. Using the keyword NL_STRIDE it is also possible to specify the frequency with which the neighbor list for the calculation of SASA is updated (the default is every 10 steps).
 
 Different properties can be calculated and selected using the TYPE keyword:
 
 1) the total SASA (TOTAL);
 
-2) the free energy of transfer for the protein according to the transfer model (TRANSFER). This keyword can be used, for instance, to compute the transfer of a protein to different temperatures, as detailed in \cite Arsiccio-T-SASA-2021, or to different pressures, as detailed in \cite Arsiccio-P-SASA-2021, or to different osmolyte solutions, as detailed in \cite Arsiccio-C-SASA-2022.
+2) the free energy of transfer for the protein according to the transfer model (TRANSFER). This keyword can be used, for instance, to compute the transfer of a protein to different temperatures, as detailed in the second paper cited below, or to different pressures, as detailed in the fourth paper cited below, or to different osmolyte solutions, as detailed in the third paper cited below.
 
 
 When the TRANSFER keyword is used, a file with the free energy of transfer values for the sidechains and backbone atoms should be provided (using the keyword DELTAGFILE). Such file should have the following format:
 
-\verbatim
-
+````
 ----------------Sample DeltaG.dat file---------------------
 ALA	0.711019999999962
 ARG	-2.24832799999996
@@ -78,51 +77,52 @@ TYR	0.775547999999958
 VAL	2.12779200000011
 BACKBONE	1.00066920000002
 -----------------------------------------------------------
-\endverbatim
+````
 
 where the second column is the free energy of transfer for each sidechain/backbone, in kJ/mol.
 
-A Python script for the computation of free energy of transfer values to describe the effect of osmolyte concentration, temperature and pressure (according to \cite Arsiccio-C-SASA-2022, \cite Arsiccio-T-SASA-2021 and \cite Arsiccio-P-SASA-2021) is freely available at https://github.com/andrea-arsiccio/DeltaG-calculation. The script automatically outputs a DeltaG.dat file compatible with this SASA module.
+A Python script for the computation of free energy of transfer values to describe the effect of osmolyte concentration, temperature and pressure (according to the second, third and fourth papers cited below) is freely available at
+[here](https://github.com/andrea-arsiccio/DeltaG-calculation). The script automatically outputs a DeltaG.dat file compatible with this SASA module.
 
 
-If the DELTAGFILE is not provided, the program computes the free energy of transfer values as if they had to take into account the effect of temperature according to approaches 2 or 3 in the paper \cite Arsiccio-T-SASA-2021. Please read and cite this paper if using the transfer model for computing the effect of temperature in implicit solvent simulations. For this purpose, the keyword APPROACH should be added, and set to either 2 or 3.
+If the DELTAGFILE is not provided, the program computes the free energy of transfer values as if they had to take into account the effect of temperature according to approaches 2 or 3 in the paper the second paper cited below. Please read and cite this paper if using the transfer model for computing the effect of temperature in implicit solvent simulations. For this purpose, the keyword APPROACH should be added, and set to either 2 or 3.
 
-The SASA usually makes sense when atoms used for the calculation are all part of the same molecule. When running with periodic boundary conditions, the atoms should be in the proper periodic image. This is done automatically since PLUMED 2.2, by considering the ordered list of atoms and rebuilding the broken entities using a procedure that is equivalent to that done in \ref WHOLEMOLECULES. Notice that rebuilding is local to this action. This is different from \ref WHOLEMOLECULES which actually modifies the coordinates stored in PLUMED.
+The SASA usually makes sense when atoms used for the calculation are all part of the same molecule. When running with periodic boundary conditions, the atoms should be in the proper periodic image. This is done automatically since PLUMED 2.2, by rebuilding the broken entities using a procedure that is equivalent to that done in [WHOLEMOLECULES](WHOLEMOLECULES.md). Notice that rebuilding is local to this action. This is different from [WHOLEMOLECULES](WHOLEMOLECULES.md) which actually modifies the coordinates stored in PLUMED.
 
 In case you want to recover the old behavior you should use the NOPBC flag.
 In that case you need to take care that atoms are in the correct periodic image.
 
-The SASA may also be computed using the SASA_LCPO collective variable, which makes use of the LCPO algorithm \cite Weiser1999. SASA_LCPO is more accurate then SASA_HASEL, but the computation is slower.
+The SASA may also be computed using the SASA_LCPO collective variable, which makes use of the LCPO algorithm that is discussed in the last paper cited below. SASA_LCPO is more accurate then SASA_HASEL, but the computation is slower.
 
 
-\par Examples
+## Examples
 
 The following input tells plumed to print the total SASA for atoms 10 to 20 in a protein chain.
-\plumedfile
+
+```plumed
 SASA_HASEL TYPE=TOTAL ATOMS=10-20 NL_STRIDE=10 LABEL=sasa
 PRINT ARG=sasa STRIDE=1 FILE=colvar
-\endplumedfile
-
+```
 
 The following input tells plumed to compute the transfer free energy for the protein chain containing atoms 10 to 20. Such transfer free energy is then used as a bias in the simulation (e.g., implicit solvent simulations). The free energy of transfer values are read from a file called DeltaG.dat.
 
-\plumedfile
+```plumed
 SASA_HASEL TYPE=TRANSFER ATOMS=10-20 NL_STRIDE=10 DELTAGFILE=DeltaG.dat LABEL=sasa
 
 bias: BIASVALUE ARG=sasa
 
 PRINT ARG=sasa,bias.* STRIDE=1 FILE=colvar
-\endplumedfile
+```
 
-The following input tells plumed to compute the transfer free energy for the protein chain containing atoms 10 to 20. Such transfer free energy is then used as a bias in the simulation (e.g., implicit solvent simulations). The free energy of transfer values are computed according to \cite Arsiccio-T-SASA-2021, and take into account the effect of temperature using approach 2 as described in the paper.
+The following input tells plumed to compute the transfer free energy for the protein chain containing atoms 10 to 20. Such transfer free energy is then used as a bias in the simulation (e.g., implicit solvent simulations). The free energy of transfer values are computed according to the second paper cited below, and take into account the effect of temperature using approach 2 as described in the paper.
 
-\plumedfile
+```plumed
 SASA_HASEL TYPE=TRANSFER ATOMS=10-20 NL_STRIDE=10 APPROACH=2 LABEL=sasa
 
 bias: BIASVALUE ARG=sasa
 
 PRINT ARG=sasa,bias.* STRIDE=1 FILE=colvar
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -171,43 +171,58 @@ void SASA_HASEL::registerKeywords(Keywords& keys) {
   keys.add("compulsory", "NL_STRIDE", "The frequency with which the neighbor list for the calculation of SASA is updated.");
   keys.add("optional","DELTAGFILE","a file containing the free energy of transfer values for backbone and sidechains atoms. Necessary only if TYPE = TRANSFER. A Python script for the computation of free energy of transfer values to describe the effect of osmolyte concentration, temperature and pressure is freely available at https://github.com/andrea-arsiccio/DeltaG-calculation. The script automatically outputs a DeltaG.dat file compatible with this SASA module. If TYPE = TRANSFER and no DELTAGFILE is provided, the free energy values are those describing the effect of temperature, and are computed using the temperature value passed by the MD engine");
   keys.add("optional","APPROACH","either approach 2 or 3. Necessary only if TYPE = TRANSFER and no DELTAGFILE is provided. If TYPE = TRANSFER and no DELTAGFILE is provided, the free energy values are those describing the effect of temperature, and the program must know if approach 2 or 3 (as described in Arsiccio and Shea, Protein Cold Denaturation in Implicit Solvent Simulations: A Transfer Free Energy Approach, J. Phys. Chem. B, 2021) needs to be used to compute them");
-  keys.setValueDescription("the solvent accessible surface area (SASA) of the molecule");
+  keys.setValueDescription("scalar","the solvent accessible surface area (SASA) of the molecule");
+  keys.addDOI("10.1016/0898-5529(88)90015-2");
+  keys.addDOI("10.1021/acs.jpcb.1c01694");
+  keys.addDOI("10.1021/acs.jpcb.2c00889");
+  keys.addDOI("10.1021/acs.jpcb.1c04398");
+  keys.addDOI("10.1002/(SICI)1096-987X(19990130)20:2<217::AID-JCC4>3.0.CO;2-A");
 }
 
 
 SASA_HASEL::SASA_HASEL(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   nopbc(false),
+  DeltaGValues("absent"),
   stride(10),
   nl_update(0),
-  DeltaGValues("absent"),
-  Ti(0),
-  firstStepFlag(0)
-{
+  firstStepFlag(0),
+  Ti(0) {
   rs = 0.14;
   parse("DELTAGFILE",DeltaGValues);
   parse("APPROACH", approach);
   parseAtomList("ATOMS",atoms);
-  if(atoms.size()==0) error("no atoms specified");
+  if(atoms.size()==0) {
+    error("no atoms specified");
+  }
   std::string Type;
   parse("TYPE",Type);
   parse("NL_STRIDE", stride);
   parseFlag("NOPBC",nopbc);
   checkRead();
 
-  if(Type=="TOTAL") sasa_type=TOTAL;
-  else if(Type=="TRANSFER") sasa_type=TRANSFER;
-  else error("Unknown SASA type");
+  if(Type=="TOTAL") {
+    sasa_type=TOTAL;
+  } else if(Type=="TRANSFER") {
+    sasa_type=TRANSFER;
+  } else {
+    error("Unknown SASA type");
+  }
 
-  switch(sasa_type)
-  {
-  case TOTAL:   log.printf("  TOTAL SASA;"); break;
-  case TRANSFER: log.printf("  TRANSFER MODEL;"); break;
+  switch(sasa_type) {
+  case TOTAL:
+    log.printf("  TOTAL SASA;");
+    break;
+  case TRANSFER:
+    log.printf("  TRANSFER MODEL;");
+    break;
   }
 
   log.printf("  atoms involved : ");
   for(unsigned i=0; i<atoms.size(); ++i) {
-    if(i%25==0) log<<"\n";
+    if(i%25==0) {
+      log<<"\n";
+    }
     log.printf("%d ",atoms[i].serial());
   }
   log.printf("\n");
@@ -219,7 +234,8 @@ SASA_HASEL::SASA_HASEL(const ActionOptions&ao):
   }
 
 
-  addValueWithDerivatives(); setNotPeriodic();
+  addValueWithDerivatives();
+  setNotPeriodic();
   requestAtoms(atoms);
 
   natoms = getNumberOfAtoms();
@@ -236,8 +252,7 @@ SASA_HASEL::SASA_HASEL(const ActionOptions&ao):
 
 //splits strings into tokens. Used to read into SASA parameters file and into reference pdb file
 template <class Container>
-void split(const std::string& str, Container& cont)
-{
+void split(const std::string& str, Container& cont) {
   std::istringstream iss(str);
   std::copy(std::istream_iterator<std::string>(iss),
             std::istream_iterator<std::string>(),
@@ -249,7 +264,9 @@ void split(const std::string& str, Container& cont)
 
 void SASA_HASEL::readPDB() {
   auto* moldat = plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
-  if( ! moldat ) error("Unable to find MOLINFO in input");
+  if( ! moldat ) {
+    error("Unable to find MOLINFO in input");
+  }
   AtomResidueName[0].clear();
   AtomResidueName[1].clear();
 
@@ -587,9 +604,12 @@ void SASA_HASEL::readDeltaG() {
         }
       }
     }
-    if ( backboneflag == 0) error("Cannot find backbone value in Delta G parameters file\n");
+    if ( backboneflag == 0) {
+      error("Cannot find backbone value in Delta G parameters file\n");
+    }
+  } else {
+    error("Cannot open DeltaG file");
   }
-  else error("Cannot open DeltaG file");
 
   for(unsigned i=0; i<natoms; i++) {
     if (DeltaG[i].size()==0 ) {
@@ -760,7 +780,9 @@ void SASA_HASEL::computeDeltaG() {
 
 //calculates neighbor list
 void SASA_HASEL::calcNlist() {
-  if(!nopbc) makeWhole();
+  if(!nopbc) {
+    makeWhole();
+  }
 
   for(unsigned i = 0; i < natoms; i++) {
     Nlist[i].clear();
@@ -786,9 +808,13 @@ void SASA_HASEL::calcNlist() {
 
 //calculates SASA according to Hasel et al., Tetrahedron Computer Methodology Vol. 1, No. 2, pp. 103-116, 1988
 void SASA_HASEL::calculate() {
-  if(!nopbc) makeWhole();
+  if(!nopbc) {
+    makeWhole();
+  }
 
-  if(getExchangeStep()) nl_update = 0;
+  if(getExchangeStep()) {
+    nl_update = 0;
+  }
   if (firstStepFlag ==0) {
     readPDB();
     readSASAparam();
@@ -799,7 +825,9 @@ void SASA_HASEL::calculate() {
 
 
   auto* moldat = plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
-  if( ! moldat ) error("Unable to find MOLINFO in input");
+  if( ! moldat ) {
+    error("Unable to find MOLINFO in input");
+  }
   double Si, sasai, bij;
   double sasa = 0;
   vector<Vector> derivatives( natoms );

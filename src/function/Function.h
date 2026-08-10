@@ -36,13 +36,15 @@ This is the abstract base class to use for implementing new CV function, within 
 
 class Function:
   public ActionWithValue,
-  public ActionWithArguments
-{
+  public ActionWithArguments {
 protected:
   void setDerivative(int,double);
   void setDerivative(Value*,int,double);
-  void addValueWithDerivatives();
-  void addComponentWithDerivatives( const std::string& name );
+//overriding explicitly the two functions avoids the [-Woverloaded-virtual] warning
+/// the shape argument will be ignored
+  void addValueWithDerivatives( const std::vector<std::size_t>& =std::vector<std::size_t>() ) override;
+/// the shape will be ignored
+  void addComponentWithDerivatives( const std::string& valname, const std::vector<std::size_t>& =std::vector<std::size_t>() )override;
 public:
   explicit Function(const ActionOptions&);
   virtual ~Function() {}
@@ -66,7 +68,7 @@ inline
 unsigned Function::getNumberOfDerivatives() {
   unsigned narg=0;
   for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-    if( getPntrToArgument(i)->getRank()==0 ) narg++;
+    narg += getPntrToArgument(i)->getNumberOfStoredValues();
   }
   return narg;
 }

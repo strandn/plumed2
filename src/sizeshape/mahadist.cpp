@@ -25,31 +25,37 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 namespace PLMD {
 namespace sizeshape {
 
-//+PLUMEDOC sizeshapeMOD_COLVAR SIZESHAPE_POSITION_MAHA_DIST
+//+PLUMEDOC COLVAR SIZESHAPE_POSITION_MAHA_DIST
 /*
 Calculates Mahalanobis distance of a current configuration from a  given reference configurational distribution in size-and-shape space.
 
 The Mahalanobis distance is given as:
 
-\f[
+$$
 d(\mathbf{x}, \mathbf{\mu}, \mathbf{\Sigma}) = \sqrt{(\mathbf{x}-\mathbf{\mu})^T \mathbf{\Sigma}^{-1} (\mathbf{x}-\mathbf{\mu})}
-\f]
+$$
 
-Here \f$\mathbf{x}\f$ is the configuration at time t, \f$\mathbf{\mu}\f$ is the reference and \f$\mathbf{\Sigma}^{-1}\f$ is the \f$N \times N\f$ precision matrix.
+Here $\mathbf{x}$ is the configuration at time t, $\mathbf{\mu}$ is the reference and $\mathbf{\Sigma}^{-1}$ is the $N \times N$ precision matrix.
 
-Size-and-shape Gaussian Mixture Model (shapeGMM) \cite Heidi-shapeGMM-2022 is a probabilistic clustering technique that is used to perform structural clusteing on ensemble of molecular configurations and to obtain reference \f$(\mathbf{\mu})\f$ and precision \f$(\mathbf{\Sigma}^{-1})\f$ corresponding to each of the cluster centers. Please chcek out <a href="https://github.com/mccullaghlab/shapeGMMTorch">shapeGMMTorch-GitHub</a> and <a href="https://pypi.org/project/shapeGMMTorch/"> shapeGMMTorch-PyPI</a> for examples and informations on preforming shapeGMM clustering.
+Size-and-shape Gaussian Mixture Model (shapeGMM) is a probabilistic clustering technique that is used to perform structural clusteing on ensemble of molecular configurations and to obtain reference
+$(\mathbf{\mu})$ and precision $(\mathbf{\Sigma}^{-1})$ corresponding to each of the cluster centers. Please chcek out <a href="https://github.com/mccullaghlab/shapeGMMTorch">shapeGMMTorch-GitHub</a> and <a href="https://pypi.org/project/shapeGMMTorch/"> shapeGMMTorch-PyPI</a> for examples and informations on preforming shapeGMM clustering.
 
-\par Examples
+## Examples
 In the following example, a group is defined with atom indices of selected atoms and then Mahalanobis distance is calculated with respect to the given reference and precision. Each file is a space separated list of 3N floating point numbers.
 
-\plumedfile
+```plumed
+#SETTINGS INPUTFILES=regtest/sizeshape/rt-mahadist/global_avg.txt
+#SETTINGS INPUTFILES=regtest/sizeshape/rt-mahadist/global_precision.txt
+
 UNITS LENGTH=A TIME=ps ENERGY=kcal/mol
 GROUP ATOMS=18,20,22,31,33,35,44,46,48,57,59,61,70,72,74,83,85,87,96,98,100,109,111 LABEL=ga_list
-#SETTINGS AUXFILE=regtest/sizeshape/rt-mahadist/global_avg.txt
-#SETTINGS AUXFILE=regtest/sizeshape/rt-mahadist/global_precision.txt
-d: SIZESHAPE_POSITION_MAHA_DIST REFERENCE=global_avg.txt PRECISION=global_precision.txt GROUP=ga_list
+d: SIZESHAPE_POSITION_MAHA_DIST ...
+   REFERENCE=regtest/sizeshape/rt-mahadist/global_avg.txt
+   PRECISION=regtest/sizeshape/rt-mahadist/global_precision.txt
+   GROUP=ga_list
+...
 PRINT ARG=d STRIDE=1 FILE=output FMT=%8.8f
-\endplumedfile
+```
 
 */
 //+ENDPLUMEDOC
@@ -93,7 +99,7 @@ void position_maha_dist::registerKeywords( Keywords& keys ) {
   keys.add("compulsory", "REFERENCE", "Reference structure.");
   keys.add("atoms","GROUP","The group of atoms being used");
   keys.addFlag("SQUARED",false,"Returns the square of distance.");
-  keys.setValueDescription("the Mahalanobis distance between the instantaneous configuration and a given reference distribution in size-and-shape space");
+  keys.setValueDescription("scalar","the Mahalanobis distance between the instantaneous configuration and a given reference distribution in size-and-shape space");
 }
 
 // constructor function
@@ -101,10 +107,9 @@ position_maha_dist::position_maha_dist(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   pbc(true),
   squared(false),
-  dist(0),
   prec_f_name(""),
-  ref_f_name("")    // Note! no comma here in the last line.
-{
+  ref_f_name(""),
+  dist(0) {
   parseAtomList("GROUP",atom_list);
   parse("REFERENCE", ref_f_name);
   parse("PRECISION", prec_f_name);
@@ -121,12 +126,18 @@ position_maha_dist::position_maha_dist(const ActionOptions&ao):
     log.printf("  %d", atom_list[i].serial());
   }
 
-  if(squared)log.printf("\n chosen to use SQUARED option for SIZESHAPE_POSITION_MAHA_DIST\n");
+  if(squared) {
+    log.printf("\n chosen to use SQUARED option for SIZESHAPE_POSITION_MAHA_DIST\n");
+  }
 
-  if(pbc) log.printf("\n using periodic boundary conditions\n");
-  else log.printf("\n without periodic boundary conditions\n");
+  if(pbc) {
+    log.printf("\n using periodic boundary conditions\n");
+  } else {
+    log.printf("\n without periodic boundary conditions\n");
+  }
 
-  addValueWithDerivatives(); setNotPeriodic();
+  addValueWithDerivatives();
+  setNotPeriodic();
 
   requestAtoms(atom_list);
 
@@ -136,25 +147,28 @@ position_maha_dist::position_maha_dist(const ActionOptions&ao):
 }
 
 // read inputs function
-void position_maha_dist::readinputs()
-{
+void position_maha_dist::readinputs() {
   unsigned N=getNumberOfAtoms();
   // read ref coords
   in_.open(ref_f_name);
 
-  ref_str.resize(N,3); prec.resize(N,N);
+  ref_str.resize(N,3);
+  prec.resize(N,N);
 
   std::string line_, val_;
   unsigned c_=0;
 
-  while (c_ < N)
-  {
+  while (c_ < N) {
     in_.getline(line_);
     std::vector<std::string> items_;
     std::stringstream check_(line_);
 
-    while(std::getline(check_, val_, ' ')) { items_.push_back(val_); }
-    for(int i=0; i<3; ++i) { ref_str(c_,i) = std::stold(items_[i]); }
+    while(std::getline(check_, val_, ' ')) {
+      items_.push_back(val_);
+    }
+    for(int i=0; i<3; ++i) {
+      ref_str(c_,i) = std::stold(items_[i]);
+    }
     c_ += 1;
   }
   in_.close();
@@ -165,8 +179,7 @@ void position_maha_dist::readinputs()
   std::string line, val;
   unsigned int c = 0;
 
-  while(c < N)
-  {
+  while(c < N) {
     in_.getline(line);
 
     // vector for storing the objects
@@ -175,13 +188,11 @@ void position_maha_dist::readinputs()
     // stringstream helps to treat a string like an ifstream!
     std::stringstream check(line);
 
-    while (std::getline(check, val, ' '))
-    {
+    while (std::getline(check, val, ' ')) {
       items.push_back(val);
     }
 
-    for(unsigned int i=0; i<N; ++i)
-    {
+    for(unsigned int i=0; i<N; ++i) {
       prec(c, i) = std::stold(items[i]);
     }
 
@@ -192,13 +203,14 @@ void position_maha_dist::readinputs()
 }
 
 
-double position_maha_dist::determinant(int n, const std::vector<std::vector<double>>* B)
-{
+double position_maha_dist::determinant(int n, const std::vector<std::vector<double>>* B) {
 
   std::vector<std::vector<double>> A(n, std::vector<double>(n, 0));
   // make a copy first!
   for(int i=0; i<n; ++i) {
-    for(int j=0; j<n; ++j) {A[i][j] = (*B)[i][j];}
+    for(int j=0; j<n; ++j) {
+      A[i][j] = (*B)[i][j];
+    }
   }
 
 
@@ -207,34 +219,35 @@ double position_maha_dist::determinant(int n, const std::vector<std::vector<doub
   double det = 1;
 
   // Row operations for i = 0, ,,,, n - 2 (n-1 not needed)
-  for ( int i = 0; i < n - 1; i++ )
-  {
+  for ( int i = 0; i < n - 1; i++ ) {
     // Partial pivot: find row r below with largest element in column i
     int r = i;
     double maxA = std::abs( A[i][i] );
-    for ( int k = i + 1; k < n; k++ )
-    {
+    for ( int k = i + 1; k < n; k++ ) {
       double val = std::abs( A[k][i] );
-      if ( val > maxA )
-      {
+      if ( val > maxA ) {
         r = k;
         maxA = val;
       }
     }
-    if ( r != i )
-    {
-      for ( int j = i; j < n; j++ ) std::swap( A[i][j], A[r][j] );
+    if ( r != i ) {
+      for ( int j = i; j < n; j++ ) {
+        std::swap( A[i][j], A[r][j] );
+      }
       det = -det;
     }
 
     // Row operations to make upper-triangular
     double pivot = A[i][i];
-    if (std::abs( pivot ) < SMALL ) return 0.0;              // Singular matrix
+    if (std::abs( pivot ) < SMALL ) {
+      return 0.0;  // Singular matrix
+    }
 
-    for ( int r = i + 1; r < n; r++ )                    // On lower rows
-    {
+    for ( int r = i + 1; r < n; r++ ) {                  // On lower rows
       double multiple = A[r][i] / pivot;                // Multiple of row i to clear element in ith column
-      for ( int j = i; j < n; j++ ) A[r][j] -= multiple * A[i][j];
+      for ( int j = i; j < n; j++ ) {
+        A[r][j] -= multiple * A[i][j];
+      }
     }
     det *= pivot;                                        // Determinant is product of diagonal
   }
@@ -269,10 +282,17 @@ void position_maha_dist::kabsch_rot_mat() {
   unsigned k=0;
 
   // Transfer the matrix to the local array
-  for (int i=0; i<cl; ++i) for (int j=0; j<rw; ++j) da[k++]=static_cast<double>( correlation(j,i) ); // note! its [j][i] not [i][j]
+  for (int i=0; i<cl; ++i)
+    for (int j=0; j<rw; ++j) {
+      da[k++]=static_cast<double>( correlation(j,i) );  // note! its [j][i] not [i][j]
+    }
 
   int nsv, info, nrows=rw, ncols=cl;
-  if(rw>cl) {nsv=cl;} else {nsv=rw;}
+  if(rw>cl) {
+    nsv=cl;
+  } else {
+    nsv=rw;
+  }
 
   // Create some containers for stuff from single value decomposition
   std::vector<double> S(nsv);
@@ -285,15 +305,20 @@ void position_maha_dist::kabsch_rot_mat() {
   std::vector<double> work(1);
   plumed_lapack_dgesdd( "A", &nrows, &ncols, da.data(), &nrows, S.data(), U.data(), &nrows, VT.data(), &ncols, work.data(), &lwork, iwork.data(), &info );
   //if(info!=0) return info;
-  if(info!=0) log.printf("info:", info);
+  if(info!=0) {
+    log.printf("info:", info);
+  }
 
   // Retrieve correct sizes for work and rellocate
-  lwork=(int) work[0]; work.resize(lwork);
+  lwork=(int) work[0];
+  work.resize(lwork);
 
   // This does the singular value decomposition
   plumed_lapack_dgesdd( "A", &nrows, &ncols, da.data(), &nrows, S.data(), U.data(), &nrows, VT.data(), &ncols, work.data(), &lwork, iwork.data(), &info );
   //if(info!=0) return info;
-  if(info!=0) log.printf("info:", info);
+  if(info!=0) {
+    log.printf("info:", info);
+  }
 
 
   // get U and VT in form of 2D vector (U_, VT_)
@@ -302,8 +327,20 @@ void position_maha_dist::kabsch_rot_mat() {
 
   int  c=0;
 
-  for(int i=0; i<nrows; ++i) { for(int j=0; j<nrows; ++j) { U_[j][i] = U[c]; c += 1;} } c = 0; // note! its [j][i] not [i][j]
-  for(int i=0; i<ncols; ++i) { for(int j=0; j<ncols; ++j) { VT_[j][i] = VT[c]; c += 1;} } c=0; // note! its [j][i] not [i][j]
+  for(int i=0; i<nrows; ++i) {
+    for(int j=0; j<nrows; ++j) {
+      U_[j][i] = U[c];
+      c += 1;
+    }
+  }
+  c = 0; // note! its [j][i] not [i][j]
+  for(int i=0; i<ncols; ++i) {
+    for(int j=0; j<ncols; ++j) {
+      VT_[j][i] = VT[c];
+      c += 1;
+    }
+  }
+  c=0; // note! its [j][i] not [i][j]
 
 
   // calculate determinants
@@ -311,13 +348,22 @@ void position_maha_dist::kabsch_rot_mat() {
   double det_vt = determinant(ncols, &VT_);
 
   // check!
-  if (det_u * det_vt < 0.0) { for(int i=0; i<nrows; ++i) {U_[i][nrows-1] *= -1;} }
+  if (det_u * det_vt < 0.0) {
+    for(int i=0; i<nrows; ++i) {
+      U_[i][nrows-1] *= -1;
+    }
+  }
 
 
   //Matrix<double> rotation(3,3);
   rotation.resize(3,3);
   Matrix<double> u(3,3), vt(3,3);
-  for(int i=0; i<3; ++i) { for(int j=0; j<3; ++j) { u(i,j)=U_[i][j]; vt(i,j)=VT_[i][j]; } }
+  for(int i=0; i<3; ++i) {
+    for(int j=0; j<3; ++j) {
+      u(i,j)=U_[i][j];
+      vt(i,j)=VT_[i][j];
+    }
+  }
 
   // get rotation matrix
   mult(u, vt, rotation);
@@ -336,7 +382,11 @@ double position_maha_dist::cal_maha_dist() {
 
   // compute the displacement
   Matrix<double> disp(N,3);
-  for(unsigned int i=0; i<N; ++i) { for(unsigned int j=0; j<3; ++j) { disp(i,j) = (rotated_obj(i,j)-ref_str(i,j)); } }
+  for(unsigned int i=0; i<N; ++i) {
+    for(unsigned int j=0; j<3; ++j) {
+      disp(i,j) = (rotated_obj(i,j)-ref_str(i,j));
+    }
+  }
 
   Matrix<double> prec_dot_disp(N,3);
   Matrix<double> disp_T(3,N);
@@ -349,9 +399,13 @@ double position_maha_dist::cal_maha_dist() {
 
 
   double maha_d=0.0;
-  for(int i=0; i<3; ++i) { maha_d += out(i,i);}
+  for(int i=0; i<3; ++i) {
+    maha_d += out(i,i);
+  }
 
-  if (!squared) maha_d = std::sqrt(maha_d);
+  if (!squared) {
+    maha_d = std::sqrt(maha_d);
+  }
 
   return maha_d;
 }
@@ -370,12 +424,24 @@ void position_maha_dist::grad_maha(double d) {
   transpose(rotation, rot_T);
   mult(ref_str, rot_T, ref_str_rot_T);
 
-  for(unsigned i=0; i<N; ++i) { for(unsigned j=0; j<3; ++j) { diff_(i,j) = mobile_str(i,j) - ref_str_rot_T(i,j); } }
+  for(unsigned i=0; i<N; ++i) {
+    for(unsigned j=0; j<3; ++j) {
+      diff_(i,j) = mobile_str(i,j) - ref_str_rot_T(i,j);
+    }
+  }
 
   mult(prec, diff_, derv_);
 
   //for(unsigned i=0; i<N; ++i){ for(unsigned j=0; j<3; ++j) {derv_(i,j) /= (N*d);} }  // dividing by N here!
-  for(unsigned i=0; i<N; ++i) { for(unsigned j=0; j<3; ++j) { if (!squared) {derv_(i,j) /= d;} else {derv_(i,j) *= 2.0;}}}
+  for(unsigned i=0; i<N; ++i) {
+    for(unsigned j=0; j<3; ++j) {
+      if (!squared) {
+        derv_(i,j) /= d;
+      } else {
+        derv_(i,j) *= 2.0;
+      }
+    }
+  }
 
 
 }
@@ -402,7 +468,9 @@ void position_maha_dist::numeric_maha() {
 // calculator
 void position_maha_dist::calculate() {
 
-  if(pbc) makeWhole();
+  if(pbc) {
+    makeWhole();
+  }
   unsigned N=getNumberOfAtoms();
 
   mobile_str.resize(N,3);
@@ -418,14 +486,16 @@ void position_maha_dist::calculate() {
   // translating the structure to center of geometry
   double center_of_geometry[3]= {0.0, 0.0, 0.0};
 
-  for(unsigned int i=0; i<N; ++i)
-  {
-    center_of_geometry[0] += mobile_str(i,0); center_of_geometry[1] += mobile_str(i,1); center_of_geometry[2] += mobile_str(i,2);
+  for(unsigned int i=0; i<N; ++i) {
+    center_of_geometry[0] += mobile_str(i,0);
+    center_of_geometry[1] += mobile_str(i,1);
+    center_of_geometry[2] += mobile_str(i,2);
   }
 
-  for(unsigned int i=0; i<N; ++i)
-  {
-    for(unsigned int j=0; j<3; ++j) { mobile_str(i,j) -= (center_of_geometry[j]/N); }
+  for(unsigned int i=0; i<N; ++i) {
+    for(unsigned int j=0; j<3; ++j) {
+      mobile_str(i,j) -= (center_of_geometry[j]/N);
+    }
   }
 
   kabsch_rot_mat();

@@ -26,7 +26,46 @@
 /*
 Calculate a covariance matix
 
-\par Examples
+This shortcut takes multiple vectors in input as well as a vector of weights. A
+[covariance matrix](https://en.wikipedia.org/wiki/Covariance_matrix) is then computed from this input
+data. The example below shows how this action can be used to calculate a gyration tensor that describes
+the shape for a cluster of atoms.
+
+```plumed
+# Calculate the geometric center for 100 atoms
+com: CENTER ATOMS=1-100
+# Calculate the vector connecting each of the 100 atoms to the geometric center
+d: DISTANCES ATOMS=1-100 ORIGIN=com COMPONENTS
+# Now compute the covariance matrix
+ones: ONES SIZE=100
+covar: COVARIANCE_MATRIX ARG=d.x,d.y,d.z WEIGHTS=ones
+```
+
+In the above case the elements of the gyration tensor are computed as follows:
+
+$$
+G_{\alpha\beta} = \frac{\sum_i w_i d_{i,\alpha} d_{i,\beta} }{\sum_i w_i}
+$$
+
+where $\alpha$ and $\beta$ can each be $x$, $y$ or $z$ and $w_i$ is a set of weights that in the above input are all set equal to one.
+
+If you would like to compute:
+
+$$
+G_{\alpha\beta} = \sum_i w_i d_{i,\alpha} d_{i,\beta}
+$$
+
+instead you use the `UNORMALIZED` flag as shown below:
+
+```plumed
+# Calculate the geometric center for 100 atoms
+com: CENTER ATOMS=1-100
+# Calculate the vector connecting each of the 100 atoms to the geometric center
+d: DISTANCES ATOMS=1-100 ORIGIN=com COMPONENTS
+# Now compute the covariance matrix
+ones: ONES SIZE=100
+covar: COVARIANCE_MATRIX ARG=d.x,d.y,d.z WEIGHTS=ones UNORMALIZED
+```
 
 */
 //+ENDPLUMEDOC
@@ -48,20 +87,31 @@ void CovarianceMatrix::registerKeywords(Keywords& keys ) {
   keys.add("compulsory","WEIGHTS","this keyword takes the label of an action that calculates a vector of values.  The elements of this vector "
            "are used as weights for the input data points.");
   keys.addFlag("UNORMALIZED",false,"do not divide by the sum of the weights");
-  keys.setValueDescription("the covariance matrix");
-  keys.needsAction("SUM"); keys.needsAction("CUSTOM"); keys.needsAction("VSTACK"); keys.needsAction("TRANSPOSE");
-  keys.needsAction("ONES"); keys.needsAction("OUTER_PRODUCT"); keys.needsAction("MATRIX_PRODUCT");
+  keys.setValueDescription("matrix","the covariance matrix");
+  keys.needsAction("SUM");
+  keys.needsAction("CUSTOM");
+  keys.needsAction("VSTACK");
+  keys.needsAction("TRANSPOSE");
+  keys.needsAction("ONES");
+  keys.needsAction("OUTER_PRODUCT");
+  keys.needsAction("MATRIX_PRODUCT");
 }
 
 CovarianceMatrix::CovarianceMatrix(const ActionOptions&ao):
   Action(ao),
-  ActionShortcut(ao)
-{
-  std::vector<std::string> args; parseVector("ARG",args);
-  unsigned nargs=args.size(); std::string argstr="ARG=" + args[0];
-  for(unsigned i=1; i<args.size(); ++i) argstr += "," + args[i];
+  ActionShortcut(ao) {
+  std::vector<std::string> args;
+  parseVector("ARG",args);
+  unsigned nargs=args.size();
+  std::string argstr="ARG=" + args[0];
+  for(unsigned i=1; i<args.size(); ++i) {
+    argstr += "," + args[i];
+  }
 
-  bool unorm; parseFlag("UNORMALIZED",unorm); std::string wstr; parse("WEIGHTS",wstr);
+  bool unorm;
+  parseFlag("UNORMALIZED",unorm);
+  std::string wstr;
+  parse("WEIGHTS",wstr);
   if( !unorm ) {
     // Normalize the weights
     readInputLine( getShortcutLabel() + "_wsum: SUM ARG=" + wstr + " PERIODIC=NO");
@@ -73,7 +123,8 @@ CovarianceMatrix::CovarianceMatrix(const ActionOptions&ao):
   // And calculate the covariance matrix by first transposing the stack
   readInputLine( getShortcutLabel() + "_stackT: TRANSPOSE ARG=" + getShortcutLabel() + "_stack");
   // Create a matrix that holds all the weights
-  std::string str_nargs; Tools::convert( nargs, str_nargs );
+  std::string str_nargs;
+  Tools::convert( nargs, str_nargs );
   readInputLine( getShortcutLabel() + "_ones: ONES SIZE=" + str_nargs );
   // Now create a matrix that holds all the weights
   readInputLine( getShortcutLabel() + "_matweights: OUTER_PRODUCT ARG=" + getShortcutLabel() + "_ones," + wstr );

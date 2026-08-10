@@ -29,19 +29,16 @@ namespace colvar {
 /*
 This file provides a template for if you want to introduce a new CV.
 
-<!-----You should add a description of your CV here---->
+The descrition of the CV that you include here will appear in the further details and examples
+section of the manual
 
-\par Examples
+You can (and should) include examples showing how to use your CV as follows:
 
-<!---You should put an example of how to use your CV here--->
-
-\plumedfile
+```plumed
 # This should be a sample input.
 t: TEMPLATE ATOMS=1,2
 PRINT ARG=t STRIDE=100 FILE=COLVAR
-\endplumedfile
-<!---You should reference here the other actions used in this example--->
-(see also \ref PRINT)
+```
 
 */
 //+ENDPLUMEDOC
@@ -64,27 +61,31 @@ void Template::registerKeywords(Keywords& keys) {
   keys.add("compulsory","TEMPLATE_COMPULSORY","all compulsory keywords should be added like this with a description here");
   keys.add("optional","TEMPLATE_OPTIONAL","all optional keywords that have input should be added like a description here");
   keys.add("atoms","ATOMS","the keyword with which you specify what atoms to use should be added like this");
-  keys.setValueDescription("a description of the value that is computed by this colvar should be included here");
+  keys.setValueDescription("scalar","a description of the value that is computed by this colvar should be included here");
 }
 
 Template::Template(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
-  pbc(true)
-{
+  pbc(true) {
   std::vector<AtomNumber> atoms;
   parseAtomList("ATOMS",atoms);
-  if(atoms.size()!=2)
+  if(atoms.size()!=2) {
     error("Number of specified atoms should be 2");
+  }
   bool nopbc=!pbc;
   parseFlag("NOPBC",nopbc);
   pbc=!nopbc;
   checkRead();
 
   log.printf("  between atoms %d %d\n",atoms[0].serial(),atoms[1].serial());
-  if(pbc) log.printf("  using periodic boundary conditions\n");
-  else    log.printf("  without periodic boundary conditions\n");
+  if(pbc) {
+    log.printf("  using periodic boundary conditions\n");
+  } else {
+    log.printf("  without periodic boundary conditions\n");
+  }
 
-  addValueWithDerivatives(); setNotPeriodic();
+  addValueWithDerivatives();
+  setNotPeriodic();
 
   requestAtoms(atoms);
 }

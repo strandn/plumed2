@@ -36,29 +36,43 @@ private:
   const double EPS;
 public:
   explicit ConjugateGradient( FCLASS* funcc ) : MinimiseBase<FCLASS>(funcc), ITMAX(200), EPS(1E-10) {}
-  void minimise( const double& ftol, std::vector<double>& p, engf_pointer myfunc ) const ;
+  int minimise( const double& ftol, std::vector<double>& p, engf_pointer myfunc ) const ;
 };
 
 template <class FCLASS>
-void ConjugateGradient<FCLASS>::minimise( const double& ftol, std::vector<double>& p, engf_pointer myfunc ) const {
+int ConjugateGradient<FCLASS>::minimise( const double& ftol, std::vector<double>& p, engf_pointer myfunc ) const {
   std::vector<double> xi( p.size() ), g( p.size() ), h( p.size() );
   double fp = this->calcDerivatives( p, xi, myfunc );
-  for(unsigned j=0; j<p.size(); ++j) { g[j] = -xi[j]; xi[j]=h[j]=g[j]; }
+  for(unsigned j=0; j<p.size(); ++j) {
+    g[j] = -xi[j];
+    xi[j]=h[j]=g[j];
+  }
 
   for(unsigned its=0; its<ITMAX; ++its) {
     double fret=this->linemin( xi, p, myfunc );
     // The exit condition
-    if( 2.0*std::fabs(fret-fp) <= ftol*(std::fabs(fret)+std::fabs(fp)+EPS)) { return; }
-    fp = fret; this->calcDerivatives( p, xi, myfunc );
+    if( 2.0*std::fabs(fret-fp) <= ftol*(std::fabs(fret)+std::fabs(fp)+EPS)) {
+      return 0;
+    }
+    fp = fret;
+    this->calcDerivatives( p, xi, myfunc );
     double ddg=0., gg=0.;
-    for(unsigned j=0; j<p.size(); ++j) { gg += g[j]*g[j]; ddg += (xi[j]+g[j])*xi[j]; }
+    for(unsigned j=0; j<p.size(); ++j) {
+      gg += g[j]*g[j];
+      ddg += (xi[j]+g[j])*xi[j];
+    }
 
-    if( gg==0.0 ) return;
+    if( gg==0.0 ) {
+      return 0;
+    }
 
     double gam=ddg/gg;
-    for(unsigned j=0; j<p.size(); ++j) { g[j] = -xi[j]; xi[j]=h[j]=g[j]+gam*h[j]; }
+    for(unsigned j=0; j<p.size(); ++j) {
+      g[j] = -xi[j];
+      xi[j]=h[j]=g[j]+gam*h[j];
+    }
   }
-  plumed_merror("Too many interactions in conjugate gradient");
+  return 1;
 }
 
 }

@@ -30,6 +30,7 @@
 !/lepton
 !/logmfd
 !/lib
+!/liquid_crystal
 !/main
 !/maketools
 !/mapping
@@ -66,7 +67,10 @@
 !/membranefusion
 !/wham
 !/metatensor
+!/metatomic
+!/sizeshape
 !/ttsketch
+!/xsprint
 
 # And just ignore these files
 *.xxd

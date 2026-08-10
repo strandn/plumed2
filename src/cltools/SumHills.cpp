@@ -30,7 +30,6 @@
 #include <cstdio>
 #include <string>
 #include <vector>
-#include <iostream>
 #include "tools/File.h"
 #include "core/Value.h"
 #include "tools/Matrix.h"
@@ -42,144 +41,147 @@ namespace cltools {
 /*
 sum_hills is a tool that allows one to to use plumed to post-process an existing hills/colvar file
 
-\par Examples
+This tool is most frequently used as shown below after a [METAD](METAD.md) simulation has been performed to sum all the Gaussians in the hills file
+and output the free energy surface.
 
-a typical case is about the integration of a hills file:
-
-\verbatim
+```plumed
 plumed sum_hills  --hills PATHTOMYHILLSFILE
-\endverbatim
+```
 
-The default name for the output file will be fes.dat
-Note that starting from this version plumed will automatically detect the
+The default name for the output file will be `fes.dat`
+Note that plumed automatically detects the
 number of the variables you have and their periodicity.
 Additionally, if you use flexible hills (multivariate Gaussian kernels), plumed will understand it from the HILLS file.
 
-The sum_hills tool will also accept multiple files that will be integrated one after the other
+The sum_hills tool can also accept multiple files that will be integrated one after the other as shown below
 
-\verbatim
+```plumed
 plumed sum_hills  --hills PATHTOMYHILLSFILE1,PATHTOMYHILLSFILE2,PATHTOMYHILLSFILE3
-\endverbatim
+```
 
-if you want to integrate out some variable you do
+if you want to integrate out some variable from your output free energy surface you do
 
-\verbatim
+```plumed
 plumed sum_hills  --hills PATHTOMYHILLSFILE   --idw t1 --kt 0.6
-\endverbatim
+```
 
-where with --idw you define the variables that you want
-all the others will be integrated out. --kt defines the temperature of the system in energy units.
+where with `--idw` you define the variables that you want in the output free energy surface.
+All other variables in the hills file will be integrated out. `--kt` defines the temperature of the system in energy units.
 (be consistent with the units you have in your hills: plumed will not check this for you)
-If you need more variables then you may use a comma separated syntax
+If you need more variables then you may use a comma separated syntax shown below:
 
-\verbatim
+```plumed
 plumed sum_hills  --hills PATHTOMYHILLSFILE   --idw t1,t2 --kt 0.6
-\endverbatim
+```
 
-You can define the output grid only with the number of bins you want
-while min/max will be detected for you
+You can define the output grid with the number of bins you want by using a command like this one
 
-\verbatim
+```plumed
 plumed sum_hills --bin 99,99 --hills PATHTOMYHILLSFILE
-\endverbatim
+```
 
-or full grid specification
+In the command above the min/max to use are detected for you.  If you want to specify the min/max yourself you can do so by using
+a command like the one shown below:
 
-\verbatim
+```plumed
 plumed sum_hills --bin 99,99 --min -pi,-pi --max pi,pi --hills PATHTOMYHILLSFILE
-\endverbatim
+```
 
 You can of course use numbers instead of -pi/pi.
 
-You can use a --stride keyword to have a dump each bunch of hills you read
-\verbatim
+You can use a `--stride` keyword to have a dump of the free energy estimate after each bunch of hills you read as shown in the following command:
+
+```plumed
 plumed sum_hills --stride 300 --hills PATHTOMYHILLSFILE
-\endverbatim
+```
 
-You can also have, in case of well tempered metadynamics, only the negative
-bias instead of the free energy through the keyword --negbias
+If you have run well tempered metadynamics you can also ask `sum_hills` to output the negative bias instead of the free energy by using the keyword `--negbias`
+as shown below
 
-\verbatim
+```plumed
 plumed sum_hills --negbias --hills PATHTOMYHILLSFILE
-\endverbatim
+```
 
-Here the default name will be negativebias.dat
+Here the default output file name will be negativebias.dat
 
 From time to time you might need to use HILLS or a COLVAR file
 as it was just a simple set  of points from which you want to build
-a free energy by using -(1/beta)log(P)
-then you use --histo
+a free energy by using -(1/beta)log(P).  If you want to do this operation then
+you use the `--histo` option as shown below:
 
-\verbatim
+```plumed
 plumed sum_hills --histo PATHTOMYCOLVARORHILLSFILE  --sigma 0.2,0.2 --kt 0.6
-\endverbatim
+```
 
-in this case you need a --kt to do the reweighting and then you
-need also some width (with the --sigma keyword) for the histogram calculation (actually will be done with
-Gaussian kernels, so it will be a continuous histogram)
-Here the default output will be histo.dat.
+in this case you need a `--kt` to do the reweighting and you
+need to set bandwidth parameters using the `--sigma` option for the histogram calculation as this histogram is computed using
+Gaussian kernels, so it will be a continuous histogram.
+
+For the command above the default output is called histo.dat.
 Note that also here you can have multiple input files separated by a comma.
 
-Additionally, if you want to do histogram and hills from the same file you can do as this
-\verbatim
+Additionally, if you want to compute the histogram and sum of the hills from the same file you can do this by using a command like this one:
+
+```plumed
 plumed sum_hills --hills --histo PATHTOMYCOLVARORHILLSFILE  --sigma 0.2,0.2 --kt 0.6
-\endverbatim
+```
+
 The two files can be eventually the same
 
 Another interesting thing one can do is monitor the difference in blocks as a metadynamics goes on.
 When the bias deposited is constant over the whole domain one can consider to be at convergence.
-This can be done with the --nohistory keyword
+This can be done with the `--nohistory` keyword
 
-\verbatim
+```plumed
 plumed sum_hills --stride 300 --hills PATHTOMYHILLSFILE  --nohistory
-\endverbatim
+```
 
 and similarly one can do the same for an histogram file
 
-\verbatim
+```plumed
 plumed sum_hills --histo PATHTOMYCOLVARORHILLSFILE  --sigma 0.2,0.2 --kt 0.6 --nohistory
-\endverbatim
+```
 
 just to check the hypothetical free energy calculated in single blocks of time during a simulation
 and not in a cumulative way
 
-Output format can be controlled via the --fmt field
+The output format can be controlled by using the `--fmt` option as shown below
 
-\verbatim
+```plumed
 plumed sum_hills --hills PATHTOMYHILLSFILE  --fmt %8.3f
-\endverbatim
+```
 
 where here we chose a float with length of 8 and 3 digits
 
-The output can be named in a arbitrary way  :
+The output can be named in a arbitrary way by using the `--output` option as shown below:
 
-\verbatim
+```plumed
 plumed sum_hills --hills PATHTOMYHILLSFILE  --outfile myfes.dat
-\endverbatim
+```
 
-will produce a file myfes.dat which contains the free energy.
+This command produces a file myfes.dat which contains the free energy surface.
 
-If you use stride, this keyword is the suffix
+If you use stride, the name specied with `--output` is the suffix so this command:
 
-\verbatim
+```plumed
 plumed sum_hills --hills PATHTOMYHILLSFILE  --outfile myfes_ --stride 100
-\endverbatim
+```
 
-will produce myfes_0.dat,  myfes_1.dat, myfes_2.dat etc.
+produces output files called myfes_0.dat,  myfes_1.dat, myfes_2.dat etc.
 
-The same is true for the output coming from histogram
-\verbatim
+The same is true for the output coming from histogram that is used.  So this example
+
+```plumed
 plumed sum_hills --histo HILLS --kt 2.5 --sigma 0.01 --outhisto myhisto.dat
-\endverbatim
+```
 
-is producing a file myhisto.dat
-while, when using stride, this is the suffix
+produces a file myhisto.dat, while this input
 
-\verbatim
+```plumed
 plumed sum_hills --histo HILLS --kt 2.5 --sigma 0.01 --outhisto myhisto_ --stride 100
-\endverbatim
+```
 
-that gives  myhisto_0.dat,  myhisto_1.dat,  myhisto_3.dat etc..
+produces output files called `myhisto_0.dat`,  `myhisto_1.dat`,  `myhisto_3.dat` etc..
 
 */
 //+ENDPLUMEDOC
@@ -217,12 +219,13 @@ void CLToolSumHills::registerKeywords( Keywords& keys ) {
 }
 
 CLToolSumHills::CLToolSumHills(const CLToolOptions& co ):
-  CLTool(co)
-{
-  inputdata=commandline;
+  CLTool(co) {
+  inputdata=inputType::commandline;
 }
 
-std::string CLToolSumHills::description()const { return "sum the hills with  plumed"; }
+std::string CLToolSumHills::description()const {
+  return "sum the hills with  plumed";
+}
 
 int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
 
@@ -257,7 +260,9 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
     findCvsAndPeriodic(histoFiles[0], hcvs, hpmin, hpmax, hmultivariate, lowI_, uppI_);
     // here need also the vector of sigmas
     parseVector("--sigma",sigma);
-    if(sigma.size()==0)plumed_merror("you should define --sigma vector when using histogram");
+    if(sigma.size()==0) {
+      plumed_merror("you should define --sigma vector when using histogram");
+    }
     lowI_=uppI_="-1.";  // Interval is not use for histograms
   }
 
@@ -289,24 +294,34 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   unsigned grid_check=0;
   std::vector<std::string> gmin(cvs.size());
   if(parseVector("--min",gmin)) {
-    if(gmin.size()!=cvs.size() && gmin.size()!=0) plumed_merror("not enough values for --min");
+    if(gmin.size()!=cvs.size() && gmin.size()!=0) {
+      plumed_merror("not enough values for --min");
+    }
     grid_check++;
   }
   std::vector<std::string> gmax(cvs.size() );
   if(parseVector("--max",gmax)) {
-    if(gmax.size()!=cvs.size() && gmax.size()!=0) plumed_merror("not enough values for --max");
+    if(gmax.size()!=cvs.size() && gmax.size()!=0) {
+      plumed_merror("not enough values for --max");
+    }
     grid_check++;
   }
   std::vector<std::string> gbin(cvs.size());
-  bool grid_has_bin; grid_has_bin=false;
+  bool grid_has_bin;
+  grid_has_bin=false;
   if(parseVector("--bin",gbin)) {
-    if(gbin.size()!=cvs.size() && gbin.size()!=0) plumed_merror("not enough values for --bin");
+    if(gbin.size()!=cvs.size() && gbin.size()!=0) {
+      plumed_merror("not enough values for --bin");
+    }
     grid_has_bin=true;
   }
   std::vector<std::string> gspacing(cvs.size());
-  bool grid_has_spacing; grid_has_spacing=false;
+  bool grid_has_spacing;
+  grid_has_spacing=false;
   if(parseVector("--spacing",gspacing)) {
-    if(gspacing.size()!=cvs.size() && gspacing.size()!=0) plumed_merror("not enough values for --spacing");
+    if(gspacing.size()!=cvs.size() && gspacing.size()!=0) {
+      plumed_merror("not enough values for --spacing");
+    }
     grid_has_spacing=true;
   }
   // allowed: no grids only bin
@@ -320,7 +335,9 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   unsigned nn=1;
   ss="setNatoms";
   plumed.cmd(ss,&nn);
-  if(Communicator::initialized())  plumed.cmd("setMPIComm",&pc.Get_comm());
+  if(Communicator::initialized()) {
+    plumed.cmd("setMPIComm",&pc.Get_comm());
+  }
   plumed.cmd("init",&nn);
   std::vector <bool> isdone(cvs.size(),false);
   for(unsigned i=0; i<cvs.size(); i++) {
@@ -332,15 +349,23 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
       actioninput.push_back("ATOMS=1");
       actioninput.push_back("LABEL="+cvs[i][0]);
       std::vector<std::string> comps, periods;
-      if(cvs[i].size()>1) {comps.push_back(cvs[i][1]); inds.push_back(i);}
-      periods.push_back(pmin[i]); periods.push_back(pmax[i]);
+      if(cvs[i].size()>1) {
+        comps.push_back(cvs[i][1]);
+        inds.push_back(i);
+      }
+      periods.push_back(pmin[i]);
+      periods.push_back(pmax[i]);
       for(unsigned j=i+1; j<cvs.size(); j++) {
         if(cvs[i][0]==cvs[j][0] && !isdone[j]) {
-          if(cvs[i].size()==1 || cvs[j].size()==1  )plumed_merror("you cannot have twice the same label and no components ");
+          if(cvs[i].size()==1 || cvs[j].size()==1  ) {
+            plumed_merror("you cannot have twice the same label and no components ");
+          }
           if(cvs[j].size()>1) {
             comps.push_back(cvs[j][1]);
-            periods.push_back(pmin[j]); periods.push_back(pmax[j]);
-            isdone[j]=true; inds.push_back(j);
+            periods.push_back(pmin[j]);
+            periods.push_back(pmax[j]);
+            isdone[j]=true;
+            inds.push_back(j);
           }
         }
 
@@ -349,7 +374,9 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
       std::string addme;
       if(comps.size()>0) {
         addme="COMPONENTS=";
-        for(unsigned i=0; i<comps.size()-1; i++)addme+=comps[i]+",";
+        for(unsigned ii=0; ii<comps.size()-1; ii++) {
+          addme+=comps[ii]+",";
+        }
         addme+=comps.back();
         actioninput.push_back(addme);
       }
@@ -361,7 +388,8 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
       addme+=periods.back();
       actioninput.push_back(addme);
       for(unsigned j=0; j<inds.size(); j++) {
-        unsigned jj; jj=inds[j];
+        unsigned jj;
+        jj=inds[j];
         if(grid_check==2) {
           double gm;
           double pm;
@@ -398,18 +426,25 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
       bool found=false;
       for(unsigned j=0; j<cvs.size(); j++) {
         if(cvs[j].size()>1) {
-          if(idw[i]==cvs[j][0]+"."+cvs[j][1])found=true;
+          if(idw[i]==cvs[j][0]+"."+cvs[j][1]) {
+            found=true;
+          }
         } else {
-          if(idw[i]==cvs[j][0])found=true;
+          if(idw[i]==cvs[j][0]) {
+            found=true;
+          }
         }
       }
-      if(!found)plumed_merror("variable "+idw[i]+" is not found in the bunch of cvs: revise your --idw option" );
+      if(!found) {
+        plumed_merror("variable "+idw[i]+" is not found in the bunch of cvs: revise your --idw option" );
+      }
     }
     plumed_massert( idw.size()<=cvs.size(),"the number of variables to be integrated should be at most equal to the total number of cvs  ");
     // in this case you need a beta factor!
   }
 
-  std::string kt; kt=std::string("1.");// assign an arbitrary value just in case that idw.size()==cvs.size()
+  std::string kt;
+  kt=std::string("1.");// assign an arbitrary value just in case that idw.size()==cvs.size()
   if ( dohisto || idw.size()!=0  ) {
     plumed_massert(parse("--kt",kt),"if you make a dimensionality reduction (--idw) or a histogram (--histo) then you need to define --kt ");
   }
@@ -448,25 +483,46 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   //  cerr<<"AA "<<actioninput[i]<<endl;
   //}
   if(dohills) {
-    addme="HILLSFILES="; for(unsigned i=0; i<hillsFiles.size()-1; i++)addme+=hillsFiles[i]+","; addme+=hillsFiles[hillsFiles.size()-1];
+    addme="HILLSFILES=";
+    for(unsigned i=0; i<hillsFiles.size()-1; i++) {
+      addme+=hillsFiles[i]+",";
+    }
+    addme+=hillsFiles[hillsFiles.size()-1];
     actioninput.push_back(addme);
     // set the grid
   }
   if(grid_check==2) {
-    addme="GRID_MAX="; for(unsigned i=0; i<(ncv-1); i++)addme+=gmax[i]+","; addme+=gmax[ncv-1];
+    addme="GRID_MAX=";
+    for(unsigned i=0; i<(ncv-1); i++) {
+      addme+=gmax[i]+",";
+    }
+    addme+=gmax[ncv-1];
     actioninput.push_back(addme);
-    addme="GRID_MIN="; for(unsigned i=0; i<(ncv-1); i++)addme+=gmin[i]+","; addme+=gmin[ncv-1];
+    addme="GRID_MIN=";
+    for(unsigned i=0; i<(ncv-1); i++) {
+      addme+=gmin[i]+",";
+    }
+    addme+=gmin[ncv-1];
     actioninput.push_back(addme);
   }
   if(grid_has_bin) {
-    addme="GRID_BIN="; for(unsigned i=0; i<(ncv-1); i++)addme+=gbin[i]+","; addme+=gbin[ncv-1];
+    addme="GRID_BIN=";
+    for(unsigned i=0; i<(ncv-1); i++) {
+      addme+=gbin[i]+",";
+    }
+    addme+=gbin[ncv-1];
     actioninput.push_back(addme);
   }
   if(grid_has_spacing) {
-    addme="GRID_SPACING="; for(unsigned i=0; i<(ncv-1); i++)addme+=gspacing[i]+","; addme+=gspacing[ncv-1];
+    addme="GRID_SPACING=";
+    for(unsigned i=0; i<(ncv-1); i++) {
+      addme+=gspacing[i]+",";
+    }
+    addme+=gspacing[ncv-1];
     actioninput.push_back(addme);
   }
-  std::string  stride; stride="";
+  std::string  stride;
+  stride="";
   if(parse("--stride",stride)) {
     actioninput.push_back("INITSTRIDE="+stride);
     bool  nohistory;
@@ -482,16 +538,22 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   }
   if(idw.size()!=0) {
     addme="PROJ=";
-    for(unsigned i=0; i<idw.size()-1; i++) {addme+=idw[i]+",";}
+    for(unsigned i=0; i<idw.size()-1; i++) {
+      addme+=idw[i]+",";
+    }
     addme+=idw.back();
     actioninput.push_back(addme);
   }
 
   if(dohisto) {
     if(idw.size()==0) {
-      if(sigma.size()!=hcvs.size()) plumed_merror("you should define as many --sigma vector as the number of collective variable used for the histogram ");
+      if(sigma.size()!=hcvs.size()) {
+        plumed_merror("you should define as many --sigma vector as the number of collective variable used for the histogram ");
+      }
     } else {
-      if(idw.size()!=sigma.size()) plumed_merror("you should define as many --sigma vector as the number of collective variable used for the histogram ");
+      if(idw.size()!=sigma.size()) {
+        plumed_merror("you should define as many --sigma vector as the number of collective variable used for the histogram ");
+      }
     }
   }
 
@@ -499,11 +561,17 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
     actioninput.push_back("KT="+kt);
   }
   if(dohisto) {
-    addme="HISTOFILES="; for(unsigned i=0; i<histoFiles.size()-1; i++) {addme+=histoFiles[i]+",";} addme+=histoFiles[histoFiles.size()-1];
+    addme="HISTOFILES=";
+    for(unsigned i=0; i<histoFiles.size()-1; i++) {
+      addme+=histoFiles[i]+",";
+    }
+    addme+=histoFiles[histoFiles.size()-1];
     actioninput.push_back(addme);
 
     addme="HISTOSIGMA=";
-    for(unsigned i=0; i<sigma.size()-1; i++) {addme+=sigma[i]+",";}
+    for(unsigned i=0; i<sigma.size()-1; i++) {
+      addme+=sigma[i]+",";
+    }
     addme+=sigma.back();
     actioninput.push_back(addme);
   }
@@ -515,13 +583,18 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   }
 
   if(lowI_!=uppI_) {
-    addme="INTERVAL="; addme+=lowI_+","; addme+=uppI_;
+    addme="INTERVAL=";
+    addme+=lowI_+",";
+    addme+=uppI_;
     actioninput.push_back(addme);
   }
 
-  std::string fmt; fmt="";
+  std::string fmt;
+  fmt="";
   parse("--fmt",fmt);
-  if(fmt!="")actioninput.push_back("FMT="+fmt);
+  if(fmt!="") {
+    actioninput.push_back("FMT="+fmt);
+  }
 
 
 //  for(unsigned i=0;i< actioninput.size();i++){
@@ -532,12 +605,20 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   return 0;
 }
 
-bool CLToolSumHills::findCvsAndPeriodic(const std::string & filename, std::vector< std::vector<std::string>  > &cvs, std::vector<std::string> &pmin,std::vector<std::string> &pmax, bool &multivariate, std::string &lowI_, std::string &uppI_) {
+bool CLToolSumHills::findCvsAndPeriodic(const std::string & filename,
+                                        std::vector< std::vector<std::string>  > &cvs,
+                                        std::vector<std::string> &pmin,
+                                        std::vector<std::string> &pmax,
+                                        bool &multivariate,
+                                        std::string &lowI_,
+                                        std::string &uppI_) {
   IFile ifile;
   ifile.allowIgnoredFields();
   std::vector<std::string> fields;
   if(ifile.FileExist(filename)) {
-    cvs.clear(); pmin.clear(); pmax.clear();
+    cvs.clear();
+    pmin.clear();
+    pmax.clear();
     ifile.open(filename);
     ifile.scanFieldList(fields);
     bool before_sigma=true;
@@ -548,7 +629,9 @@ bool CLToolSumHills::findCvsAndPeriodic(const std::string & filename, std::vecto
       founds=fields[i].find("sigma_", pos)  ;
       foundm=fields[i].find("min_", pos)  ;
       foundp=fields[i].find("max_", pos)  ;
-      if (founds!=std::string::npos || foundm!=std::string::npos ||  foundp!=std::string::npos )before_sigma=false;
+      if (founds!=std::string::npos || foundm!=std::string::npos ||  foundp!=std::string::npos ) {
+        before_sigma=false;
+      }
       // cvs are after time and before sigmas
       size_t  found;
       found=fields[i].find("time", pos);
@@ -564,9 +647,7 @@ bool CLToolSumHills::findCvsAndPeriodic(const std::string & filename, std::vecto
           ss.push_back(name);
           cvs.push_back(ss);
         } else {
-          std::vector<std::string> ss;
-          ss.push_back(fields[i]);
-          cvs.push_back(ss);
+          cvs.emplace_back(std::vector<std::string> {fields[i]});
         }
         //std::cerr<<"found variable number  "<<cvs.size()<<" :  "<<cvs.back()[0]<<std::endl;
         //if((cvs.back()).size()!=1){
@@ -575,7 +656,12 @@ bool CLToolSumHills::findCvsAndPeriodic(const std::string & filename, std::vecto
         // get periodicity
         pmin.push_back("none");
         pmax.push_back("none");
-        std::string mm; if((cvs.back()).size()>1) {mm=cvs.back()[0]+"."+cvs.back()[1];} else {mm=cvs.back()[0];}
+        std::string mm;
+        if((cvs.back()).size()>1) {
+          mm=cvs.back()[0]+"."+cvs.back()[1];
+        } else {
+          mm=cvs.back()[0];
+        }
         if(ifile.FieldExist("min_"+mm)) {
           std::string val;
           ifile.scanField("min_"+mm,val);
@@ -598,8 +684,11 @@ bool CLToolSumHills::findCvsAndPeriodic(const std::string & filename, std::vecto
     if(ifile.FieldExist("multivariate")) {
       ;
       ifile.scanField("multivariate",sss);
-      if(sss=="true") { multivariate=true;}
-      else if(sss=="false") { multivariate=false;}
+      if(sss=="true") {
+        multivariate=true;
+      } else if(sss=="false") {
+        multivariate=false;
+      }
     }
     // do interval?
     if(ifile.FieldExist("lower_int")) {

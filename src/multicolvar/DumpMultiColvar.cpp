@@ -24,12 +24,15 @@
 
 //+PLUMEDOC MCOLVAR DUMPMULTICOLVAR
 /*
-Basically equivalent to DUMPATOMS
+Dump atom positions and a vector of values to a file.
 
-This action has been depracated
+This action has been depracated as the same result can be be achieved using [DUMPATOMS](DUMPATOMS.md) as you can if you look
+at the expanded version of the shortct in the example input below:
 
-\par Examples
-
+```plumed
+c1: COORDINATIONNUMBER SPECIES=1-100 SWITCH={RATIONAL R_0=0.1}
+DUMPMULTICOLVAR DATA=c1 FILE=coords.xyz
+```
 
 */
 //+ENDPLUMEDOC
@@ -47,17 +50,20 @@ PLUMED_REGISTER_ACTION(DumpMultiColvar,"DUMPMULTICOLVAR")
 
 void DumpMultiColvar::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
+  keys.setDeprecated("DUMPATOMS");
   keys.add("compulsory","DATA","the vector you wish to transform");
   keys.add("compulsory","FILE","the file that you would like to output the data to");
-  keys.remove("HAS_VALUES"); keys.needsAction("DUMPATOMS");
+  keys.add("compulsory","STRIDE","1","the frequency with which you would like to output the multicolvar data");
+  keys.remove("HAS_VALUES");
+  keys.needsAction("DUMPATOMS");
 }
 
 DumpMultiColvar::DumpMultiColvar(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
+  ActionShortcut(ao) {
   warning("This action has been depracated.  Look at the log to see how the same result is achieved with the new syntax");
-  std::string dd; parse("DATA",dd);
+  std::string dd;
+  parse("DATA",dd);
   readInputLine("DUMPATOMS ATOMS=" + dd + "_grp ARG=" + dd + " " + convertInputLineToString() );
 }
 

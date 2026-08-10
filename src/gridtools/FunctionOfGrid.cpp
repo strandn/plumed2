@@ -21,54 +21,20 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "FunctionOfGrid.h"
 #include "core/ActionRegister.h"
-#include "function/Sum.h"
 #include "function/Custom.h"
-
-//+PLUMEDOC GRIDCALC SUM_GRID
-/*
-Sum the values of all the function at the points on a grid
-
-\par Examples
-
-*/
-//+ENDPLUMEDOC
-
-//+PLUMEDOC GRIDCALC INTEGRATE_GRID
-/*
-Calculate the numerical integral of the function stored on the grid
-
-\par Examples
-
-*/
-//+ENDPLUMEDOC
-
-//+PLUMEDOC GRIDCALC CUSTOM_GRID
-/*
-Calculate a function of the grid or grids that are input and return a new grid
-
-\par Examples
-
-*/
-//+ENDPLUMEDOC
-
-//+PLUMEDOC GRIDCALC MATHEVAL_GRID
-/*
-Calculate a function of the grid or grids that are input and return a new grid
-
-\par Examples
-
-*/
-//+ENDPLUMEDOC
 
 namespace PLMD {
 namespace gridtools {
 
-typedef FunctionOfGrid<function::Sum> GridSum;
-PLUMED_REGISTER_ACTION(GridSum,"SUM_GRID")
-PLUMED_REGISTER_ACTION(GridSum,"INTEGRATE_GRID")
 typedef FunctionOfGrid<function::Custom> GridCustom;
 PLUMED_REGISTER_ACTION(GridCustom,"CUSTOM_GRID")
 PLUMED_REGISTER_ACTION(GridCustom,"MATHEVAL_GRID")
+
+template <>
+std::string FunctionOfGrid<function::Custom>::writeInGraph() const {
+  std::size_t und = getName().find_last_of("_");
+  return getName().substr(0,und) + "\nFUNC=" + function::Custom::getFunctionString( taskmanager.getActionInput().f.func );
+}
 
 }
 }

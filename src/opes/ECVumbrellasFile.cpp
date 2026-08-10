@@ -27,49 +27,46 @@ namespace opes {
 /*
 Target a multiumbrella ensemble, by combining systems each with a parabolic bias potential at a different location.
 
-Any set of collective variables \f$\mathbf{s}\f$ can be used as ARG.
-The positions \f$\mathbf{s}_i\f$ and dimension \f$\mathbf{\sigma}_i\f$ of the umbrellas are read from file.
-\f[
+Any set of collective variables $\mathbf{s}$ can be used as ARG.
+The positions $\mathbf{s}_i$ and dimension $\mathbf{\sigma}_i$ of the umbrellas are read from file.
+
+$$
   \Delta u_{\mathbf{s}_i}(\mathbf{s})=\sum_j^{\text{dim}}\frac{([s]_j-[s_i]_j)^2}{2[\sigma_i]_j^2}\, .
-\f]
-Notice that \f$\mathbf{\sigma}_i\f$ is diagonal, thus only one SIGMA per CV has to be specified for each umbrella.
-You can choose the umbrellas manually, or place them on a grid, or along a path, similar to \ref PATH.
+$$
+
+Notice that $\mathbf{\sigma}_i$ is diagonal, thus only one SIGMA per CV has to be specified for each umbrella.
+You can choose the umbrellas manually, or place them on a grid, or along a path, similar to [PATH](PATH.md).
 They must cover all the CV space that one wishes to sample.
 
 The first column of the umbrellas file is always ignored and must be called "time".
-You can also use as input file a STATE file from an earlier \ref OPES_METAD run (or an \ref OPES_MEAD_EXPLORE run, if you combine it with other ECVs).
+You can also use as input file a STATE file from an earlier [OPES_METAD](OPES_METAD.md) run (or an [OPES_METAD_EXPLORE](OPES_METAD_EXPLORE.md) run, if you combine it with other ECVs).
 
-Similarly to \ref ECV_UMBRELLAS_LINE, you should set the flag ADD_P0 if you think your umbrellas might not properly cover all the CV region relevant for the unbiased distribution.
+Similarly to [ECV_UMBRELLAS_LINE](ECV_UMBRELLAS_LINE.md), you should set the flag ADD_P0 if you think your umbrellas might not properly cover all the CV region relevant for the unbiased distribution.
 You can also use BARRIER to set the maximum barrier height to be explored, and avoid huge biases at the beginning of your simulation.
-See also Appendix B of Ref.\cite Invernizzi2020unified for more details on these last two options.
+See also Appendix B of the paper cited below for more details on these last two options.
 
-\par Examples
+## Examples
 
-\plumedfile
+```plumed
+#SETTINGS INPUTFILES=extras/Umbrellas.data
+
 cv1: DISTANCE ATOMS=1,2
 cv2: DISTANCE ATOMS=3,4
 cv3: DISTANCE ATOMS=4,1
-ecv: ECV_UMBRELLAS_FILE ARG=cv1,cv2,cv3 FILE=Umbrellas.data ADD_P0 BARRIER=70
+ecv: ECV_UMBRELLAS_FILE ...
+   ARG=cv1,cv2,cv3
+   FILE=extras/Umbrellas.data
+   ADD_P0 BARRIER=70
+...
 opes: OPES_EXPANDED ARG=ecv.* PACE=500
 PRINT FILE=COLVAR STRIDE=500 ARG=cv1,cv2,cv3,opes.bias
-\endplumedfile
-
-The umbrellas file might look like this:
-\auxfile{Umbrellas.data}
-#! FIELDS time cv1 cv2 cv3 sigma_cv1 sigma_cv2 sigma_cv3
-1  1.17958  2.93697  1.06109  0.19707  0.28275  0.32427
-2  2.04023  2.69714  1.84770  0.22307  0.25933  0.31783
-3  1.99693  1.10299  1.13351  0.19517  0.26260  0.37427
-4  1.15954  1.37447  2.25975  0.20096  0.27168  0.33353
-5  1.10126  2.45936  2.40260  0.19747  0.24215  0.35523
-\endauxfile
+```
 
 */
 //+ENDPLUMEDOC
 
 class ECVumbrellasFile :
-  public ExpansionCVs
-{
+  public ExpansionCVs {
 private:
   double barrier_;
   unsigned P0_contribution_;
@@ -95,20 +92,18 @@ public:
 
 PLUMED_REGISTER_ACTION(ECVumbrellasFile,"ECV_UMBRELLAS_FILE")
 
-void ECVumbrellasFile::registerKeywords(Keywords& keys)
-{
+void ECVumbrellasFile::registerKeywords(Keywords& keys) {
   ExpansionCVs::registerKeywords(keys);
-  keys.use("ARG");
   keys.add("compulsory","FILE","the name of the file containing the umbrellas");
   keys.add("optional","BARRIER","a guess of the free energy barrier to be overcome (better to stay higher than lower)");
   keys.addFlag("ADD_P0",false,"add the unbiased Boltzmann distribution to the target distribution, to make sure to sample it");
   keys.addFlag("LOWER_HALF_ONLY",false,"use only the lower half of each umbrella potentials");
+  keys.addDOI("10.1103/PhysRevX.10.041034");
 }
 
 ECVumbrellasFile::ECVumbrellasFile(const ActionOptions&ao):
   Action(ao),
-  ExpansionCVs(ao)
-{
+  ExpansionCVs(ao) {
 //get number of CVs
   const unsigned ncv=getNumberOfArguments();
   centers_.resize(ncv);
@@ -117,10 +112,11 @@ ECVumbrellasFile::ECVumbrellasFile(const ActionOptions&ao):
 //set P0_contribution_
   bool add_P0=false;
   parseFlag("ADD_P0",add_P0);
-  if(add_P0)
+  if(add_P0) {
     P0_contribution_=1;
-  else
+  } else {
     P0_contribution_=0;
+  }
 
 //set barrier_
   barrier_=std::numeric_limits<double>::infinity();
@@ -132,38 +128,33 @@ ECVumbrellasFile::ECVumbrellasFile(const ActionOptions&ao):
   parse("FILE",umbrellasFileName);
   IFile ifile;
   ifile.link(*this);
-  if(ifile.FileExist(umbrellasFileName))
-  {
+  if(ifile.FileExist(umbrellasFileName)) {
     log.printf("  reading from FILE '%s'\n",umbrellasFileName.c_str());
     ifile.open(umbrellasFileName);
     ifile.allowIgnoredFields();
     double time; //first field is ignored
-    while(ifile.scanField("time",time))
-    {
-      for(unsigned j=0; j<ncv; j++)
-      {
+    while(ifile.scanField("time",time)) {
+      for(unsigned j=0; j<ncv; j++) {
         double centers_j;
         ifile.scanField(getPntrToArgument(j)->getName(),centers_j);
         centers_[j].push_back(centers_j); //this might be slow
       }
-      for(unsigned j=0; j<ncv; j++)
-      {
+      for(unsigned j=0; j<ncv; j++) {
         double sigmas_j;
         ifile.scanField("sigma_"+getPntrToArgument(j)->getName(),sigmas_j);
         sigmas_[j].push_back(sigmas_j);
       }
       ifile.scanField();
     }
-  }
-  else
+  } else {
     plumed_merror("Umbrellas FILE '"+umbrellasFileName+"' not found");
+  }
 
   checkRead();
 
 //extra consistency checks
   const unsigned sizeUmbrellas=centers_[0].size();
-  for(unsigned j=0; j<ncv; j++)
-  {
+  for(unsigned j=0; j<ncv; j++) {
     plumed_massert(centers_[j].size()==sizeUmbrellas,"mismatch in the number of centers read from file");
     plumed_massert(sigmas_[j].size()==sizeUmbrellas,"mismatch in the number of sigmas read from file");
   }
@@ -175,43 +166,35 @@ ECVumbrellasFile::ECVumbrellasFile(const ActionOptions&ao):
 
 //printing some info
   log.printf("  total number of umbrellas = %u\n",sizeUmbrellas);
-  if(barrier_!=std::numeric_limits<double>::infinity())
+  if(barrier_!=std::numeric_limits<double>::infinity()) {
     log.printf("  guess for free energy BARRIER = %g\n",barrier_);
-  if(P0_contribution_==1)
+  }
+  if(P0_contribution_==1) {
     log.printf(" -- ADD_P0: the target includes also the unbiased probability itself\n");
-  if(lower_only_)
+  }
+  if(lower_only_) {
     log.printf(" -- LOWER_HALF_ONLY: the ECVs are set to zero for values of the CV above the respective center\n");
+  }
 }
 
-void ECVumbrellasFile::calculateECVs(const double * cv)
-{
-  if(lower_only_)
-  {
-    for(unsigned j=0; j<getNumberOfArguments(); j++)
-    {
-      for(unsigned k=P0_contribution_; k<totNumECVs_; k++) //if ADD_P0, the first ECVs=0
-      {
+void ECVumbrellasFile::calculateECVs(const double * cv) {
+  if(lower_only_) {
+    for(unsigned j=0; j<getNumberOfArguments(); j++) {
+      for(unsigned k=P0_contribution_; k<totNumECVs_; k++) { //if ADD_P0, the first ECVs=0
         const unsigned kk=k-P0_contribution_;
         const double dist_jk=difference(j,centers_[j][kk],cv[j])/sigmas_[j][kk]; //PBC might be present
-        if(dist_jk>=0)
-        {
+        if(dist_jk>=0) {
           ECVs_[j][k]=0;
           derECVs_[j][k]=0;
-        }
-        else
-        {
+        } else {
           ECVs_[j][k]=0.5*std::pow(dist_jk,2);
           derECVs_[j][k]=dist_jk/sigmas_[j][kk];
         }
       }
     }
-  }
-  else
-  {
-    for(unsigned j=0; j<getNumberOfArguments(); j++)
-    {
-      for(unsigned k=P0_contribution_; k<totNumECVs_; k++) //if ADD_P0, the first ECVs=0
-      {
+  } else {
+    for(unsigned j=0; j<getNumberOfArguments(); j++) {
+      for(unsigned k=P0_contribution_; k<totNumECVs_; k++) { //if ADD_P0, the first ECVs=0
         const unsigned kk=k-P0_contribution_;
         const double dist_jk=difference(j,centers_[j][kk],cv[j])/sigmas_[j][kk]; //PBC might be present
         ECVs_[j][k]=0.5*std::pow(dist_jk,2);
@@ -221,65 +204,62 @@ void ECVumbrellasFile::calculateECVs(const double * cv)
   }
 }
 
-const double * ECVumbrellasFile::getPntrToECVs(unsigned j)
-{
+const double * ECVumbrellasFile::getPntrToECVs(unsigned j) {
   plumed_massert(isReady_,"cannot access ECVs before initialization");
   plumed_massert(j<getNumberOfArguments(),getName()+" has fewer CVs");
   return &ECVs_[j][0];
 }
 
-const double * ECVumbrellasFile::getPntrToDerECVs(unsigned j)
-{
+const double * ECVumbrellasFile::getPntrToDerECVs(unsigned j) {
   plumed_massert(isReady_,"cannot access ECVs before initialization");
   plumed_massert(j<getNumberOfArguments(),getName()+" has fewer CVs");
   return &derECVs_[j][0];
 }
 
-std::vector<std::string> ECVumbrellasFile::getLambdas() const
-{ //notice that sigmas are not considered!
+std::vector<std::string> ECVumbrellasFile::getLambdas() const {
+  //notice that sigmas are not considered!
   std::vector<std::string> lambdas(totNumECVs_);
-  if(P0_contribution_==1)
-  {
+  if(P0_contribution_==1) {
     std::ostringstream subs;
     subs<<"P0";
-    for(unsigned j=1; j<getNumberOfArguments(); j++)
+    for(unsigned j=1; j<getNumberOfArguments(); j++) {
       subs<<"_P0";
+    }
     lambdas[0]=subs.str();
   }
-  for(unsigned k=P0_contribution_; k<totNumECVs_; k++)
-  {
+  for(unsigned k=P0_contribution_; k<totNumECVs_; k++) {
     const unsigned kk=k-P0_contribution_;
     std::ostringstream subs;
     subs<<centers_[0][kk];
-    for(unsigned j=1; j<getNumberOfArguments(); j++)
+    for(unsigned j=1; j<getNumberOfArguments(); j++) {
       subs<<"_"<<centers_[j][kk];
+    }
     lambdas[k]=subs.str();
   }
   return lambdas;
 }
 
-void ECVumbrellasFile::initECVs()
-{
+void ECVumbrellasFile::initECVs() {
   plumed_massert(!isReady_,"initialization should not be called twice");
   isReady_=true;
   log.printf("  *%4u windows for %s\n",totNumECVs_,getName().c_str());
 }
 
-void ECVumbrellasFile::initECVs_observ(const std::vector<double>& all_obs_cvs,const unsigned ncv,const unsigned index_j)
-{
+void ECVumbrellasFile::initECVs_observ(const std::vector<double>& all_obs_cvs,const unsigned ncv,const unsigned index_j) {
   //this non-linear exansion never uses automatic initialization
   initECVs();
   calculateECVs(&all_obs_cvs[index_j]); //use only first obs point
   for(unsigned j=0; j<getNumberOfArguments(); j++)
-    for(unsigned k=P0_contribution_; k<totNumECVs_; k++)
+    for(unsigned k=P0_contribution_; k<totNumECVs_; k++) {
       ECVs_[j][k]=std::min(barrier_/kbt_,ECVs_[j][k]);
+    }
 }
 
-void ECVumbrellasFile::initECVs_restart(const std::vector<std::string>& lambdas)
-{
+void ECVumbrellasFile::initECVs_restart(const std::vector<std::string>& lambdas) {
   std::size_t pos=0;
-  for(unsigned j=0; j<getNumberOfArguments()-1; j++)
-    pos=lambdas[0].find("_",pos+1); //checking only lambdas[0] is hopefully enough
+  for(unsigned j=0; j<getNumberOfArguments()-1; j++) {
+    pos=lambdas[0].find("_",pos+1);  //checking only lambdas[0] is hopefully enough
+  }
   plumed_massert(pos<lambdas[0].length(),"this should not happen, fewer '_' than expected in "+getName());
   pos=lambdas[0].find("_",pos+1);
   plumed_massert(pos>lambdas[0].length(),"this should not happen, more '_' than expected in "+getName());

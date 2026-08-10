@@ -32,6 +32,7 @@ void CoordinationBase::registerKeywords( Keywords& keys ) {
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
   keys.addFlag("PAIR",false,"Pair only 1st element of the 1st group with 1st element in the second, etc");
   keys.addFlag("NLIST",false,"Use a neighbor list to speed up the calculation");
+  keys.addFlag("NLISTCELLS",false,"Use a neighbor list to speed up the calculation - use the cell list implementation instead of the classical one");
   keys.add("optional","NL_CUTOFF","The cutoff for the neighbor list");
   keys.add("optional","NL_STRIDE","The frequency with which we are updating the atoms in the neighbor list");
   keys.add("atoms","GROUPA","First list of atoms");
@@ -43,8 +44,7 @@ CoordinationBase::CoordinationBase(const ActionOptions&ao):
   pbc(true),
   serial(false),
   invalidateList(true),
-  firsttime(true)
-{
+  firsttime(true) {
 
   parseFlag("SERIAL",serial);
 
@@ -61,24 +61,41 @@ CoordinationBase::CoordinationBase(const ActionOptions&ao):
   parseFlag("PAIR",dopair);
 
 // neighbor list stuff
-  bool doneigh=false;
+  bool doneigh_classic=false;
   double nl_cut=0.0;
   int nl_st=0;
-  parseFlag("NLIST",doneigh);
+  parseFlag("NLIST",doneigh_classic);
+  bool doneighcells=false;
+  parseFlag("NLISTCELLS",doneighcells);
+  //temporary message
+  plumed_assert(!(doneighcells && doneigh_classic)) << "Please activate only one of the two version of the NL";
+  plumed_assert(!(doneighcells && dopair)) << "Pair is not compatible with the CELLS implementation of the NL";
+  bool doneigh=doneighcells||doneigh_classic;
   if(doneigh) {
     parse("NL_CUTOFF",nl_cut);
-    if(nl_cut<=0.0) error("NL_CUTOFF should be explicitly specified and positive");
+    if(nl_cut<=0.0) {
+      error("NL_CUTOFF should be explicitly specified and positive");
+    }
     parse("NL_STRIDE",nl_st);
-    if(nl_st<=0) error("NL_STRIDE should be explicitly specified and positive");
+    if(nl_st<=0) {
+      error("NL_STRIDE should be explicitly specified and positive");
+    }
   }
 
-  addValueWithDerivatives(); setNotPeriodic();
+  addValueWithDerivatives();
+  setNotPeriodic();
   if(gb_lista.size()>0) {
-    if(doneigh)  nl=Tools::make_unique<NeighborList>(ga_lista,gb_lista,serial,dopair,pbc,getPbc(),comm,nl_cut,nl_st);
-    else         nl=Tools::make_unique<NeighborList>(ga_lista,gb_lista,serial,dopair,pbc,getPbc(),comm);
+    if(doneigh) {
+      nl=Tools::make_unique<NeighborList>(ga_lista,gb_lista,serial,dopair,pbc,getPbc(),comm,nl_cut,nl_st,doneighcells);
+    } else {
+      nl=Tools::make_unique<NeighborList>(ga_lista,gb_lista,serial,dopair,pbc,getPbc(),comm);
+    }
   } else {
-    if(doneigh)  nl=Tools::make_unique<NeighborList>(ga_lista,serial,pbc,getPbc(),comm,nl_cut,nl_st);
-    else         nl=Tools::make_unique<NeighborList>(ga_lista,serial,pbc,getPbc(),comm);
+    if(doneigh) {
+      nl=Tools::make_unique<NeighborList>(ga_lista,serial,pbc,getPbc(),comm,nl_cut,nl_st,doneighcells);
+    } else {
+      nl=Tools::make_unique<NeighborList>(ga_lista,serial,pbc,getPbc(),comm);
+    }
   }
 
   requestAtoms(nl->getFullAtomList());
@@ -86,18 +103,27 @@ CoordinationBase::CoordinationBase(const ActionOptions&ao):
   log.printf("  between two groups of %u and %u atoms\n",static_cast<unsigned>(ga_lista.size()),static_cast<unsigned>(gb_lista.size()));
   log.printf("  first group:\n");
   for(unsigned int i=0; i<ga_lista.size(); ++i) {
-    if ( (i+1) % 25 == 0 ) log.printf("  \n");
+    if ( (i+1) % 25 == 0 ) {
+      log.printf("  \n");
+    }
     log.printf("  %d", ga_lista[i].serial());
   }
   log.printf("  \n  second group:\n");
   for(unsigned int i=0; i<gb_lista.size(); ++i) {
-    if ( (i+1) % 25 == 0 ) log.printf("  \n");
+    if ( (i+1) % 25 == 0 ) {
+      log.printf("  \n");
+    }
     log.printf("  %d", gb_lista[i].serial());
   }
   log.printf("  \n");
-  if(pbc) log.printf("  using periodic boundary conditions\n");
-  else    log.printf("  without periodic boundary conditions\n");
-  if(dopair) log.printf("  with PAIR option\n");
+  if(pbc) {
+    log.printf("  using periodic boundary conditions\n");
+  } else {
+    log.printf("  without periodic boundary conditions\n");
+  }
+  if(dopair) {
+    log.printf("  with PAIR option\n");
+  }
   if(doneigh) {
     log.printf("  using neighbor lists with\n");
     log.printf("  update every %d steps and cutoff %f\n",nl_st,nl_cut);
@@ -109,23 +135,11 @@ CoordinationBase::~CoordinationBase() {
 }
 
 void CoordinationBase::prepare() {
-  if(nl->getStride()>0) {
-    if(firsttime || (getStep()%nl->getStride()==0)) {
-      requestAtoms(nl->getFullAtomList());
-      invalidateList=true;
-      firsttime=false;
-    } else {
-      requestAtoms(nl->getReducedAtomList());
-      invalidateList=false;
-      if(getExchangeStep()) error("Neighbor lists should be updated on exchange steps - choose a NL_STRIDE which divides the exchange stride!");
-    }
-    if(getExchangeStep()) firsttime=true;
-  }
+  std::tie(firsttime,invalidateList) =nl->prepare(this,firsttime, invalidateList).get();
 }
 
 // calculator
-void CoordinationBase::calculate()
-{
+void CoordinationBase::calculate() {
 
   double ncoord=0.;
   Tensor virial;
@@ -147,7 +161,13 @@ void CoordinationBase::calculate()
 
   unsigned nt=OpenMP::getNumThreads();
   const unsigned nn=nl->size();
-  if(nt*stride*10>nn) nt=1;
+  if(nt*stride*10>nn) {
+    nt=1;
+  }
+
+  const unsigned elementsPerRank = std::ceil(double(nn)/stride);
+  const unsigned int start= rank*elementsPerRank;
+  const unsigned int end = ((start + elementsPerRank)< nn)?(start + elementsPerRank): nn;
 
   #pragma omp parallel num_threads(nt)
   {
@@ -155,13 +175,14 @@ void CoordinationBase::calculate()
     Tensor omp_virial;
 
     #pragma omp for reduction(+:ncoord) nowait
-    for(unsigned int i=rank; i<nn; i+=stride) {
+    for(unsigned int i=start; i<end; ++i) {
 
       Vector distance;
-      unsigned i0=nl->getClosePair(i).first;
-      unsigned i1=nl->getClosePair(i).second;
+      const auto [i0, i1] = nl->getUpdatedPair(i);
 
-      if(getAbsoluteIndex(i0)==getAbsoluteIndex(i1)) continue;
+      if(getAbsoluteIndex(i0)==getAbsoluteIndex(i1)) {
+        continue;
+      }
 
       if(pbc) {
         distance=pbcDistance(getPosition(i0),getPosition(i1));
@@ -187,18 +208,24 @@ void CoordinationBase::calculate()
     }
     #pragma omp critical
     if(nt>1) {
-      for(unsigned i=0; i<getPositions().size(); i++) deriv[i]+=omp_deriv[i];
+      for(unsigned i=0; i<getPositions().size(); i++) {
+        deriv[i]+=omp_deriv[i];
+      }
       virial+=omp_virial;
     }
   }
 
   if(!serial) {
     comm.Sum(ncoord);
-    if(!deriv.empty()) comm.Sum(&deriv[0][0],3*deriv.size());
+    if(!deriv.empty()) {
+      comm.Sum(&deriv[0][0],3*deriv.size());
+    }
     comm.Sum(virial);
   }
 
-  for(unsigned i=0; i<deriv.size(); ++i) setAtomsDerivatives(i,deriv[i]);
+  for(unsigned i=0; i<deriv.size(); ++i) {
+    setAtomsDerivatives(i,deriv[i]);
+  }
   setValue           (ncoord);
   setBoxDerivatives  (virial);
 

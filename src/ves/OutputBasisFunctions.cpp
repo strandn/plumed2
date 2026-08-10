@@ -47,14 +47,15 @@ types of basis functions. For example, it is possible to calculate the
 derivatives numerically and compare to the analytically calculated
 derivatives.
 
-This action is normally used through the \ref driver.
+This action is normally used through the [driver](driver.md).
 
-\par Examples
+## Examples
 
 In the following input we define a Legendre polynomials basis functions
 of order 14 over the interval -4.0 to 4.0 and output their values
 and derivatives to files called bfL.values.data and bfL.derivs.data.
-\plumedfile
+
+```plumed
 BF_LEGENDRE ...
  ORDER=14
  MINIMUM=-4.0
@@ -67,22 +68,22 @@ VES_OUTPUT_BASISFUNCTIONS ...
  GRID_BINS=200
  FORMAT_VALUES_DERIVS=%13.6f
 ... VES_OUTPUT_BASISFUNCTIONS
-\endplumedfile
+```
 
 This input should be run through the driver by using a command similar to the
 following one where the trajectory/configuration file configuration.gro is needed to
 trick the code to exit correctly.
-\verbatim
+
+```plumed
 plumed driver --plumed plumed.dat --igro configuration.gro
-\endverbatim
+```
 
 */
 //+ENDPLUMEDOC
 
 
 class OutputBasisFunctions :
-  public Action
-{
+  public Action {
   std::vector<BasisFunctions*> bf_pntrs;
 public:
   explicit OutputBasisFunctions(const ActionOptions&);
@@ -116,15 +117,18 @@ void OutputBasisFunctions::registerKeywords(Keywords& keys) {
 
 OutputBasisFunctions::OutputBasisFunctions(const ActionOptions&ao):
   Action(ao),
-  bf_pntrs(0)
-{
+  bf_pntrs(0) {
   std::vector<std::string> basisset_labels(0);
   parseVector("BASIS_FUNCTIONS",basisset_labels);
-  if(basisset_labels.size()>1) {plumed_merror("Only one basis set label allowed in keyword BASIS_FUNCTIONS of "+getName());}
+  if(basisset_labels.size()>1) {
+    plumed_merror("Only one basis set label allowed in keyword BASIS_FUNCTIONS of "+getName());
+  }
 
   std::string error_msg = "";
   bf_pntrs = VesTools::getPointersFromLabels<BasisFunctions*>(basisset_labels,plumed.getActionSet(),error_msg);
-  if(error_msg.size()>0) {plumed_merror("Error in keyword BASIS_FUNCTIONS of "+getName()+": "+error_msg);}
+  if(error_msg.size()>0) {
+    plumed_merror("Error in keyword BASIS_FUNCTIONS of "+getName()+": "+error_msg);
+  }
 
   unsigned int nbins = 1000;
   parse("GRID_BINS",nbins);
@@ -163,10 +167,14 @@ OutputBasisFunctions::OutputBasisFunctions(const ActionOptions&ao):
   targetdist_pntrs.push_back(NULL);
   std::string targetdist_label="";
   for(int i=1;; i++) {
-    if(!parseNumbered("TARGET_DISTRIBUTION",i,targetdist_label)) {break;}
+    if(!parseNumbered("TARGET_DISTRIBUTION",i,targetdist_label)) {
+      break;
+    }
     std::string error_msg = "";
     TargetDistribution* pntr_tmp = VesTools::getPointerFromLabel<TargetDistribution*>(targetdist_label,plumed.getActionSet(),error_msg);
-    if(error_msg.size()>0) {plumed_merror("Error in keyword TARGET_DISTRIBUTION of "+getName()+": "+error_msg);}
+    if(error_msg.size()>0) {
+      plumed_merror("Error in keyword TARGET_DISTRIBUTION of "+getName()+": "+error_msg);
+    }
     targetdist_pntrs.push_back(pntr_tmp);
   }
   checkRead();
@@ -183,15 +191,17 @@ OutputBasisFunctions::OutputBasisFunctions(const ActionOptions&ao):
   ofile_values.close();
   ofile_derivs.close();
   //
-  std::vector<std::string> grid_min(1); grid_min[0]=bf_pntrs[0]->intervalMinStr();
-  std::vector<std::string> grid_max(1); grid_max[0]=bf_pntrs[0]->intervalMaxStr();
-  std::vector<unsigned int> grid_bins(1); grid_bins[0]=nbins;
+  std::vector<std::string> grid_min(1);
+  grid_min[0]=bf_pntrs[0]->intervalMinStr();
+  std::vector<std::string> grid_max(1);
+  grid_max[0]=bf_pntrs[0]->intervalMaxStr();
+  std::vector<unsigned int> grid_bins(1);
+  grid_bins[0]=nbins;
   std::vector<std::unique_ptr<Value>> arguments(1);
   arguments[0]= Tools::make_unique<Value>(nullptr,"arg",false);
   if(bf_pntrs[0]->arePeriodic() && !ignore_periodicity) {
     arguments[0]->setDomain(bf_pntrs[0]->intervalMinStr(),bf_pntrs[0]->intervalMaxStr());
-  }
-  else {
+  } else {
     arguments[0]->setNotPeriodic();
   }
 
@@ -201,7 +211,8 @@ OutputBasisFunctions::OutputBasisFunctions(const ActionOptions&ao):
   ofile_targetdist_aver.open(fname_targetdist_aver);
 
   for(unsigned int i=0; i<targetdist_pntrs.size(); i++) {
-    std::string is; Tools::convert(i,is);
+    std::string is;
+    Tools::convert(i,is);
     //
     if(targetdist_pntrs[i]!=NULL) {
       targetdist_pntrs[i]->setupGrids(Tools::unique2raw(arguments),grid_min,grid_max,grid_bins);
@@ -212,7 +223,9 @@ OutputBasisFunctions::OutputBasisFunctions(const ActionOptions&ao):
     std::vector<double> bf_integrals = bf_pntrs[0]->getTargetDistributionIntegrals(targetdist_pntrs[i]);
     CoeffsVector targetdist_averages = CoeffsVector("aver.targetdist-"+is,Tools::unique2raw(arguments),bf_pntrs,comm,false);
     targetdist_averages.setValues(bf_integrals);
-    if(fmt_targetdist_aver.size()>0) {targetdist_averages.setOutputFmt(fmt_targetdist_aver);}
+    if(fmt_targetdist_aver.size()>0) {
+      targetdist_averages.setOutputFmt(fmt_targetdist_aver);
+    }
     targetdist_averages.writeToFile(ofile_targetdist_aver,true);
     if(targetdist_pntrs[i]!=NULL) {
       Grid* targetdist_grid_pntr = targetdist_pntrs[i]->getTargetDistGridPntr();

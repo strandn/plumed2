@@ -29,9 +29,71 @@
 
 //+PLUMEDOC MCOLVAR ALPHABETA
 /*
-Calculate the alpha beta CV
+Measures a distance including pbc between the instantaneous values of a set of torsional angles and set of reference values.
 
-\par Examples
+This shortcut calculates the following quantity.
+
+$$
+s = \frac{1}{2} \sum_i c_i \left[ 1 + \cos( \phi_i - \phi_i^{\textrm{Ref}} ) \right]
+$$
+
+where the $\phi_i$ values are the instantaneous values for the [TORSION](TORSION.md) angles of interest.
+The $\phi_i^{\textrm{Ref}}$ values are reference values for the torsional angles that are specified in the input file.
+
+The following provides an example of the input for an alpha beta similarity.
+
+```plumed
+ab: ALPHABETA ...
+ATOMS1=168,170,172,188 REFERENCE1=3.14
+ATOMS2=170,172,188,190 REFERENCE2=3.14
+ATOMS3=188,190,192,230 REFERENCE3=3.14
+...
+PRINT ARG=ab FILE=colvar STRIDE=10
+```
+
+Because all the reference values are the same we can also calculate the same quantity using
+
+```plumed
+ab: ALPHABETA ...
+ATOMS1=168,170,172,188 REFERENCE=3.14
+ATOMS2=170,172,188,190
+ATOMS3=188,190,192,230
+...
+PRINT ARG=ab FILE=colvar STRIDE=10
+```
+
+Writing out the atoms involved in all the torsion angles in this way can be rather tedious. Thankfully if you are working with protein you
+can avoid this by using the [MOLINFO](MOLINFO.md) command.  PLUMED uses the pdb file that you provide to this command to learn
+about the topology of the protein molecule.  This means that you can specify torsion angles using the following syntax:
+
+```plumed
+#SETTINGS MOLFILE=regtest/basic/rt32/helix.pdb
+MOLINFO MOLTYPE=protein STRUCTURE=regtest/basic/rt32/helix.pdb
+ab: ALPHABETA ...
+ATOMS1=@phi-3 REFERENCE=3.14 COEFFICIENT1=2
+ATOMS2=@psi-3                COEFFICIENT2=0.5
+ATOMS3=@phi-4                COEFFICIENT3=1
+...
+PRINT ARG=ab FILE=colvar STRIDE=10
+```
+
+Here, `@phi-3` tells plumed that you would like to calculate the $\phi$ angle in the third residue of the protein.
+Similarly `@psi-4` tells plumed that you want to calculate the $\psi$ angle of the fourth residue of the protein.
+Notice, also, that in the first two examples the coefficients $c_i$ in the expression above were all set equal to one.
+In the example above we use the COEFFICIENT keywords to set these quantities to three different values.
+
+Notice, last of all, that in the above examples we reassemble any molecules that have been broken by the periodic boundary
+conditions using a procedure like that used in [WHOLEMOLECULES](WHOLEMOLECULES.md) before calculating the torsion angles.
+If you wish to turn this off for any reason you use the NOPBC flag as shown below:
+
+```plumed
+ab: ALPHABETA ...
+ATOMS1=168,170,172,188 REFERENCE=3.14
+ATOMS2=170,172,188,190 NOPBC
+ATOMS3=188,190,192,230
+...
+PRINT ARG=ab FILE=colvar STRIDE=10
+```
 
 
 */
@@ -59,44 +121,75 @@ void AlphaBeta::registerKeywords(Keywords& keys) {
            "same reference value is used for all torsions");
   keys.add("numbered","COEFFICIENT","the coefficient for each of the torsional angles.  If you use a single COEFFICIENT value the "
            "same reference value is used for all torsional angles");
-  keys.setValueDescription("the alpha beta CV");
-  keys.needsAction("CONSTANT"); keys.needsAction("TORSION"); keys.needsAction("COMBINE"); keys.needsAction("CUSTOM"); keys.needsAction("SUM");
+  keys.setValueDescription("scalar","the alpha beta CV");
+  keys.needsAction("CONSTANT");
+  keys.needsAction("TORSION");
+  keys.needsAction("COMBINE");
+  keys.needsAction("CUSTOM");
+  keys.needsAction("SUM");
 }
 
 AlphaBeta::AlphaBeta(const ActionOptions& ao):
   Action(ao),
-  ActionShortcut(ao)
-{
+  ActionShortcut(ao) {
   // Read in the reference value
-  std::string refstr; parse("REFERENCE",refstr); unsigned nref=0;
+  std::string refstr;
+  parse("REFERENCE",refstr);
+  unsigned nref=0;
   if( refstr.length()==0 ) {
     for(unsigned i=0;; ++i) {
       std::string refval;
-      if( !parseNumbered( "REFERENCE", i+1, refval ) ) break;
-      if( i==0 ) refstr = refval; else refstr += "," + refval;
+      if( !parseNumbered( "REFERENCE", i+1, refval ) ) {
+        break;
+      }
+      if( i==0 ) {
+        refstr = refval;
+      } else {
+        refstr += "," + refval;
+      }
       nref++;
     }
   }
-  std::string coeffstr; parse("COEFFICIENT",coeffstr); unsigned ncoeff=0;
+  std::string coeffstr;
+  parse("COEFFICIENT",coeffstr);
+  unsigned ncoeff=0;
   if( coeffstr.length()==0 ) {
     for(unsigned i=0;; ++i) {
       std::string coeff;
-      if( !parseNumbered( "COEFFICIENT", i+1, coeff) ) break;
-      if( i==0 ) coeffstr = coeff; else coeffstr += "," + coeff;
+      if( !parseNumbered( "COEFFICIENT", i+1, coeff) ) {
+        break;
+      }
+      if( i==0 ) {
+        coeffstr = coeff;
+      } else {
+        coeffstr += "," + coeff;
+      }
       ncoeff++;
     }
   }
-  if( coeffstr.length()==0 ) coeffstr="1";
+  if( coeffstr.length()==0 ) {
+    coeffstr="1";
+  }
   // Calculate angles
   readInputLine( getShortcutLabel() + "_torsions: TORSION " + convertInputLineToString() );
   ActionWithValue* av = plumed.getActionSet().selectWithLabel<ActionWithValue*>( getShortcutLabel() + "_torsions" );
   plumed_assert( av && (av->copyOutput(0))->getRank()==1 );
   if( nref==0 ) {
-    std::string refval=refstr; for(unsigned i=1; i<(av->copyOutput(0))->getShape()[0]; ++i) refstr += "," + refval;
-  } else if( nref!=(av->copyOutput(0))->getShape()[0] ) error("mismatch between number of reference values and number of ATOMS specified");
+    std::string refval=refstr;
+    for(unsigned i=1; i<(av->copyOutput(0))->getShape()[0]; ++i) {
+      refstr += "," + refval;
+    }
+  } else if( nref!=(av->copyOutput(0))->getShape()[0] ) {
+    error("mismatch between number of reference values and number of ATOMS specified");
+  }
   if( ncoeff==0 ) {
-    std::string coeff=coeffstr; for(unsigned i=1; i<(av->copyOutput(0))->getShape()[0]; ++i) coeffstr += "," + coeff;
-  } else if( ncoeff!=(av->copyOutput(0))->getShape()[0] ) error("mismatch between number of coefficients and number of ATOMS specified");
+    std::string coeff=coeffstr;
+    for(unsigned i=1; i<(av->copyOutput(0))->getShape()[0]; ++i) {
+      coeffstr += "," + coeff;
+    }
+  } else if( ncoeff!=(av->copyOutput(0))->getShape()[0] ) {
+    error("mismatch between number of coefficients and number of ATOMS specified");
+  }
   readInputLine( getShortcutLabel() + "_ref: CONSTANT VALUES=" + refstr );
   readInputLine( getShortcutLabel() + "_coeff: CONSTANT VALUES=" + coeffstr );
   // Caculate difference from reference using combine

@@ -15,6 +15,7 @@
 !/eds
 !/envsim
 !/drr
+!/liquid_crystal
 !/logmfd
 !/mapping
 !/maze
@@ -42,7 +43,11 @@
 !/clusters
 !/unittest
 !/wham
-!/metatensor
+!/metatomic
+!/sizeshape
+!/ttsketch
+!/xsprint
+
 # These files we just want to ignore completely
 tmp
 report.txt

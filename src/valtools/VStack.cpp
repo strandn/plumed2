@@ -19,14 +19,36 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "core/ActionWithMatrix.h"
+#include "core/ActionWithValue.h"
+#include "core/ActionWithArguments.h"
 #include "core/ActionRegister.h"
 
 //+PLUMEDOC MCOLVAR VSTACK
 /*
 Create a matrix by stacking vectors together
 
-\par Examples
+This action takes 2 or more vectors with the same number of elements as input and outputs a matrix.
+This output matrix is constructed stacking the input vectors vertically.  The first row of the output
+matrix thus contains the first elements of all the input vector, the second row contains the second elements
+and so on.  In other words, the first input vector is in the first column of the output matrix, the second
+input vector is in the second column and so.
+
+The following shows an example of how this action operates in practise. The [DISTANCE](DISTANCE.md) command below calculates
+the vectors containing four pairs of atoms.  The VSTACK command is then used to construct a $4 \times 3$ matrix
+that contains all the vectors. The 1,1, 1,2 and 1,3 components in this matrix contain the
+$x$, $y$ and $z$ components of the vector connecting atoms 1 and 2. The 2,1, 2,2 and 2,3 contain the
+$x$, $y$ and $z$ components of the vector connecting atoms 3 and 4 and so on.
+
+```plumed
+d1: DISTANCE ...
+   COMPONENTS
+   ATOMS1=1,2 ATOMS2=3,4
+   ATOMS3=5,6 ATOMS4=7,8
+...
+m: VSTACK ARG=d1.x,d1.y,d1.z
+
+PRINT ARG=m FILE=matrix.dat
+```
 
 */
 //+ENDPLUMEDOC
@@ -34,25 +56,23 @@ Create a matrix by stacking vectors together
 namespace PLMD {
 namespace valtools {
 
-class VStack : public ActionWithMatrix {
-private:
-  std::vector<bool> stored;
+class VStack :
+  public ActionWithValue,
+  public ActionWithArguments {
 public:
   static void registerKeywords( Keywords& keys );
 /// Constructor
   explicit VStack(const ActionOptions&);
 /// Get the number of derivatives
-  unsigned getNumberOfDerivatives() override { return 0; }
+  unsigned getNumberOfDerivatives() override {
+    return 0;
+  }
 ///
   void prepare() override ;
 ///
-  unsigned getNumberOfColumns() const override { return getNumberOfArguments(); }
+  void calculate() override ;
 ///
-  void setupForTask( const unsigned& task_index, std::vector<unsigned>& indices, MultiValue& myvals ) const override ;
-///
-  void performTask( const std::string& controller, const unsigned& index1, const unsigned& index2, MultiValue& myvals ) const override ;
-///
-  void runEndOfRowJobs( const unsigned& ival, const std::vector<unsigned> & indices, MultiValue& myvals ) const override ;
+  void apply() override ;
 ///
   void getMatrixColumnTitles( std::vector<std::string>& argnames ) const override ;
 };
@@ -60,102 +80,140 @@ public:
 PLUMED_REGISTER_ACTION(VStack,"VSTACK")
 
 void VStack::registerKeywords( Keywords& keys ) {
-  ActionWithMatrix::registerKeywords( keys ); keys.use("ARG");
-  keys.setValueDescription("a matrix that contains the input vectors in its columns");
+  Action::registerKeywords( keys );
+  ActionWithValue::registerKeywords( keys );
+  ActionWithArguments::registerKeywords( keys );
+  keys.remove("NUMERICAL_DERIVATIVES");
+  keys.addInputKeyword("compulsory","ARG","scalar/vector","the values that you would like to stack together to construct the output matrix");
+  keys.setValueDescription("matrix","a matrix that contains the input vectors in its columns");
 }
 
 VStack::VStack(const ActionOptions& ao):
   Action(ao),
-  ActionWithMatrix(ao)
-{
-  if( getNumberOfArguments()==0 ) error("no arguments were specificed");
-  if( getPntrToArgument(0)->getRank()>1 ) error("all arguments should be vectors");
-  unsigned nvals=1; bool periodic=false; std::string smin, smax;
-  if( getPntrToArgument(0)->getRank()==1 ) nvals = getPntrToArgument(0)->getShape()[0];
-  if( getPntrToArgument(0)->isPeriodic() ) { periodic=true; getPntrToArgument(0)->getDomain( smin, smax ); }
+  ActionWithValue(ao),
+  ActionWithArguments(ao) {
+  if( getNumberOfArguments()==0 ) {
+    error("no arguments were specificed");
+  }
+  if( getPntrToArgument(0)->getRank()>1 ) {
+    error("all arguments should be vectors");
+  }
+  unsigned nvals=1;
+  bool periodic=false;
+  std::string smin, smax;
+  if( getPntrToArgument(0)->getRank()==1 ) {
+    nvals = getPntrToArgument(0)->getShape()[0];
+  }
+  if( getPntrToArgument(0)->isPeriodic() ) {
+    periodic=true;
+    getPntrToArgument(0)->getDomain( smin, smax );
+  }
 
+  bool derivbool=true;
   for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-    if( getPntrToArgument(i)->getRank()>1 || (getPntrToArgument(i)->getRank()==1 && getPntrToArgument(i)->hasDerivatives()) ) error("all arguments should be vectors");
+    if( getPntrToArgument(i)->getRank()>1 || (getPntrToArgument(i)->getRank()==1 && getPntrToArgument(i)->hasDerivatives()) ) {
+      error("all arguments should be vectors");
+    }
     if( getPntrToArgument(i)->getRank()==0 ) {
-      if( nvals!=1 ) error("all input vector should have same number of elements");
-    } else if( getPntrToArgument(i)->getShape()[0]!=nvals ) error("all input vector should have same number of elements");
+      if( nvals!=1 ) {
+        error("all input vector should have same number of elements");
+      }
+    } else if( getPntrToArgument(i)->getShape()[0]!=nvals ) {
+      error("all input vector should have same number of elements");
+    }
     if( periodic ) {
-      if( !getPntrToArgument(i)->isPeriodic() ) error("one argument is periodic but " + getPntrToArgument(i)->getName() + " is not periodic");
-      std::string tmin, tmax; getPntrToArgument(i)->getDomain( tmin, tmax );
-      if( tmin!=smin || tmax!=smax ) error("domain of argument " + getPntrToArgument(i)->getName() + " is different from domain for all other arguments");
-    } else if( getPntrToArgument(i)->isPeriodic() ) error("one argument is not periodic but " + getPntrToArgument(i)->getName() + " is periodic");
+      if( !getPntrToArgument(i)->isPeriodic() ) {
+        error("one argument is periodic but " + getPntrToArgument(i)->getName() + " is not periodic");
+      }
+      std::string tmin, tmax;
+      getPntrToArgument(i)->getDomain( tmin, tmax );
+      if( tmin!=smin || tmax!=smax ) {
+        error("domain of argument " + getPntrToArgument(i)->getName() + " is different from domain for all other arguments");
+      }
+    } else if( getPntrToArgument(i)->isPeriodic() ) {
+      error("one argument is not periodic but " + getPntrToArgument(i)->getName() + " is periodic");
+    }
+    if( !getPntrToArgument(i)->isDerivativeZeroWhenValueIsZero() ) {
+      derivbool=false;
+    }
   }
   // And create a value to hold the matrix
-  std::vector<unsigned> shape(2); shape[0]=nvals; shape[1]=getNumberOfArguments(); addValue( shape );
-  if( periodic ) setPeriodic( smin, smax ); else setNotPeriodic();
+  std::vector<std::size_t> shape(2);
+  shape[0]=nvals;
+  shape[1]=getNumberOfArguments();
+  addValue( shape );
+  if( periodic ) {
+    setPeriodic( smin, smax );
+  } else {
+    setNotPeriodic();
+  }
   // And store this value
-  getPntrToComponent(0)->buildDataStore(); getPntrToComponent(0)->reshapeMatrixStore( shape[1] );
-  // Setup everything so we can build the store
-  done_in_chain=true; ActionWithVector* av=dynamic_cast<ActionWithVector*>( getPntrToArgument(0)->getPntrToAction() );
-  if( av ) {
-    const ActionWithVector* head0 = av->getFirstActionInChain();
-    for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-      ActionWithVector* avv=dynamic_cast<ActionWithVector*>( getPntrToArgument(i)->getPntrToAction() );
-      if( !avv ) continue;
-      if( head0!=avv->getFirstActionInChain() ) { done_in_chain=false; break; }
-    }
-  } else done_in_chain=false;
-  unsigned nder = buildArgumentStore(0);
-  // This checks which values have been stored
-  stored.resize( getNumberOfArguments() ); std::string headstr=getFirstActionInChain()->getLabel();
-  for(unsigned i=0; i<stored.size(); ++i) stored[i] = getPntrToArgument(i)->ignoreStoredValue( headstr );
+  getPntrToComponent(0)->reshapeMatrixStore( shape[1] );
+  if( derivbool ) {
+    getPntrToComponent(0)->setDerivativeIsZeroWhenValueIsZero();
+  }
 }
 
 void VStack::getMatrixColumnTitles( std::vector<std::string>& argnames ) const {
   for(unsigned j=0; j<getNumberOfArguments(); ++j) {
     if( (getPntrToArgument(j)->getPntrToAction())->getName()=="COLLECT" ) {
       ActionWithArguments* aa = dynamic_cast<ActionWithArguments*>( getPntrToArgument(j)->getPntrToAction() );
-      plumed_assert( aa && aa->getNumberOfArguments()==1 ); argnames.push_back( (aa->getPntrToArgument(0))->getName() );
-    } else argnames.push_back( getPntrToArgument(j)->getName() );
+      plumed_assert( aa && aa->getNumberOfArguments()==1 );
+      argnames.push_back( (aa->getPntrToArgument(0))->getName() );
+    } else {
+      argnames.push_back( getPntrToArgument(j)->getName() );
+    }
   }
 }
 
 void VStack::prepare() {
-  ActionWithVector::prepare();
-  if( getPntrToArgument(0)->getRank()==0 || getPntrToArgument(0)->getShape()[0]==getPntrToComponent(0)->getShape()[0] ) return ;
-  std::vector<unsigned> shape(2); shape[0] = getPntrToArgument(0)->getShape()[0]; shape[1] = getNumberOfArguments();
-  getPntrToComponent(0)->setShape(shape); getPntrToComponent(0)->reshapeMatrixStore( shape[1] );
+  if( getPntrToArgument(0)->getRank()==0 || getPntrToArgument(0)->getShape()[0]==getPntrToComponent(0)->getShape()[0] ) {
+    return ;
+  }
+  std::vector<std::size_t> shape(2);
+  shape[0] = getPntrToArgument(0)->getShape()[0];
+  shape[1] = getNumberOfArguments();
+  getPntrToComponent(0)->setShape(shape);
+  getPntrToComponent(0)->reshapeMatrixStore( shape[1] );
 }
 
-void VStack::setupForTask( const unsigned& task_index, std::vector<unsigned>& indices, MultiValue& myvals ) const {
-  unsigned nargs = getNumberOfArguments(); unsigned nvals = getConstPntrToComponent(0)->getShape()[0];
-  if( indices.size()!=nargs+1 ) indices.resize( nargs+1 );
-  for(unsigned i=0; i<nargs; ++i) indices[i+1] = nvals + i;
-  myvals.setSplitIndex( nargs + 1 );
-}
+void VStack::calculate() {
+  unsigned nvals=1;
+  if( getPntrToArgument(0)->getRank()==1 ) {
+    nvals = getPntrToArgument(0)->getShape()[0];
+  }
 
-void VStack::performTask( const std::string& controller, const unsigned& index1, const unsigned& index2, MultiValue& myvals ) const {
-  unsigned ind2 = index2; if( index2>=getConstPntrToComponent(0)->getShape()[0] ) ind2 = index2 - getConstPntrToComponent(0)->getShape()[0];
-  myvals.addValue( getConstPntrToComponent(0)->getPositionInStream(), getArgumentElement( ind2, index1, myvals ) );
-
-  if( doNotCalculateDerivatives() ) return;
-  addDerivativeOnVectorArgument( stored[ind2], 0, ind2, index1, 1.0, myvals );
-}
-
-void VStack::runEndOfRowJobs( const unsigned& ival, const std::vector<unsigned> & indices, MultiValue& myvals ) const {
-  if( doNotCalculateDerivatives() || !matrixChainContinues() ) return ;
-
-  unsigned nmat = getConstPntrToComponent(0)->getPositionInMatrixStash(), nmat_ind = myvals.getNumberOfMatrixRowDerivatives( nmat );
-  std::vector<unsigned>& matrix_indices( myvals.getMatrixRowDerivativeIndices( nmat ) );
-  plumed_assert( nmat_ind<matrix_indices.size() );
-  for(unsigned i=0; i<getNumberOfArguments(); ++i) {
-    bool found=false; ActionWithValue* iav = getPntrToArgument(i)->getPntrToAction();
-    for(unsigned j=0; j<i; ++j) {
-      if( iav==getPntrToArgument(j)->getPntrToAction() ) { found=true; break; }
-    }
-    if( found ) continue ;
-
-    unsigned istrn = getPntrToArgument(i)->getPositionInStream();
-    for(unsigned k=0; k<myvals.getNumberActive(istrn); ++k) {
-      matrix_indices[nmat_ind] = myvals.getActiveIndex(istrn,k); nmat_ind++;
+  Value* valout = getPntrToComponent(0);
+  unsigned nargs = getNumberOfArguments();
+  for(unsigned i=0; i<nargs; ++i) {
+    unsigned ipos = i;
+    Value* myarg = getPntrToArgument(i);
+    for(unsigned j=0; j<nvals; ++j) {
+      valout->set( ipos, myarg->get(j) );
+      ipos += nargs;
     }
   }
-  myvals.setNumberOfMatrixRowDerivatives( nmat, nmat_ind );
+}
+
+void VStack::apply() {
+  if( !getPntrToComponent(0)->forcesWereAdded() ) {
+    return;
+  }
+
+  unsigned nvals=1;
+  if( getPntrToArgument(0)->getRank()==1 ) {
+    nvals = getPntrToArgument(0)->getShape()[0];
+  }
+  Value* valout = getPntrToComponent(0);
+  unsigned nargs = getNumberOfArguments();
+  for(unsigned i=0; i<nargs; ++i) {
+    unsigned ipos = i;
+    Value* myarg = getPntrToArgument(i);
+    for(unsigned j=0; j<nvals; ++j) {
+      myarg->addForce( j, valout->getForce( ipos ) );
+      ipos += nargs;
+    }
+  }
 }
 
 }

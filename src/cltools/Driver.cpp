@@ -39,43 +39,27 @@
 #include "tools/PDB.h"
 #include "tools/FileBase.h"
 #include "tools/IFile.h"
-#include "xdrfile/xdrfile_trr.h"
-#include "xdrfile/xdrfile_xtc.h"
-
-
-// when using molfile plugin
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-#ifndef __PLUMED_HAS_EXTERNAL_MOLFILE_PLUGINS
-/* Use the internal ones. Alternatively:
- *    ifeq (,$(findstring __PLUMED_HAS_EXTERNAL_MOLFILE_PLUGINS,$(CPPFLAGS)))
- *    CPPFLAGS+=-I../molfile
- */
-#include "molfile/libmolfile_plugin.h"
-#include "molfile/molfile_plugin.h"
-using namespace PLMD::molfile;
-#else
-#include <libmolfile_plugin.h>
-#include <molfile_plugin.h>
-#endif
-#endif
+#include "tools/TrajectoryParser.h"
 
 namespace PLMD {
 namespace cltools {
 
 //+PLUMEDOC TOOLS driver-float
 /*
-Equivalent to driver, but using single precision reals.
+A tool that does the same as driver, but using single precision reals.
 
-The purpose of this tool is just to test what PLUMED does when linked from
-a single precision code.  The documentation is identical to that for \ref driver
+We recommend always using [driver](driver.md) to postprocess your trajectories. However,
+if you want to test what PLUMED does when linked from a single precision code you can use
+this version of driver. The documentation for this command line tool is identical to that for
+[driver](driver.md).
 
-\par Examples
+## Examples
 
-\verbatim
+```plumed
 plumed driver-float --plumed plumed.dat --ixyz trajectory.xyz
-\endverbatim
+```
 
-See also examples in \ref driver
+For more examples see the documentation for [driver](driver.md).
 
 */
 //+ENDPLUMEDOC
@@ -88,55 +72,65 @@ driver is a tool that allows one to to use plumed to post-process an existing tr
 
 The input to driver is specified using the command line arguments described below.
 
-In addition, you can use the special \subpage READ command inside your plumed input
+In addition, you can use the special [READ](READ.md) command inside your plumed input
 to read in colvar files that were generated during your MD simulation.  The values
-read in can then be treated like calculated colvars.
+read in from the file can then be treated like calculated colvars.
 
-\warning
-Notice that by default the driver has no knowledge about the masses and charges
-of your atoms! Thus, if you want to compute quantities depending charges (e.g. \ref DHENERGY)
-or masses (e.g. \ref COM) you should pass the proper information to the driver.
-You can do it either with the --pdb option or with the --mc option. The latter
-will read a file produced by \ref DUMPMASSCHARGE .
+!!! warning "masses and chages"
+
+    Notice that by default the driver has no knowledge about the masses and charges
+    of your atoms! Thus, if you want to compute quantities that depend on charges (e.g. [DHENERGY](DHENERGY.md))
+    or masses (e.g. [COM](COM.md)) you need to pass masses and charges to driver.
+    You can do this by either using --pdb option or the --mc option. The latter
+    will read a file produced by [DUMPMASSCHARGE](DUMPMASSCHARGE.md).
 
 
-\par Examples
+## Examples
 
 The following command tells plumed to post process the trajectory contained in `trajectory.xyz`
  by performing the actions described in the input file `plumed.dat`.  If an action that takes the
-stride keyword is given a stride equal to \f$n\f$ then it will be performed only on every \f$n\f$th
-frames in the trajectory file.
-\verbatim
-plumed driver --plumed plumed.dat --ixyz trajectory.xyz
-\endverbatim
+stride keyword is given a stride equal to $n$ then it will be performed only on every $n$th
+frame in the trajectory file.
 
-Notice that `xyz` files are expected to be in internal PLUMED units, that is by default nm.
-You can change this behavior by using the `--length-units` option:
-\verbatim
+```plumed
+plumed driver --plumed plumed.dat --ixyz trajectory.xyz
+```
+
+Notice that `xyz` files are expected to be in the internal PLUMED unit of nm.
+You can change this behavior by using the `--length-units` option as shown below
+
+```plumed
 plumed driver --plumed plumed.dat --ixyz trajectory.xyz --length-units A
-\endverbatim
-The strings accepted by the `--length-units` options are the same ones accepted by the \ref UNITS action.
+```
+
+The strings accepted by the `--length-units` options are the same ones accepted by the [UNITS](UNITS.md) action.
 Other file formats typically have their default coordinates (e.g., `gro` files are always in nm)
 and it thus should not be necessary to use the `--length-units` option. Additionally,
 consider that the units used by the `driver` might be different by the units used in the PLUMED input
 file `plumed.dat`. For instance consider the command:
-\verbatim
+
+```plumed
 plumed driver --plumed plumed.dat --ixyz trajectory.xyz --length-units A
-\endverbatim
-where `plumed.dat` is
-\plumedfile
+```
+
+which uses the following `plumed.dat` file
+
+```plumed
 # no explicit UNITS action here
 d: DISTANCE ATOMS=1,2
 PRINT ARG=d FILE=colvar
-\endplumedfile
-In this case, the driver reads the `xyz` file assuming it to contain coordinates in Angstrom units.
+```
+
+In this case, the driver reads the `xyz` file assuming it to contain coordinates in Angstroms.
 However, the resulting `colvar` file contains a distance expressed in nm.
 
 The following command tells plumed to post process the trajectory contained in trajectory.xyz.
  by performing the actions described in the input file plumed.dat.
-\verbatim
+
+```plumed
 plumed driver --plumed plumed.dat --ixyz trajectory.xyz --trajectory-stride 100 --timestep 0.001
-\endverbatim
+```
+
 Here though
 `--trajectory-stride` is set equal to the frequency with which frames were output during the trajectory
 and the `--timestep` is equal to the simulation timestep.  As such the `STRIDE` parameters in the `plumed.dat`
@@ -144,56 +138,48 @@ files are referred to the original timestep and any files output resemble those 
 had we run the calculation we are running with driver when the MD simulation was running.
 
 PLUMED can read xyz files (in PLUMED units) and gro files (in nm). In addition,
-PLUMED includes by default support for a
+PLUMED includes support for a
 subset of the trajectory file formats supported by VMD, e.g. xtc and dcd:
 
-\verbatim
+```plumed
 plumed driver --plumed plumed.dat --pdb diala.pdb --mf_xtc traj.xtc --trajectory-stride 100 --timestep 0.001
-\endverbatim
+```
 
 where `--mf_` prefixes the extension of one of the accepted molfile plugin format.
-If PLUMED has been \ref Installation "installed" with full molfile support, other formats will be available.
-Just type `plumed driver --help` to see which plugins are available.
+If PLUMED has been installed with full molfile support, other formats will be available.
+Just type `plumed driver --help` to see which file formats you can use.
 
-Molfile plugin require periodic cell to be triangular (i.e. first vector oriented along x and
+Molfile plugin requires the periodic cell to be triangular (i.e. the first vector oriented along x and
 second vector in xy plane). This is true for many MD codes. However, it could be false
 if you rotate the coordinates in your trajectory before reading them in the driver.
-Also notice that some formats (e.g. amber crd) do not specify atom number. In this case you can use
-the `--natoms` option:
-\verbatim
-plumed driver --plumed plumed.dat --imf_crd trajectory.crd --natoms 128
-\endverbatim
+Also notice that some formats (e.g. amber crd) do not specify the total number of atoms. In this case you can use
+the `--natoms` option as shown below
+
+```plumed
+plumed driver --plumed plumed.dat --mf_crd trajectory.crd --natoms 128
+```
 
 Check the available molfile plugins and limitations at [this link](http://www.ks.uiuc.edu/Research/vmd/plugins/molfile/).
 
-Additionally, you can use the xdrfile implementation of xtc and trr. To this aim, just
+You can also use the xdrfile implementation of xtc and trr with plumed driver. If you want to do so you just
 download and install properly the xdrfile library (see [this link](http://www.gromacs.org/Developer_Zone/Programming_Guide/XTC_Library)).
 If the xdrfile library is installed properly the PLUMED configure script should be able to
 detect it and enable it.
 Notice that the xdrfile implementation of xtc and trr
 is more robust than the molfile one, since it provides support for generic cell shapes.
-In addition, it allows \ref DUMPATOMS to write compressed xtc files.
+In addition, if you install xdrfile you can then use the [DUMPATOMS](DUMPATOMS.md) command to write compressed xtc files.
 
+## Multiple replicas
+
+When PLUMED is compiled with MPI support, you can emulate a multi-simulation setup with `driver` by providing the `--multi`
+option with the appropriate number of ranks. This allows you to use the ref special-replica-syntax that is discussed [here](parsing.md) to analyze multiple
+trajectories (see [this tutorial](https://www.plumed-tutorials.org/lessons/21/005/data/NAVIGATION.html)). PLUMED will also automatically append a numbered suffix to output files
+(e.g. `COLVAR.0`, `COLVAR.1`, …) as discussed [here](Files.md). Similarly, each replica will search for the corresponding suffixed input file (e.g. `traj.0.xtc`, …)
+or default to the unsuffixed one.
 
 */
 //+ENDPLUMEDOC
 //
-
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-static std::vector<molfile_plugin_t *> plugins;
-static std::map <std::string, unsigned> pluginmap;
-static int register_cb(void *v, vmdplugin_t *p) {
-  //const char *key = p->name;
-  const auto ret = pluginmap.insert ( std::pair<std::string,unsigned>(std::string(p->name),plugins.size()) );
-  if (ret.second==false) {
-    //cerr<<"MOLFILE: found duplicate plugin for "<<key<<" : not inserted "<<endl;
-  } else {
-    //cerr<<"MOLFILE: loading plugin "<<key<<" number "<<plugins.size()-1<<endl;
-    plugins.push_back(reinterpret_cast<molfile_plugin_t *>(p));
-  }
-  return VMDPLUGIN_SUCCESS;
-}
-#endif
 
 template<typename real>
 class Driver : public CLTool {
@@ -209,7 +195,8 @@ public:
 
 template<typename real>
 void Driver<real>::registerKeywords( Keywords& keys ) {
-  CLTool::registerKeywords( keys ); keys.isDriver();
+  CLTool::registerKeywords( keys );
+  keys.isDriver();
   keys.addFlag("--help-debug",false,"print special options that can be used to create regtests");
   keys.add("compulsory","--plumed","plumed.dat","specify the name of the plumed input file");
   keys.add("compulsory","--timestep","1.0","the timestep that was used in the calculation that produced this trajectory in picoseconds");
@@ -221,17 +208,13 @@ void Driver<real>::registerKeywords( Keywords& keys ) {
   keys.addFlag("--noatoms",false,"don't read in a trajectory.  Just use colvar files as specified in plumed.dat");
   keys.addFlag("--parse-only",false,"read the plumed input file and stop");
   keys.addFlag("--restart",false,"makes driver behave as if restarting");
-  keys.add("atoms","--ixyz","the trajectory in xyz format");
-  keys.add("atoms","--igro","the trajectory in gro format");
-  keys.add("atoms","--idlp4","the trajectory in DL_POLY_4 format");
-  keys.add("atoms","--ixtc","the trajectory in xtc format (xdrfile implementation)");
-  keys.add("atoms","--itrr","the trajectory in trr format (xdrfile implementation)");
+  TrajectoryParser::registerKeywords(keys);
   keys.add("optional","--shortcut-ofile","the name of the file to output info on the way shortcuts have been expanded.  If there are no shortcuts in your input file nothing is output");
   keys.add("optional","--valuedict-ofile","output a dictionary giving information about each value in the input file");
   keys.add("optional","--length-units","units for length, either as a string or a number");
   keys.add("optional","--mass-units","units for mass in pdb and mc file, either as a string or a number");
   keys.add("optional","--charge-units","units for charge in pdb and mc file, either as a string or a number");
-  keys.add("optional","--kt","set \\f$k_B T\\f$, it will not be necessary to specify temperature in input file");
+  keys.add("optional","--kt","set kT it will not be necessary to specify temperature in input file");
   keys.add("optional","--dump-forces","dump the forces on a file");
   keys.add("optional","--dump-forces-fmt","( default=%%f ) the format to use to dump the forces");
   keys.addFlag("--dump-full-virial",false,"with --dump-forces, it dumps the 9 components of the virial");
@@ -247,24 +230,16 @@ void Driver<real>::registerKeywords( Keywords& keys ) {
   keys.add("hidden","--debug-pd","[yes/no] use a fake particle decomposition");
   keys.add("hidden","--debug-grex","use a fake gromacs-like replica exchange, specify exchange stride");
   keys.add("hidden","--debug-grex-log","log file for debug=grex");
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-  MOLFILE_INIT_ALL
-  MOLFILE_REGISTER_ALL(NULL, register_cb)
-  for(unsigned i=0; i<plugins.size(); i++) {
-    std::string kk="--mf_"+std::string(plugins[i]->name);
-    std::string mm=" molfile: the trajectory in "+std::string(plugins[i]->name)+" format " ;
-    keys.add("atoms",kk,mm);
-  }
-#endif
 }
 template<typename real>
 Driver<real>::Driver(const CLToolOptions& co ):
-  CLTool(co)
-{
-  inputdata=commandline;
+  CLTool(co) {
+  inputdata=inputType::commandline;
 }
 template<typename real>
-std::string Driver<real>::description()const { return "analyze trajectories with plumed"; }
+std::string Driver<real>::description()const {
+  return "analyze trajectories with plumed";
+}
 
 template<typename real>
 int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
@@ -273,7 +248,8 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
   PDB pdb;
 
 // Parse everything
-  bool printhelpdebug; parseFlag("--help-debug",printhelpdebug);
+  bool printhelpdebug;
+  parseFlag("--help-debug",printhelpdebug);
   if( printhelpdebug ) {
     std::fprintf(out,"%s",
                  "Additional options for debug (only to be used in regtest):\n"
@@ -284,19 +260,28 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
     return 0;
   }
   // Are we reading trajectory data
-  bool noatoms; parseFlag("--noatoms",noatoms);
-  bool parseOnly; parseFlag("--parse-only",parseOnly);
-  std::string full_outputfile; parse("--shortcut-ofile",full_outputfile);
-  std::string valuedict_file; parse("--valuedict-ofile",valuedict_file);
-  bool restart; parseFlag("--restart",restart);
+  bool noatoms;
+  parseFlag("--noatoms",noatoms);
+  bool parseOnly;
+  parseFlag("--parse-only",parseOnly);
+  std::string full_outputfile;
+  parse("--shortcut-ofile",full_outputfile);
+  std::string valuedict_file;
+  parse("--valuedict-ofile",valuedict_file);
+  bool restart;
+  parseFlag("--restart",restart);
 
   std::string fakein;
   bool debug_float=false;
   fakein="";
   if(parse("--debug-float",fakein)) {
-    if(fakein=="yes") debug_float=true;
-    else if(fakein=="no") debug_float=false;
-    else error("--debug-float should have argument yes or no");
+    if(fakein=="yes") {
+      debug_float=true;
+    } else if(fakein=="no") {
+      debug_float=false;
+    } else {
+      error("--debug-float should have argument yes or no");
+    }
   }
 
   if(debug_float && sizeof(real)!=sizeof(float)) {
@@ -309,23 +294,37 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
   bool debug_pd=false;
   fakein="";
   if(parse("--debug-pd",fakein)) {
-    if(fakein=="yes") debug_pd=true;
-    else if(fakein=="no") debug_pd=false;
-    else error("--debug-pd should have argument yes or no");
+    if(fakein=="yes") {
+      debug_pd=true;
+    } else if(fakein=="no") {
+      debug_pd=false;
+    } else {
+      error("--debug-pd should have argument yes or no");
+    }
   }
-  if(debug_pd) std::fprintf(out,"DEBUGGING PARTICLE DECOMPOSITION\n");
+  if(debug_pd) {
+    std::fprintf(out,"DEBUGGING PARTICLE DECOMPOSITION\n");
+  }
 
   bool debug_dd=false;
   fakein="";
   if(parse("--debug-dd",fakein)) {
-    if(fakein=="yes") debug_dd=true;
-    else if(fakein=="no") debug_dd=false;
-    else error("--debug-dd should have argument yes or no");
+    if(fakein=="yes") {
+      debug_dd=true;
+    } else if(fakein=="no") {
+      debug_dd=false;
+    } else {
+      error("--debug-dd should have argument yes or no");
+    }
   }
-  if(debug_dd) std::fprintf(out,"DEBUGGING DOMAIN DECOMPOSITION\n");
+  if(debug_dd) {
+    std::fprintf(out,"DEBUGGING DOMAIN DECOMPOSITION\n");
+  }
 
   if( debug_pd || debug_dd ) {
-    if(noatoms) error("cannot debug without atoms");
+    if(noatoms) {
+      error("cannot debug without atoms");
+    }
   }
 
 // set up for multi replica driver:
@@ -336,7 +335,9 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
   if(multi) {
     int ntot=pc.Get_size();
     int nintra=ntot/multi;
-    if(multi*nintra!=ntot) error("invalid number of processes for multi environment");
+    if(multi*nintra!=ntot) {
+      error("invalid number of processes for multi environment");
+    }
     pc.Split(pc.Get_rank()/nintra,pc.Get_rank(),intracomm);
     pc.Split(pc.Get_rank()%nintra,pc.Get_rank(),intercomm);
   } else {
@@ -348,14 +349,23 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
   int  grex_stride=0;
   FILE*grex_log=NULL;
 // call fclose when fp goes out of scope
-  auto deleter=[](auto f) { if(f) std::fclose(f); };
+  auto deleter=[](auto f) {
+    if(f) {
+      std::fclose(f);
+    }
+  };
   std::unique_ptr<FILE,decltype(deleter)> grex_log_deleter(grex_log,deleter);
 
   if(debug_grex) {
-    if(noatoms) error("must have atoms to debug_grex");
-    if(multi<2)  error("--debug_grex needs --multi with at least two replicas");
+    if(noatoms) {
+      error("must have atoms to debug_grex");
+    }
+    if(multi<2) {
+      error("--debug_grex needs --multi with at least two replicas");
+    }
     Tools::convert(fakein,grex_stride);
-    std::string n; Tools::convert(intercomm.Get_rank(),n);
+    std::string n;
+    Tools::convert(intercomm.Get_rank(),n);
     std::string file;
     parse("--debug-grex-log",file);
     if(file.length()>0) {
@@ -366,12 +376,15 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
   }
 
 // Read the plumed input file name
-  std::string plumedFile; parse("--plumed",plumedFile);
+  std::string plumedFile;
+  parse("--plumed",plumedFile);
 // the timestep
-  double t; parse("--timestep",t);
+  double t;
+  parse("--timestep",t);
   real timestep=real(t);
 // the stride
-  unsigned stride; parse("--trajectory-stride",stride);
+  unsigned stride;
+  parse("--trajectory-stride",stride);
 // are we writing forces
   std::string dumpforces(""), debugforces(""), dumpforcesFmt("%f");;
   bool dumpfullvirial=false;
@@ -379,104 +392,112 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
     parse("--dump-forces",dumpforces);
     parse("--debug-forces",debugforces);
   }
-  if(dumpforces!="" || debugforces!="" ) parse("--dump-forces-fmt",dumpforcesFmt);
-  if(dumpforces!="") parseFlag("--dump-full-virial",dumpfullvirial);
-  if( debugforces!="" && (debug_dd || debug_pd) ) error("cannot debug forces and domain/particle decomposition at same time");
-  if( debugforces!="" && sizeof(real)!=sizeof(double) ) error("cannot debug forces in single precision mode");
+  if(dumpforces!="" || debugforces!="" ) {
+    parse("--dump-forces-fmt",dumpforcesFmt);
+  }
+  if(dumpforces!="") {
+    parseFlag("--dump-full-virial",dumpfullvirial);
+  }
+  if( debugforces!="" && (debug_dd || debug_pd) ) {
+    error("cannot debug forces and domain/particle decomposition at same time");
+  }
+  if( debugforces!="" && sizeof(real)!=sizeof(double) ) {
+    error("cannot debug forces in single precision mode");
+  }
 
   real kt=-1.0;
   parse("--kt",kt);
   std::string trajectory_fmt;
 
   bool use_molfile=false;
-  molfile_plugin_t *api=NULL;
 
-// Read in an xyz file
+  // Read in an xyz file
   std::string trajectoryFile(""), pdbfile(""), mcfile("");
-  bool pbc_cli_given=false; std::vector<double> pbc_cli_box(9,0.0);
+  bool pbc_cli_given=false;
+  std::vector<double> pbc_cli_box(9,0.0);
   int command_line_natoms=-1;
 
+  TrajectoryParser parser;
   if(!noatoms) {
-    std::string traj_xyz; parse("--ixyz",traj_xyz);
-    std::string traj_gro; parse("--igro",traj_gro);
-    std::string traj_dlp4; parse("--idlp4",traj_dlp4);
-    std::string traj_xtc;
-    std::string traj_trr;
-    parse("--ixtc",traj_xtc);
-    parse("--itrr",traj_trr);
+    int nn=0;
+    trajectory_fmt="";
+    for (const auto & trj_type : TrajectoryParser::trajectoryOptions()) {
+      std::string tmp;
+      parse("--i"+trj_type, tmp);
+      if (tmp.length()>0) {
+        trajectory_fmt=trj_type;
+        ++nn;
+        trajectoryFile=tmp;
+      }
+    }
 #ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-    for(unsigned i=0; i<plugins.size(); i++) {
-      std::string molfile_key="--mf_"+std::string(plugins[i]->name);
-      std::string traj_molfile;
-      parse(molfile_key,traj_molfile);
-      if(traj_molfile.length()>0) {
-        std::fprintf(out,"\nDRIVER: Found molfile format trajectory %s with name %s\n",plugins[i]->name,traj_molfile.c_str());
-        trajectoryFile=traj_molfile;
-        trajectory_fmt=std::string(plugins[i]->name);
-        use_molfile=true;
-        api = plugins[i];
+    {
+      auto plugins_names=TrajectoryParser::getMolfilePluginsnames() ;
+      for(unsigned i=0; i<plugins_names.size(); i++) {
+        std::string molfile_key="--mf_"+plugins_names[i];
+        std::string traj_molfile;
+        parse(molfile_key,traj_molfile);
+        if(traj_molfile.length()>0) {
+          ++nn;
+          std::fprintf(out,"\nDRIVER: Found molfile format trajectory %s with name %s\n",plugins_names[i].c_str(),traj_molfile.c_str());
+          trajectoryFile=traj_molfile;
+          trajectory_fmt=plugins_names[i];
+          use_molfile=true;
+        }
       }
     }
 #endif
-    { // check that only one fmt is specified
-      int nn=0;
-      if(traj_xyz.length()>0) nn++;
-      if(traj_gro.length()>0) nn++;
-      if(traj_dlp4.length()>0) nn++;
-      if(traj_xtc.length()>0) nn++;
-      if(traj_trr.length()>0) nn++;
+    {
+
       if(nn>1) {
         std::fprintf(stderr,"ERROR: cannot provide more than one trajectory file\n");
         return 1;
       }
     }
-    if(traj_xyz.length()>0 && trajectoryFile.length()==0) {
-      trajectoryFile=traj_xyz;
-      trajectory_fmt="xyz";
-    }
-    if(traj_gro.length()>0 && trajectoryFile.length()==0) {
-      trajectoryFile=traj_gro;
-      trajectory_fmt="gro";
-    }
-    if(traj_dlp4.length()>0 && trajectoryFile.length()==0) {
-      trajectoryFile=traj_dlp4;
-      trajectory_fmt="dlp4";
-    }
-    if(traj_xtc.length()>0 && trajectoryFile.length()==0) {
-      trajectoryFile=traj_xtc;
-      trajectory_fmt="xdr-xtc";
-    }
-    if(traj_trr.length()>0 && trajectoryFile.length()==0) {
-      trajectoryFile=traj_trr;
-      trajectory_fmt="xdr-trr";
-    }
+
     if(trajectoryFile.length()==0&&!parseOnly) {
       std::fprintf(stderr,"ERROR: missing trajectory data\n");
       return 1;
     }
-    std::string lengthUnits(""); parse("--length-units",lengthUnits);
-    if(lengthUnits.length()>0) units.setLength(lengthUnits);
-    std::string chargeUnits(""); parse("--charge-units",chargeUnits);
-    if(chargeUnits.length()>0) units.setCharge(chargeUnits);
-    std::string massUnits(""); parse("--mass-units",massUnits);
-    if(massUnits.length()>0) units.setMass(massUnits);
+    std::string lengthUnits("");
+    parse("--length-units",lengthUnits);
+    if(lengthUnits.length()>0) {
+      units.setLength(lengthUnits);
+    }
+    std::string chargeUnits("");
+    parse("--charge-units",chargeUnits);
+    if(chargeUnits.length()>0) {
+      units.setCharge(chargeUnits);
+    }
+    std::string massUnits("");
+    parse("--mass-units",massUnits);
+    if(massUnits.length()>0) {
+      units.setMass(massUnits);
+    }
 
     parse("--pdb",pdbfile);
     if(pdbfile.length()>0) {
       bool check=pdb.read(pdbfile,false,1.0);
-      if(!check) error("error reading pdb file");
+      if(!check) {
+        error("error reading pdb file");
+      }
     }
 
     parse("--mc",mcfile);
 
-    std::string pbc_cli_list; parse("--box",pbc_cli_list);
+    std::string pbc_cli_list;
+    parse("--box",pbc_cli_list);
     if(pbc_cli_list.length()>0) {
       pbc_cli_given=true;
       std::vector<std::string> words=Tools::getWords(pbc_cli_list,",");
       if(words.size()==3) {
-        for(int i=0; i<3; i++) std::sscanf(words[i].c_str(),"%100lf",&(pbc_cli_box[4*i]));
+        for(int i=0; i<3; i++) {
+          std::sscanf(words[i].c_str(),"%100lf",&(pbc_cli_box[4*i]));
+        }
       } else if(words.size()==9) {
-        for(int i=0; i<9; i++) std::sscanf(words[i].c_str(),"%100lf",&(pbc_cli_box[i]));
+        for(int i=0; i<9; i++) {
+          std::sscanf(words[i].c_str(),"%100lf",&(pbc_cli_box[i]));
+        }
       } else {
         std::string msg="ERROR: cannot parse command-line box "+pbc_cli_list;
         std::fprintf(stderr,"%s\n",msg.c_str());
@@ -487,124 +508,82 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
 
     parse("--natoms",command_line_natoms);
 
+  } // if(!noatoms)
+
+  if(debug_dd && debug_pd) {
+    error("cannot use debug-dd and debug-pd at the same time");
   }
-
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-  auto mf_deleter=[api](void* h_in) {
-    if(h_in) {
-      std::unique_ptr<std::lock_guard<std::mutex>> lck;
-      if(api->is_reentrant==VMDPLUGIN_THREADUNSAFE) lck=Tools::molfile_lock();
-      api->close_file_read(h_in);
-    }
-  };
-  void *h_in=NULL;
-  std::unique_ptr<void,decltype(mf_deleter)> h_in_deleter(h_in,mf_deleter);
-
-  molfile_timestep_t ts_in; // this is the structure that has the timestep
-// a std::vector<float> with the same scope as ts_in
-// it is necessary in order to store the pointer to ts_in.coords
-  std::vector<float> ts_in_coords;
-  ts_in.coords=ts_in_coords.data();
-  ts_in.velocities=NULL;
-  ts_in.A=-1; // we use this to check whether cell is provided or not
-#endif
-
-
-
-  if(debug_dd && debug_pd) error("cannot use debug-dd and debug-pd at the same time");
   if(debug_pd || debug_dd) {
-    if( !Communicator::initialized() ) error("needs mpi for debug-pd");
+    if( !Communicator::initialized() ) {
+      error("needs mpi for debug-pd");
+    }
   }
 
-  PlumedMain p; if( parseOnly ) p.activateParseOnlyMode();
+  PlumedMain p;
+  if( parseOnly ) {
+    p.activateParseOnlyMode();
+  }
   p.cmd("setRealPrecision",(int)sizeof(real));
   int checknatoms=-1;
   long long int step=0;
   parse("--initial-step",step);
 
-  if(restart) p.cmd("setRestart",1);
+  if(restart) {
+    p.cmd("setRestart",1);
+  }
 
   if(Communicator::initialized()) {
     if(multi) {
-      if(intracomm.Get_rank()==0) p.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
+      if(intracomm.Get_rank()==0) {
+        p.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
+      }
       p.cmd("GREX setMPIIntracomm",&intracomm.Get_comm());
       p.cmd("GREX init");
     }
     p.cmd("setMPIComm",&intracomm.Get_comm());
   }
+  p.cmd("setLog",out);
   p.cmd("setMDLengthUnits",units.getLength());
   p.cmd("setMDChargeUnits",units.getCharge());
   p.cmd("setMDMassUnits",units.getMass());
   p.cmd("setMDEngine","driver");
   p.cmd("setTimestep",timestep);
-  if( !parseOnly || full_outputfile.length()==0 ) p.cmd("setPlumedDat",plumedFile.c_str());
-  p.cmd("setLog",out);
+  if( !parseOnly || full_outputfile.length()==0 ) {
+    p.cmd("setPlumedDat",plumedFile.c_str());
+  }
 
-  int natoms;
-  int lvl=0;
-  int pb=1;
+  int natoms=0;
 
   if(parseOnly) {
-    if(command_line_natoms<0) error("--parseOnly requires setting the number of atoms with --natoms");
+    if(command_line_natoms<0) {
+      error("--parseOnly requires setting the number of atoms with --natoms");
+    }
     natoms=command_line_natoms;
   }
 
 
-  FILE* fp=NULL; FILE* fp_forces=NULL; OFile fp_dforces;
+  FILE* fp_forces=NULL;
+  OFile fp_dforces;
 
-  std::unique_ptr<FILE,decltype(deleter)> fp_deleter(fp,deleter);
   std::unique_ptr<FILE,decltype(deleter)> fp_forces_deleter(fp_forces,deleter);
 
-  auto xdr_deleter=[](auto xd) { if(xd) xdrfile::xdrfile_close(xd); };
-
-  xdrfile::XDRFILE* xd=NULL;
-
-  std::unique_ptr<xdrfile::XDRFILE,decltype(xdr_deleter)> xd_deleter(xd,xdr_deleter);
-
   if(!noatoms&&!parseOnly) {
-    if (trajectoryFile=="-")
-      fp=in;
-    else {
+    if (trajectoryFile=="-") {
+      parser.init(trajectory_fmt, in);
+    } else {
       if(multi) {
         std::string n;
         Tools::convert(intercomm.Get_rank(),n);
         std::string testfile=FileBase::appendSuffix(trajectoryFile,"."+n);
         FILE* tmp_fp=std::fopen(testfile.c_str(),"r");
         // no exceptions here
-        if(tmp_fp) { std::fclose(tmp_fp); trajectoryFile=testfile;}
-      }
-      if(use_molfile==true) {
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-        std::unique_ptr<std::lock_guard<std::mutex>> lck;
-        if(api->is_reentrant==VMDPLUGIN_THREADUNSAFE) lck=Tools::molfile_lock();
-        h_in = api->open_file_read(trajectoryFile.c_str(), trajectory_fmt.c_str(), &natoms);
-        h_in_deleter.reset(h_in);
-        if(natoms==MOLFILE_NUMATOMS_UNKNOWN) {
-          if(command_line_natoms>=0) natoms=command_line_natoms;
-          else error("this file format does not provide number of atoms; use --natoms on the command line");
-        }
-        ts_in_coords.resize(3*natoms);
-        ts_in.coords = ts_in_coords.data();
-#endif
-      } else if(trajectory_fmt=="xdr-xtc" || trajectory_fmt=="xdr-trr") {
-        xd=xdrfile::xdrfile_open(trajectoryFile.c_str(),"r");
-        xd_deleter.reset(xd);
-        if(!xd) {
-          std::string msg="ERROR: Error opening trajectory file "+trajectoryFile;
-          std::fprintf(stderr,"%s\n",msg.c_str());
-          return 1;
-        }
-        if(trajectory_fmt=="xdr-xtc") xdrfile::read_xtc_natoms(&trajectoryFile[0],&natoms);
-        if(trajectory_fmt=="xdr-trr") xdrfile::read_trr_natoms(&trajectoryFile[0],&natoms);
-      } else {
-        fp=std::fopen(trajectoryFile.c_str(),"r");
-        fp_deleter.reset(fp);
-        if(!fp) {
-          std::string msg="ERROR: Error opening trajectory file "+trajectoryFile;
-          std::fprintf(stderr,"%s\n",msg.c_str());
-          return 1;
+        if(tmp_fp) {
+          std::fclose(tmp_fp);
+          trajectoryFile=testfile;
         }
       }
+      parser.init(trajectory_fmt,trajectoryFile,use_molfile,command_line_natoms);
+      natoms = parser.nOfAtoms();
     }
     if(dumpforces.length()>0) {
       if(Communicator::initialized() && pc.Get_size()>1) {
@@ -648,45 +627,28 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
 // random stream to choose decompositions
   Random rnd;
 
-  if(trajectory_fmt=="dlp4") {
-    if(!Tools::getline(fp,line)) error("error reading title");
-    if(!Tools::getline(fp,line)) error("error reading atoms");
-    std::sscanf(line.c_str(),"%d %d %d",&lvl,&pb,&natoms);
 
-  }
   bool lstep=true;
   while(true) {
-    if(!noatoms&&!parseOnly) {
-      if(use_molfile==true) {
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-        std::unique_ptr<std::lock_guard<std::mutex>> lck;
-        if(api->is_reentrant==VMDPLUGIN_THREADUNSAFE) lck=Tools::molfile_lock();
-        int rc;
-        rc = api->read_next_timestep(h_in, natoms, &ts_in);
-        if(rc==MOLFILE_EOF) {
-          break;
-        }
-#endif
-      } else if(trajectory_fmt=="xyz" || trajectory_fmt=="gro" || trajectory_fmt=="dlp4") {
-        if(!Tools::getline(fp,line)) break;
-      }
-    }
     bool first_step=false;
     if(!noatoms&&!parseOnly) {
-      if(use_molfile==false && (trajectory_fmt=="xyz" || trajectory_fmt=="gro")) {
-        if(trajectory_fmt=="gro") if(!Tools::getline(fp,line)) error("premature end of trajectory file");
-        std::sscanf(line.c_str(),"%100d",&natoms);
-      }
-      if(use_molfile==false && trajectory_fmt=="dlp4") {
-        char xa[9];
-        int xb,xc,xd;
-        double t;
-        std::sscanf(line.c_str(),"%8s %lld %d %d %d %lf",xa,&step,&xb,&xc,&xd,&t);
-        if (lstep) {
-          p.cmd("setTimestep",real(t));
-          lstep = false;
+
+      real timeStep=-1.0;
+
+      auto errormessage=parser.readHeader(step,timeStep);
+
+      if (errormessage) {
+        if (*errormessage =="EOF") {
+          break;
+        } else {
+          error(*errormessage);
         }
       }
+      if (lstep && timeStep>0.0) {
+        p.cmd("setTimestep",real(timeStep));
+        lstep = false;
+      }
+      natoms=parser.nOfAtoms();
     }
     if(checknatoms<0 && !noatoms) {
       pd_nlocal=natoms;
@@ -699,7 +661,9 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
         for(unsigned i=0; i<pdb.size(); ++i) {
           AtomNumber an=pdb.getAtomNumbers()[i];
           unsigned index=an.index();
-          if( index>=unsigned(natoms) ) error("atom index in pdb exceeds the number of atoms in trajectory");
+          if( index>=unsigned(natoms) ) {
+            error("atom index in pdb exceeds the number of atoms in trajectory");
+          }
           masses[index]=pdb.getOccupancy()[i];
           charges[index]=pdb.getBeta()[i];
         }
@@ -707,7 +671,9 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
       if(mcfile.length()>0) {
         IFile ifile;
         ifile.open(mcfile);
-        int index; double mass; double charge;
+        int index;
+        double mass;
+        double charge;
         while(ifile.scanField("index",index).scanField("mass",mass).scanField("charge",charge).scanField()) {
           masses[index]=mass;
           charges[index]=charge;
@@ -716,6 +682,7 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
     } else if( checknatoms<0 && noatoms ) {
       natoms=0;
     }
+
     if( checknatoms<0 ) {
       if(kt>=0) {
         p.cmd("setKbT",kt);
@@ -728,108 +695,197 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
 
         // Read in the plumed input file and store what is in there
         std::map<std::string,std::vector<std::string> > data;
-        IFile ifile; ifile.open(plumedFile); std::vector<std::string> words;
+        IFile ifile;
+        ifile.open(plumedFile);
+        std::vector<std::string> words;
         while( Tools::getParsedLine(ifile,words) && !p.getEndPlumed() ) {
           p.readInputWords(words,false);
           Action* aa=p.getActionSet()[p.getActionSet().size()-1].get();
           plumed_assert(aa); // needed for following calls, see #1046
           ActionWithValue* av=aa->castToActionWithValue();
           if( av && aa->getDefaultString().length()>0 ) {
-            std::vector<std::string> def; def.push_back( "defaults " + aa->getDefaultString() );
+            std::vector<std::string> def;
+            def.push_back( "defaults " + aa->getDefaultString() );
             data[ aa->getLabel() ] = def;
           }
           ActionShortcut* as=aa->castToActionShortcut();
           if( as ) {
             if( aa->getDefaultString().length()>0 ) {
-              std::vector<std::string> def; def.push_back( "defaults " + aa->getDefaultString() );
+              std::vector<std::string> def;
+              def.push_back( "defaults " + aa->getDefaultString() );
               data[ as->getShortcutLabel() ] = def;
             }
-            std::vector<std::string> shortcut_commands = as->getSavedInputLines(); if( shortcut_commands.size()==0 ) continue;
+            const auto & shortcut_commands = as->getSavedInputLines();
+            if( shortcut_commands.size()==0 ) {
+              continue;
+            }
             if( data.find( as->getShortcutLabel() )!=data.end() ) {
-              for(unsigned i=0; i<shortcut_commands.size(); ++i) data[ as->getShortcutLabel() ].push_back( shortcut_commands[i] );
-            } else data[ as->getShortcutLabel() ] = shortcut_commands;
+              for(unsigned i=0; i<shortcut_commands.size(); ++i) {
+                data[ as->getShortcutLabel() ].push_back( shortcut_commands[i] );
+              }
+            } else {
+              data[ as->getShortcutLabel() ] = shortcut_commands;
+            }
           }
         }
         ifile.close();
         // Only output the full version of the input file if there are shortcuts
-        if( data.size()>0 ) {
-          OFile long_file; long_file.open( full_outputfile ); long_file.printf("{\n"); bool firstpass=true;
+        if( data.size()>0 && intracomm.Get_rank()==0 && intercomm.Get_rank()==0 ) {
+          OFile long_file;
+          long_file.open( full_outputfile );
+          long_file.printf("{\n");
+          bool firstpass=true;
           for(auto& x : data ) {
-            if( !firstpass ) long_file.printf("   },\n");
+            if( !firstpass ) {
+              long_file.printf("   },\n");
+            }
             long_file.printf("   \"%s\" : {\n", x.first.c_str() );
-            plumed_assert( x.second.size()>0 ); unsigned sstart=0;
+            plumed_assert( x.second.size()>0 );
+            unsigned sstart=0;
             if( x.second[0].find("defaults")!=std::string::npos ) {
-              sstart=1; long_file.printf("      \"defaults\" : \"%s\"", x.second[0].substr( 9 ).c_str() );
-              if( x.second.size()>1 ) long_file.printf(",\n"); else long_file.printf("\n");
+              sstart=1;
+              long_file.printf("      \"defaults\" : \"%s\"", x.second[0].substr( 9 ).c_str() );
+              if( x.second.size()>1 ) {
+                long_file.printf(",\n");
+              } else {
+                long_file.printf("\n");
+              }
             }
             if( x.second.size()>sstart ) {
-              long_file.printf("      \"expansion\" : \"%s", x.second[sstart].c_str() );
-              for(unsigned j=sstart+1; j<x.second.size(); ++j) long_file.printf("\\n%s", x.second[j].c_str() );
+              {
+                std::string cmnd=Tools::convertRegexForJson(x.second[sstart]);
+                long_file.printf("      \"expansion\" : \"%s", cmnd.c_str() );
+              }
+              for(unsigned j=sstart+1; j<x.second.size(); ++j) {
+                //reinitializing it to RVO the string
+                std::string cmnd=Tools::convertRegexForJson(x.second[j]);
+                long_file.printf("\\n%s", cmnd.c_str() );
+              }
               long_file.printf("\"\n");
             }
             firstpass=false;
           }
-          long_file.printf("   }\n}\n"); long_file.close();
+          long_file.printf("   }\n}\n");
+          long_file.close();
         }
       }
-      if( valuedict_file.length()>0 ) {
-        OFile valuefile; valuefile.open( valuedict_file ); valuefile.printf("{\n"); bool firsta=true;
+      if( valuedict_file.length()>0 && intracomm.Get_rank()==0 && intercomm.Get_rank()==0 ) {
+        OFile valuefile;
+        valuefile.open( valuedict_file );
+        valuefile.printf("{\n");
+        bool firsta=true;
         for(const auto & pp : p.getActionSet()) {
-          if( pp.get()->getName()=="CENTER" ) continue ;
+          if( pp.get()->getName()=="CENTER" ) {
+            continue ;
+          }
           ActionWithVirtualAtom* avv=dynamic_cast<ActionWithVirtualAtom*>(pp.get());
           if( avv ||  pp.get()->getName()=="GROUP" || pp.get()->getName()=="DENSITY" ) {
-            Action* p(pp.get());
-            if( firsta ) { valuefile.printf("  \"%s\" : {\n    \"action\" : \"%s\"", p->getLabel().c_str(), p->getName().c_str() ); firsta=false; }
-            else valuefile.printf(",\n  \"%s\" : {\n    \"action\" : \"%s\"", p->getLabel().c_str(), p->getName().c_str() );
-            if( avv ) valuefile.printf(",\n    \"%s\" : { \"type\": \"atoms\", \"description\": \"virtual atom calculated by %s action\" }", avv->getLabel().c_str(), avv->getName().c_str() );
-            else valuefile.printf(",\n    \"%s\" : { \"type\": \"atoms\", \"description\": \"indices of atoms specified in GROUP\" }", p->getLabel().c_str() );
-            valuefile.printf("\n  }"); continue;
+            Action* actionBase=pp.get();
+            if( firsta ) {
+              valuefile.printf("  \"%s\" : {\n    \"action\" : \"%s\"",
+                               actionBase->getLabel().c_str(),
+                               actionBase->getName().c_str() );
+              firsta=false;
+            } else {
+              valuefile.printf(",\n  \"%s\" : {\n    \"action\" : \"%s\"",
+                               actionBase->getLabel().c_str(),
+                               actionBase->getName().c_str() );
+            }
+            if( avv ) {
+              valuefile.printf(",\n    \"%s\" : { \"type\": \"atoms\","
+                               " \"description\": \"virtual atom calculated by %s action\" }",
+                               avv->getLabel().c_str(),
+                               avv->getName().c_str() );
+            } else {
+              valuefile.printf(",\n    \"%s\" : { \"type\": \"atoms\","
+                               " \"description\": \"indices of atoms specified in GROUP\" }",
+                               actionBase->getLabel().c_str() );
+            }
+            valuefile.printf("\n  }");
+            continue;
           }
           ActionWithValue* av=dynamic_cast<ActionWithValue*>(pp.get());
           if( av && av->getNumberOfComponents()>0 ) {
-            Keywords keys; p.getKeywordsForAction( av->getName(), keys );
-            if( firsta ) { valuefile.printf("  \"%s\" : {\n    \"action\" : \"%s\"", av->getLabel().c_str(), keys.getDisplayName().c_str() ); firsta=false; }
-            else valuefile.printf(",\n  \"%s\" : {\n    \"action\" : \"%s\"", av->getLabel().c_str(), keys.getDisplayName().c_str() );
+            Keywords keys;
+            p.getKeywordsForAction( av->getName(), keys );
+            if( firsta ) {
+              valuefile.printf("  \"%s\" : {\n    \"action\" : \"%s\"",
+                               av->getLabel().c_str(),
+                               keys.getDisplayName().c_str() );
+              firsta=false;
+            } else {
+              valuefile.printf(",\n  \"%s\" : {\n    \"action\" : \"%s\"",
+                               av->getLabel().c_str(),
+                               keys.getDisplayName().c_str() );
+            }
             for(unsigned i=0; i<av->getNumberOfComponents(); ++i) {
-              Value* myval = av->copyOutput(i); std::string compname = myval->getName(), description;
+              Value* myval = av->copyOutput(i);
+              std::string compname = myval->getName(), description;
               if( av->getLabel()==compname ) {
                 description = keys.getOutputComponentDescription(".#!value");
               } else {
-                std::size_t dot=compname.find(av->getLabel() + "."); std::string cname = compname.substr(dot + av->getLabel().length() + 1);
+                std::size_t dot=compname.find(av->getLabel() + ".");
+                std::string cname = compname.substr(dot + av->getLabel().length() + 1);
                 description = av->getOutputComponentDescription( cname, keys );
               }
-              if( description.find("\\")!=std::string::npos ) error("found invalid backslash character in documentation for component " + compname + " in action " + av->getName() + " with label " + av->getLabel() );
+              if( description.find("\\")!=std::string::npos ) {
+                error("found invalid backslash character in documentation for component " + compname + " in action " + av->getName() + " with label " + av->getLabel() );
+              }
               valuefile.printf(",\n    \"%s\" : { \"type\": \"%s\", \"description\": \"%s\" }", myval->getName().c_str(), myval->getValueType().c_str(), description.c_str() );
             }
             valuefile.printf("\n  }");
           }
           ActionShortcut* as=pp->castToActionShortcut();
           if( as ) {
-            std::vector<std::string> cnames( as->getSavedOutputs() );
-            if( cnames.size()==0 ) continue ;
+            const auto & cnames = as->getSavedOutputs();
+            if( cnames.size()==0 ) {
+              continue ;
+            }
 
-            if( firsta ) { valuefile.printf("  \"shortcut_%s\" : {\n    \"action\" : \"%s\"", as->getShortcutLabel().c_str(), as->getName().c_str() ); firsta=false; }
-            else valuefile.printf(",\n  \"shortcut_%s\" : {\n    \"action\" : \"%s\"", as->getShortcutLabel().c_str(), as->getName().c_str() );
-            Keywords keys; p.getKeywordsForAction( as->getName(), keys );
+            if( firsta ) {
+              valuefile.printf("  \"shortcut_%s\" : {\n    \"action\" : \"%s\"", as->getShortcutLabel().c_str(), as->getName().c_str() );
+              firsta=false;
+            } else {
+              valuefile.printf(",\n  \"shortcut_%s\" : {\n    \"action\" : \"%s\"", as->getShortcutLabel().c_str(), as->getName().c_str() );
+            }
+            Keywords keys;
+            p.getKeywordsForAction( as->getName(), keys );
             for(unsigned i=0; i<cnames.size(); ++i) {
               ActionWithValue* av2=p.getActionSet().selectWithLabel<ActionWithValue*>( cnames[i] );
-              if( !av2 ) plumed_merror("could not find value created by shortcut with name " + cnames[i] );
+              if( !av2 ) {
+                plumed_merror("could not find value created by shortcut with name " + cnames[i] );
+              }
               if( av2->getNumberOfComponents()==1 ) {
-                Value* myval = av2->copyOutput(0); std::string compname = myval->getName(), description;
-                if( compname==as->getShortcutLabel() ) description = keys.getOutputComponentDescription(".#!value");
-                else { std::size_t pp=compname.find(as->getShortcutLabel()); description = keys.getOutputComponentDescription( compname.substr(pp+as->getShortcutLabel().length()+1) ); }
-                if( description.find("\\")!=std::string::npos ) error("found invalid backslash character in documentation for component " + compname + " in action " + as->getName() + " with label " + as->getLabel() );
-                valuefile.printf(",\n    \"%s\" : { \"type\": \"%s\", \"description\": \"%s\" }", myval->getName().c_str(), myval->getValueType().c_str(), description.c_str() );
+                Value* myval = av2->copyOutput(0);
+                std::string compname = myval->getName(), description;
+                if( compname==as->getShortcutLabel() ) {
+                  description = keys.getOutputComponentDescription(".#!value");
+                } else {
+                  std::size_t shortcutPos=compname.find(as->getShortcutLabel());
+                  description = keys.getOutputComponentDescription(
+                                  compname.substr(shortcutPos+as->getShortcutLabel().length()+1) );
+                }
+                if( description.find("\\")!=std::string::npos ) {
+                  error("found invalid backslash character in documentation for component " + compname + " in action " + as->getName() + " with label " + as->getLabel() );
+                }
+                valuefile.printf(",\n    \"%s\" : { \"type\": \"%s\", \"description\": \"%s\" }",
+                                 myval->getName().c_str(),
+                                 myval->getValueType().c_str(),
+                                 description.c_str() );
               } else {
                 for(unsigned j=0; j<av2->getNumberOfComponents(); ++j) {
-                  Value* myval = av2->copyOutput(j); std::string compname = myval->getName(), description;
+                  Value* myval = av2->copyOutput(j);
+                  std::string compname = myval->getName(), description;
                   if( av2->getLabel()==compname ) {
                     plumed_merror("should not be outputting description of value from action when using shortcuts");
                   } else {
-                    std::size_t dot=compname.find(av2->getLabel() + "."); std::string cname = compname.substr(dot+av2->getLabel().length() + 1);
+                    std::size_t dot=compname.find(av2->getLabel() + ".");
+                    std::string cname = compname.substr(dot+av2->getLabel().length() + 1);
                     description = av2->getOutputComponentDescription( cname, keys );
                   }
-                  if( description.find("\\")!=std::string::npos ) error("found invalid backslash character in documentation for component " + compname + " in action " + av2->getName() + " with label " + av2->getLabel() );
+                  if( description.find("\\")!=std::string::npos ) {
+                    error("found invalid backslash character in documentation for component " + compname + " in action " + av2->getName() + " with label " + av2->getLabel() );
+                  }
                   valuefile.printf(",\n    \"%s\" : { \"type\": \"%s\", \"description\": \"%s\" }", myval->getName().c_str(), myval->getValueType().c_str(), description.c_str() );
                 }
               }
@@ -837,12 +893,16 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
             valuefile.printf("\n  }");
           }
         }
-        valuefile.printf("\n}\n"); valuefile.close();
+        valuefile.printf("\n}\n");
+        valuefile.close();
       }
-      if(parseOnly) break;
+      if(parseOnly) {
+        break;
+      }
     }
     if(checknatoms!=natoms) {
-      std::string stepstr; Tools::convert(step,stepstr);
+      std::string stepstr;
+      Tools::convert(step,stepstr);
       error("number of atoms in frame " + stepstr + " does not match number of atoms in first frame");
     }
 
@@ -858,7 +918,9 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
         std::vector<int> start(npe,0);
         for(int i=0; i<npe-1; i++) {
           int cc=(natoms*2*rnd.U01())/npe;
-          if(start[i]+cc>natoms) cc=natoms-start[i];
+          if(start[i]+cc>natoms) {
+            cc=natoms-start[i];
+          }
           loc[i]=cc;
           start[i+1]=start[i]+loc[i];
         }
@@ -869,8 +931,16 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
         pd_start=start[intracomm.Get_rank()];
         if(intracomm.Get_rank()==0) {
           std::fprintf(out,"\nDRIVER: Reassigning particle decomposition\n");
-          std::fprintf(out,"DRIVER: "); for(int i=0; i<npe; i++) std::fprintf(out,"%d ",loc[i]); printf("\n");
-          std::fprintf(out,"DRIVER: "); for(int i=0; i<npe; i++) std::fprintf(out,"%d ",start[i]); printf("\n");
+          std::fprintf(out,"DRIVER: ");
+          for(int i=0; i<npe; i++) {
+            std::fprintf(out,"%d ",loc[i]);
+          }
+          printf("\n");
+          std::fprintf(out,"DRIVER: ");
+          for(int i=0; i<npe; i++) {
+            std::fprintf(out,"%d ",start[i]);
+          }
+          printf("\n");
         }
         p.cmd("setAtomsNlocal",pd_nlocal);
         p.cmd("setAtomsContiguous",pd_start);
@@ -886,7 +956,11 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
         dd_nlocal=0;
         for(int i=0; i<natoms; ++i) {
           double r=rnd.U01()*npe;
-          int n; for(n=0; n<npe; n++) if(n+1>r)break;
+          int n;
+          for(n=0; n<npe; n++)
+            if(n+1>r) {
+              break;
+            }
           plumed_assert(n<npe);
           if(n==rank) {
             dd_gatindex[dd_nlocal]=i;
@@ -906,170 +980,32 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
 
     int plumedStopCondition=0;
     if(!noatoms) {
-      if(use_molfile) {
-#ifdef __PLUMED_HAS_MOLFILE_PLUGINS
-        if(pbc_cli_given==false) {
-          if(ts_in.A>0.0) { // this is negative if molfile does not provide box
-            // info on the cell: convert using pbcset.tcl from pbctools in vmd distribution
-            real cosBC=cos(real(ts_in.alpha)*pi/180.);
-            //double sinBC=std::sin(ts_in.alpha*pi/180.);
-            real cosAC=std::cos(real(ts_in.beta)*pi/180.);
-            real cosAB=std::cos(real(ts_in.gamma)*pi/180.);
-            real sinAB=std::sin(real(ts_in.gamma)*pi/180.);
-            real Ax=real(ts_in.A);
-            real Bx=real(ts_in.B)*cosAB;
-            real By=real(ts_in.B)*sinAB;
-            real Cx=real(ts_in.C)*cosAC;
-            real Cy=(real(ts_in.C)*real(ts_in.B)*cosBC-Cx*Bx)/By;
-            real Cz=std::sqrt(real(ts_in.C)*real(ts_in.C)-Cx*Cx-Cy*Cy);
-            cell[0]=Ax/10.; cell[1]=0.; cell[2]=0.;
-            cell[3]=Bx/10.; cell[4]=By/10.; cell[5]=0.;
-            cell[6]=Cx/10.; cell[7]=Cy/10.; cell[8]=Cz/10.;
-          } else {
-            cell[0]=0.0; cell[1]=0.0; cell[2]=0.0;
-            cell[3]=0.0; cell[4]=0.0; cell[5]=0.0;
-            cell[6]=0.0; cell[7]=0.0; cell[8]=0.0;
-          }
+      auto errormessage=parser.readAtoms(
+                          stride,
+                          pbc_cli_given,
+                          debug_pd,
+                          pd_start,
+                          pd_nlocal,
+                          step,
+                          masses.data(),
+                          charges.data(),
+                          coordinates.data(),
+                          cell.data()
+                        );
+
+      if (errormessage) {
+        if (*errormessage =="EOF") {
+          break;
         } else {
-          for(unsigned i=0; i<9; i++)cell[i]=pbc_cli_box[i];
+          error(*errormessage);
         }
-        // info on coords
-        // the order is xyzxyz...
-        for(int i=0; i<3*natoms; i++) {
-          coordinates[i]=real(ts_in.coords[i])/real(10.); //convert to nm
-          //cerr<<"COOR "<<coordinates[i]<<endl;
-        }
-#endif
-      } else if(trajectory_fmt=="xdr-xtc" || trajectory_fmt=="xdr-trr") {
-        int localstep;
-        float time;
-        xdrfile::matrix box;
-// here we cannot use a std::vector<rvec> since it does not compile.
-// we thus use a std::unique_ptr<rvec[]>
-        auto pos=Tools::make_unique<xdrfile::rvec[]>(natoms);
-        float prec,lambda;
-        int ret=xdrfile::exdrOK;
-        if(trajectory_fmt=="xdr-xtc") ret=xdrfile::read_xtc(xd,natoms,&localstep,&time,box,pos.get(),&prec);
-        if(trajectory_fmt=="xdr-trr") ret=xdrfile::read_trr(xd,natoms,&localstep,&time,&lambda,box,pos.get(),NULL,NULL);
-        if(stride==0) step=localstep;
-        if(ret==xdrfile::exdrENDOFFILE) break;
-        if(ret!=xdrfile::exdrOK) break;
-        for(unsigned i=0; i<3; i++) for(unsigned j=0; j<3; j++) cell[3*i+j]=box[i][j];
-        for(int i=0; i<natoms; i++) for(unsigned j=0; j<3; j++)
-            coordinates[3*i+j]=real(pos[i][j]);
-      } else {
-        if(trajectory_fmt=="xyz") {
-          if(!Tools::getline(fp,line)) error("premature end of trajectory file");
-
-          std::vector<double> celld(9,0.0);
-          if(pbc_cli_given==false) {
-            std::vector<std::string> words;
-            words=Tools::getWords(line);
-            if(words.size()==3) {
-              Tools::convert(words[0],celld[0]);
-              Tools::convert(words[1],celld[4]);
-              Tools::convert(words[2],celld[8]);
-            } else if(words.size()==9) {
-              Tools::convert(words[0],celld[0]);
-              Tools::convert(words[1],celld[1]);
-              Tools::convert(words[2],celld[2]);
-              Tools::convert(words[3],celld[3]);
-              Tools::convert(words[4],celld[4]);
-              Tools::convert(words[5],celld[5]);
-              Tools::convert(words[6],celld[6]);
-              Tools::convert(words[7],celld[7]);
-              Tools::convert(words[8],celld[8]);
-            } else error("needed box in second line of xyz file");
-          } else {			// from command line
-            celld=pbc_cli_box;
-          }
-          for(unsigned i=0; i<9; i++)cell[i]=real(celld[i]);
-        }
-        if(trajectory_fmt=="dlp4") {
-          std::vector<double> celld(9,0.0);
-          if(pbc_cli_given==false) {
-            if(!Tools::getline(fp,line)) error("error reading vector a of cell");
-            std::sscanf(line.c_str(),"%lf %lf %lf",&celld[0],&celld[1],&celld[2]);
-            if(!Tools::getline(fp,line)) error("error reading vector b of cell");
-            std::sscanf(line.c_str(),"%lf %lf %lf",&celld[3],&celld[4],&celld[5]);
-            if(!Tools::getline(fp,line)) error("error reading vector c of cell");
-            std::sscanf(line.c_str(),"%lf %lf %lf",&celld[6],&celld[7],&celld[8]);
-          } else {
-            celld=pbc_cli_box;
-          }
-          for(auto i=0; i<9; i++)cell[i]=real(celld[i])*0.1;
-        }
-        int ddist=0;
-        // Read coordinates
-        for(int i=0; i<natoms; i++) {
-          bool ok=Tools::getline(fp,line);
-          if(!ok) error("premature end of trajectory file");
-          double cc[3];
-          if(trajectory_fmt=="xyz") {
-            char dummy[1000];
-            int ret=std::sscanf(line.c_str(),"%999s %100lf %100lf %100lf",dummy,&cc[0],&cc[1],&cc[2]);
-            if(ret!=4) error("cannot read line"+line);
-          } else if(trajectory_fmt=="gro") {
-            // do the gromacs way
-            if(!i) {
-              //
-              // calculate the distance between dots (as in gromacs gmxlib/confio.c, routine get_w_conf )
-              //
-              const char      *p1, *p2, *p3;
-              p1 = std::strchr(line.c_str(), '.');
-              if (p1 == NULL) error("seems there are no coordinates in the gro file");
-              p2 = std::strchr(&p1[1], '.');
-              if (p2 == NULL) error("seems there is only one coordinates in the gro file");
-              ddist = p2 - p1;
-              p3 = std::strchr(&p2[1], '.');
-              if (p3 == NULL)error("seems there are only two coordinates in the gro file");
-              if (p3 - p2 != ddist)error("not uniform spacing in fields in the gro file");
-            }
-            Tools::convert(line.substr(20,ddist),cc[0]);
-            Tools::convert(line.substr(20+ddist,ddist),cc[1]);
-            Tools::convert(line.substr(20+ddist+ddist,ddist),cc[2]);
-          } else if(trajectory_fmt=="dlp4") {
-            char dummy[9];
-            int idummy;
-            double m,c;
-            std::sscanf(line.c_str(),"%8s %d %lf %lf",dummy,&idummy,&m,&c);
-            masses[i]=real(m);
-            charges[i]=real(c);
-            if(!Tools::getline(fp,line)) error("error reading coordinates");
-            std::sscanf(line.c_str(),"%lf %lf %lf",&cc[0],&cc[1],&cc[2]);
-            cc[0]*=0.1;
-            cc[1]*=0.1;
-            cc[2]*=0.1;
-            if(lvl>0) {
-              if(!Tools::getline(fp,line)) error("error skipping velocities");
-            }
-            if(lvl>1) {
-              if(!Tools::getline(fp,line)) error("error skipping forces");
-            }
-          } else plumed_error();
-          if(!debug_pd || ( i>=pd_start && i<pd_start+pd_nlocal) ) {
-            coordinates[3*i]=real(cc[0]);
-            coordinates[3*i+1]=real(cc[1]);
-            coordinates[3*i+2]=real(cc[2]);
-          }
-        }
-        if(trajectory_fmt=="gro") {
-          if(!Tools::getline(fp,line)) error("premature end of trajectory file");
-          std::vector<std::string> words=Tools::getWords(line);
-          if(words.size()<3) error("cannot understand box format");
-          Tools::convert(words[0],cell[0]);
-          Tools::convert(words[1],cell[4]);
-          Tools::convert(words[2],cell[8]);
-          if(words.size()>3) Tools::convert(words[3],cell[1]);
-          if(words.size()>4) Tools::convert(words[4],cell[2]);
-          if(words.size()>5) Tools::convert(words[5],cell[3]);
-          if(words.size()>6) Tools::convert(words[6],cell[5]);
-          if(words.size()>7) Tools::convert(words[7],cell[6]);
-          if(words.size()>8) Tools::convert(words[8],cell[7]);
-        }
-
       }
 
+      if(pbc_cli_given) {
+        for(unsigned i=0; i<9; i++) {
+          cell[i]=real(pbc_cli_box[i]);
+        }
+      }
       p.cmd("setStepLongLong",step);
       p.cmd("setStopFlag",&plumedStopCondition);
 
@@ -1110,7 +1046,9 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
 
 // this is necessary as only processor zero is adding to the virial:
     intracomm.Bcast(virial,0);
-    if(debug_pd) intracomm.Sum(forces);
+    if(debug_pd) {
+      intracomm.Sum(forces);
+    }
     if(debug_dd) {
       for(int i=0; i<dd_nlocal; i++) {
         forces[3*dd_gatindex[i]+0]=dd_forces[3*i+0];
@@ -1128,17 +1066,28 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
         int r=intercomm.Get_rank();
         int n=intercomm.Get_size();
         int partner=r+(2*((r+step/grex_stride)%2))-1;
-        if(partner<0)partner=0;
-        if(partner>=n) partner=n-1;
+        if(partner<0) {
+          partner=0;
+        }
+        if(partner>=n) {
+          partner=n-1;
+        }
         p.cmd("GREX setPartner",partner);
         p.cmd("GREX calculate");
         p.cmd("GREX shareAllDeltaBias");
         for(int i=0; i<n; i++) {
-          std::string s; Tools::convert(i,s);
-          real a=std::numeric_limits<real>::quiet_NaN(); s="GREX getDeltaBias "+s; p.cmd(s,&a);
-          if(grex_log) std::fprintf(grex_log," %f",a);
+          std::string s;
+          Tools::convert(i,s);
+          real a=std::numeric_limits<real>::quiet_NaN();
+          s="GREX getDeltaBias "+s;
+          p.cmd(s,&a);
+          if(grex_log) {
+            std::fprintf(grex_log," %f",a);
+          }
         }
-        if(grex_log) std::fprintf(grex_log,"\n");
+        if(grex_log) {
+          std::fprintf(grex_log,"\n");
+        }
       }
     }
 
@@ -1153,14 +1102,18 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
         std::fprintf(fp_forces,fmt.c_str(),virial[0],virial[4],virial[8]);
       }
       fmt="X "+fmt;
-      for(int i=0; i<natoms; i++)
+      for(int i=0; i<natoms; i++) {
         std::fprintf(fp_forces,fmt.c_str(),forces[3*i],forces[3*i+1],forces[3*i+2]);
+      }
     }
     if(debugforces.length()>0) {
       // Now call the routine to work out the derivatives numerically
-      numder.assign(3*natoms+9,real(0.0)); real base=0;
+      numder.assign(3*natoms+9,real(0.0));
+      real base=0;
       p.cmd("getBias",&base);
-      if( std::abs(base)<epsilon ) printf("WARNING: bias for configuration appears to be zero so debugging forces is trivial");
+      if( std::abs(base)<epsilon ) {
+        printf("WARNING: bias for configuration appears to be zero so debugging forces is trivial");
+      }
       evaluateNumericalDerivatives( step, p, coordinates, masses, charges, cell, base, numder );
 
       // And output everything to a file
@@ -1180,11 +1133,15 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
       }
     }
 
-    if(plumedStopCondition) break;
+    if(plumedStopCondition) {
+      break;
+    }
 
     step+=stride;
   }
-  if(!parseOnly) p.cmd("runFinalJobs");
+  if(!parseOnly) {
+    p.cmd("runFinalJobs");
+  }
 
   return 0;
 }
@@ -1194,11 +1151,15 @@ void Driver<real>::evaluateNumericalDerivatives( const long long int& step, Plum
     const std::vector<real>& masses, const std::vector<real>& charges,
     std::vector<real>& cell, const double& base, std::vector<real>& numder ) {
 
-  int natoms = coordinates.size() / 3; real delta = std::sqrt(epsilon);
-  std::vector<Vector> pos(natoms); real bias=0;
+  int natoms = coordinates.size() / 3;
+  real delta = std::sqrt(epsilon);
+  std::vector<Vector> pos(natoms);
+  real bias=0;
   std::vector<real> fake_forces( 3*natoms ), fake_virial(9);
   for(int i=0; i<natoms; ++i) {
-    for(unsigned j=0; j<3; ++j) pos[i][j]=coordinates[3*i+j];
+    for(unsigned j=0; j<3; ++j) {
+      pos[i][j]=coordinates[3*i+j];
+    }
   }
 
   for(int i=0; i<natoms; ++i) {
@@ -1222,12 +1183,20 @@ void Driver<real>::evaluateNumericalDerivatives( const long long int& step, Plum
   // Create the cell
   Tensor box( cell[0], cell[1], cell[2], cell[3], cell[4], cell[5], cell[6], cell[7], cell[8] );
   // And the virial
-  Pbc pbc; pbc.setBox( box ); Tensor nvirial;
-  for(unsigned i=0; i<3; i++) for(unsigned k=0; k<3; k++) {
+  Pbc pbc;
+  pbc.setBox( box );
+  Tensor nvirial;
+  for(unsigned i=0; i<3; i++)
+    for(unsigned k=0; k<3; k++) {
       double arg0=box(i,k);
-      for(int j=0; j<natoms; ++j) pos[j]=pbc.realToScaled( pos[j] );
-      cell[3*i+k]=box(i,k)=box(i,k)+delta; pbc.setBox(box);
-      for(int j=0; j<natoms; j++) pos[j]=pbc.scaledToReal( pos[j] );
+      for(int j=0; j<natoms; ++j) {
+        pos[j]=pbc.realToScaled( pos[j] );
+      }
+      cell[3*i+k]=box(i,k)=box(i,k)+delta;
+      pbc.setBox(box);
+      for(int j=0; j<natoms; j++) {
+        pos[j]=pbc.scaledToReal( pos[j] );
+      }
       p.cmd("setStepLongLong",step);
       p.cmd("setPositions",&pos[0][0], {natoms,3});
       p.cmd("setForces",&fake_forces[0], {natoms,3});
@@ -1238,12 +1207,19 @@ void Driver<real>::evaluateNumericalDerivatives( const long long int& step, Plum
       p.cmd("prepareCalc");
       p.cmd("performCalcNoUpdate");
       p.cmd("getBias",&bias);
-      cell[3*i+k]=box(i,k)=arg0; pbc.setBox(box);
-      for(int j=0; j<natoms; j++) for(unsigned n=0; n<3; ++n) pos[j][n]=coordinates[3*j+n];
+      cell[3*i+k]=box(i,k)=arg0;
+      pbc.setBox(box);
+      for(int j=0; j<natoms; j++)
+        for(unsigned n=0; n<3; ++n) {
+          pos[j][n]=coordinates[3*j+n];
+        }
       nvirial(i,k) = ( bias - base ) / delta;
     }
   nvirial=-matmul(box.transpose(),nvirial);
-  for(unsigned i=0; i<3; i++) for(unsigned k=0; k<3; k++)  numder[3*natoms+3*i+k] = nvirial(i,k);
+  for(unsigned i=0; i<3; i++)
+    for(unsigned k=0; k<3; k++) {
+      numder[3*natoms+3*i+k] = nvirial(i,k);
+    }
 
 }
 

@@ -42,8 +42,7 @@ This is used in PLMD::Function and PLMD::Bias
 class ActionSet;
 
 class ActionWithArguments:
-  public virtual Action
-{
+  public virtual Action {
   std::vector<Value*> arguments;
   bool lockRequestArguments;
 protected:
@@ -72,7 +71,7 @@ public:
   void requestArguments(const std::vector<Value*> &arg);
   void requestExtraDependencies(const std::vector<Value*> &extra);
 /// Add forces to arguments (used in apply)
-  void addForcesOnArguments( const unsigned& argstart, const std::vector<double>& forces, unsigned& ind, const std::string& c );
+  void addForcesOnArguments( const unsigned& argstart, const std::vector<double>& forces, unsigned& ind );
 public:
   explicit ActionWithArguments(const ActionOptions&);
   virtual ~ActionWithArguments() {}
@@ -90,7 +89,9 @@ public:
   virtual bool calculateConstantValues( const bool& have_atoms );
 /// Get the gradient for this action
   void setGradients( Value* myval, unsigned& start ) const ;
-  ActionWithArguments* castToActionWithArguments() noexcept final { return this; }
+  ActionWithArguments* castToActionWithArguments() noexcept final {
+    return this;
+  }
 };
 
 

@@ -73,26 +73,43 @@ class Communicator {
 /// Init from reference
     template <typename T> explicit Data(T&p): pointer(&p), size(1), nbytes(sizeof(T)), type(getMPIType<T>()) {}
 /// Init from pointer to VectorGeneric
-    template <unsigned n> explicit Data(VectorGeneric<n> *p,int s): pointer(p), size(n*s), nbytes(sizeof(double)), type(getMPIType<double>()) {}
+    template <typename T, unsigned n> explicit Data(VectorTyped<T,n> *p,int s): pointer(p), size(n*s), nbytes(sizeof(T)), type(getMPIType<T>()) {}
 /// Init from reference to VectorGeneric
-    template <unsigned n> explicit Data(VectorGeneric<n> &p): pointer(&p), size(n), nbytes(sizeof(double)), type(getMPIType<double>()) {}
-/// Init from pointer to TensorGeneric
-    template <unsigned n,unsigned m> explicit Data(TensorGeneric<n,m> *p,int s): pointer(p), size(n*m*s), nbytes(sizeof(double)), type(getMPIType<double>()) {}
-/// Init from reference to TensorGeneric
-    template <unsigned n,unsigned m> explicit Data(TensorGeneric<n,m> &p): pointer(&p), size(n*m), nbytes(sizeof(double)), type(getMPIType<double>()) {}
+    template <typename T, unsigned n> explicit Data(VectorTyped<T,n> &p): pointer(&p), size(n), nbytes(sizeof(T)), type(getMPIType<T>()) {}
+/// Init from pointer to TensorTyped
+    template <typename T, unsigned n,unsigned m> explicit Data(TensorTyped<T,n,m> *p,int s): pointer(p), size(n*m*s), nbytes(sizeof(T)), type(getMPIType<T>()) {}
+/// Init from reference to TensorTyped
+    template <typename T, unsigned n,unsigned m> explicit Data(TensorTyped<T,n,m> &p): pointer(&p), size(n*m), nbytes(sizeof(T)), type(getMPIType<T>()) {}
 /// Init from reference to std::vector
     template <typename T> explicit Data(std::vector<T>&v) {
-      Data d(v.data(),v.size()); pointer=d.pointer; size=d.size; type=d.type;
+      Data d(v.data(),v.size());
+      pointer=d.pointer;
+      size=d.size;
+      type=d.type;
     }
 /// Init from reference to PLMD::Matrix
     template <typename T> explicit Data(Matrix<T>&m ) {
-      if(m.nrows()*m.ncols()>0) { Data d(&m(0,0),m.nrows()*m.ncols()); pointer=d.pointer; size=d.size; type=d.type; }
-      else { pointer=NULL; size=0; }
+      if(m.nrows()*m.ncols()>0) {
+        Data d(&m(0,0),m.nrows()*m.ncols());
+        pointer=d.pointer;
+        size=d.size;
+        type=d.type;
+      } else {
+        pointer=NULL;
+        size=0;
+      }
     }
 /// Init from reference to std::string
     explicit Data(std::string&s) {
-      if(s.size()>0) { Data d(&s[0],s.size()); pointer=d.pointer; size=d.size; type=d.type; }
-      else { pointer=NULL; size=0; }
+      if(s.size()>0) {
+        Data d(&s[0],s.size());
+        pointer=d.pointer;
+        size=d.size;
+        type=d.type;
+      } else {
+        pointer=NULL;
+        size=0;
+      }
     }
   };
 /// Const version of Communicator::Data
@@ -104,20 +121,37 @@ class Communicator {
     MPI_Datatype type;
     template <typename T> explicit ConstData(const T*p,int s): pointer(p), size(s), nbytes(sizeof(T)), type(getMPIType<T>()) {}
     template <typename T> explicit ConstData(const T&p): pointer(&p), size(1), nbytes(sizeof(T)), type(getMPIType<T>()) {}
-    template <unsigned n> explicit ConstData(const VectorGeneric<n> *p,int s): pointer(p), size(n*s), nbytes(sizeof(double)), type(getMPIType<double>()) {}
-    template <unsigned n> explicit ConstData(const VectorGeneric<n> &p): pointer(&p), size(n), nbytes(sizeof(double)), type(getMPIType<double>()) {}
-    template <unsigned n,unsigned m> explicit ConstData(const TensorGeneric<n,m> *p,int s): pointer(p), size(n*m*s), nbytes(sizeof(double)), type(getMPIType<double>()) {}
-    template <unsigned n,unsigned m> explicit ConstData(const TensorGeneric<n,m> &p): pointer(&p), size(n*m), nbytes(sizeof(double)), type(getMPIType<double>()) {}
+    template <typename T,unsigned n> explicit ConstData(const VectorTyped<T,n> *p,int s): pointer(p), size(n*s), nbytes(sizeof(T)), type(getMPIType<T>()) {}
+    template <typename T,unsigned n> explicit ConstData(const VectorTyped<T,n> &p): pointer(&p), size(n), nbytes(sizeof(T)), type(getMPIType<T>()) {}
+    template <typename T, unsigned n,unsigned m> explicit ConstData(const TensorTyped<T,n,m> *p,int s): pointer(p), size(n*m*s), nbytes(sizeof(T)), type(getMPIType<T>()) {}
+    template <typename T, unsigned n,unsigned m> explicit ConstData(const TensorTyped<T,n,m> &p): pointer(&p), size(n*m), nbytes(sizeof(T)), type(getMPIType<T>()) {}
     template <typename T> explicit ConstData(const std::vector<T>&v) {
-      ConstData d(v.data(),v.size()); pointer=d.pointer; size=d.size; type=d.type;
+      ConstData d(v.data(),v.size());
+      pointer=d.pointer;
+      size=d.size;
+      type=d.type;
     }
     template <typename T> explicit ConstData(const Matrix<T>&m ) {
-      if(m.nrows()*m.ncols()>0) { ConstData d(&m(0,0),m.nrows()*m.ncols()); pointer=d.pointer; size=d.size; type=d.type; }
-      else { pointer=NULL; size=0; }
+      if(m.nrows()*m.ncols()>0) {
+        ConstData d(&m(0,0),m.nrows()*m.ncols());
+        pointer=d.pointer;
+        size=d.size;
+        type=d.type;
+      } else {
+        pointer=NULL;
+        size=0;
+      }
     }
     explicit ConstData(const std::string&s) {
-      if(s.size()>0) { ConstData d(&s[0],s.size()); pointer=d.pointer; size=d.size; type=d.type; }
-      else { pointer=NULL; size=0; }
+      if(s.size()>0) {
+        ConstData d(&s[0],s.size());
+        pointer=d.pointer;
+        size=d.size;
+        type=d.type;
+      } else {
+        pointer=NULL;
+        size=0;
+      }
     }
   };
 public:
@@ -130,7 +164,9 @@ public:
   public:
     MPI_Status s;
     template <class T>
-    int Get_count()const {return Get_count(getMPIType<T>());}
+    int Get_count()const {
+      return Get_count(getMPIType<T>());
+    }
   };
 /// Special status used when status should be ignored.
 /// E.g. `Recv(a,0,1,Communicator::StatusIgnore);`
@@ -178,41 +214,87 @@ public:
 /// Wrapper for MPI_Allreduce with MPI_SUM (data struct)
   void Sum(Data);
 /// Wrapper for MPI_Allreduce with MPI_SUM (pointer)
-  template <class T> void Sum(T*buf,int count) {Sum(Data(buf,count));}
+  template <class T> void Sum(T*buf,int count) {
+    Sum(Data(buf,count));
+  }
 /// Wrapper for MPI_Allreduce with MPI_SUM (reference)
-  template <class T> void Sum(T&buf) {Sum(Data(buf));}
+  template <class T> void Sum(T&buf) {
+    Sum(Data(buf));
+  }
 /// Wrapper for MPI_Allreduce with MPI_PROD (data struct)
   void Prod(Data);
 /// Wrapper for MPI_Allreduce with MPI_PROD (pointer)
-  template <class T> void Prod(T*buf,int count) {Prod(Data(buf,count));}
+  template <class T> void Prod(T*buf,int count) {
+    Prod(Data(buf,count));
+  }
 /// Wrapper for MPI_Allreduce with MPI_PROD (reference)
-  template <class T> void Prod(T&buf) {Prod(Data(buf));}
+  template <class T> void Prod(T&buf) {
+    Prod(Data(buf));
+  }
 /// Wrapper for MPI_Allreduce with MPI_MAX (data struct)
   void Max(Data);
 /// Wrapper for MPI_Allreduce with MPI_MAX (pointer)
-  template <class T> void Max(T*buf,int count) {Max(Data(buf,count));}
+  template <class T> void Max(T*buf,int count) {
+    Max(Data(buf,count));
+  }
 /// Wrapper for MPI_Allreduce with MPI_MAX (reference)
-  template <class T> void Max(T&buf) {Max(Data(buf));}
+  template <class T> void Max(T&buf) {
+    Max(Data(buf));
+  }
 /// Wrapper for MPI_Allreduce with MPI_MIN (data struct)
   void Min(Data);
 /// Wrapper for MPI_Allreduce with MPI_MIN (pointer)
-  template <class T> void Min(T*buf,int count) {Min(Data(buf,count));}
+  template <class T> void Min(T*buf,int count) {
+    Min(Data(buf,count));
+  }
 /// Wrapper for MPI_Allreduce with MPI_MIN (reference)
-  template <class T> void Min(T&buf) {Min(Data(buf));}
+  template <class T> void Min(T&buf) {
+    Min(Data(buf));
+  }
 
 /// Wrapper for MPI_Bcast (data struct)
   void Bcast(Data,int);
 /// Wrapper for MPI_Bcast (pointer)
-  template <class T> void Bcast(T*buf,int count,int root) {Bcast(Data(buf,count),root);}
+  template <class T> void Bcast(T*buf,int count,int root) {
+    Bcast(Data(buf,count),root);
+  }
 /// Wrapper for MPI_Bcast (reference)
-  template <class T> void Bcast(T&buf,int root) {Bcast(Data(buf),root);}
+  template <class T> void Bcast(T&buf,int root) {
+    Bcast(Data(buf),root);
+  }
+
+/// Wrapper for MPI_Scatter (data struct)
+  void Scatter(ConstData sendbuf,int sendcount,Data recvbuf,int recvcount,int root);
+/// Wrapper for MPI_Scatter (pointer)
+  template <class T,class S> void Scatter(const T*sendbuf,int sendcount,S*recvbuf,int recvcount,int root) {
+    Scatter(ConstData(sendbuf,sendcount*Get_size()),sendcount,Data(recvbuf,recvcount),recvcount,root);
+  }
+/// Wrapper for MPI_Scatter (reference)
+  template <class T,class S> void Scatter(const T&sendbuf,int sendcount,S&recvbuf,int recvcount,int root) {
+    Scatter(ConstData(sendbuf),sendcount,Data(recvbuf),recvcount,root);
+  }
+
+/// Wrapper for MPI_Gather (data struct)
+  void Gather(ConstData sendbuf,int sendcount,Data recvbuf,int recvcount,int root);
+/// Wrapper for MPI_Gather (pointer)
+  template <class T,class S> void Gather(const T*sendbuf,int sendcount,S*recvbuf,int recvcount,int root) {
+    Gather(ConstData(sendbuf,sendcount),sendcount,Data(recvbuf,recvcount*Get_size()),recvcount,root);
+  }
+/// Wrapper for MPI_Gather (reference)
+  template <class T,class S> void Gather(const T&sendbuf,int sendcount,S&recvbuf,int recvcount,int root) {
+    Gather(ConstData(sendbuf),sendcount,Data(recvbuf),recvcount,root);
+  }
 
 /// Wrapper for MPI_Isend (data struct)
   Request Isend(ConstData,int,int);
 /// Wrapper for MPI_Isend (pointer)
-  template <class T> Request Isend(const T*buf,int count,int source,int tag) {return Isend(ConstData(buf,count),source,tag);}
+  template <class T> Request Isend(const T*buf,int count,int source,int tag) {
+    return Isend(ConstData(buf,count),source,tag);
+  }
 /// Wrapper for MPI_Isend (reference)
-  template <class T> Request Isend(const T&buf,int source,int tag) {return Isend(ConstData(buf),source,tag);}
+  template <class T> Request Isend(const T&buf,int source,int tag) {
+    return Isend(ConstData(buf),source,tag);
+  }
 
 /// Wrapper for MPI_Allgatherv (data struct)
   void Allgatherv(ConstData in,Data out,const int*,const int*);
@@ -239,9 +321,13 @@ public:
 /// Wrapper for MPI_Recv (data struct)
   void Recv(Data,int,int,Status&s=StatusIgnore);
 /// Wrapper for MPI_Recv (pointer)
-  template <class T> void Recv(T*buf,int count,int source,int tag,Status&s=StatusIgnore) {Recv(Data(buf,count),source,tag,s);}
+  template <class T> void Recv(T*buf,int count,int source,int tag,Status&s=StatusIgnore) {
+    Recv(Data(buf,count),source,tag,s);
+  }
 /// Wrapper for MPI_Recv (reference)
-  template <class T> void Recv(T&buf,int source,int tag,Status&s=StatusIgnore) {Recv(Data(buf),source,tag,s);}
+  template <class T> void Recv(T&buf,int source,int tag,Status&s=StatusIgnore) {
+    Recv(Data(buf),source,tag,s);
+  }
 
 /// Wrapper to MPI_Comm_split
   void Split(int,int,Communicator&)const;
