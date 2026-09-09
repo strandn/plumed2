@@ -39,6 +39,7 @@
 #include "Bias.h"
 #include "core/ActionRegister.h"
 #include "core/PlumedMain.h"
+#include "core/Atoms.h"
 #include "tools/Exception.h"
 #include "tools/Tools.h"
 #include "BasisFunc.h"
@@ -208,7 +209,7 @@ void TPP::registerKeywords(Keywords& keys) {
 TPP::TPP(const ActionOptions& ao)
   : Action(ao),
     Bias(ao),
-    kbt_(getkBT()),
+    kbt_(plumed.getAtoms().getKbT()),
     mode_(Mode::NEG_LOG_Q),
     d_(getNumberOfArguments()),
     nbasis_(0),
