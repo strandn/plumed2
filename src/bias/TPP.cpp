@@ -1,47 +1,67 @@
-/* Transition Path Process (TPP) bias.
+/* Transition Path Process (TPP) bias — PyTorch committor version.
  *
- * Drives trajectories along reactive paths using one of four drift modes
- * selected via MODE.  Symmetric xi regularization is used throughout:
+ * Drives trajectories along reactive paths using the Doob h-transform
+ * drift built from a committor q(x) supplied by a TorchScript-compiled
+ * PyTorch model (a *.pt / *.ptc file produced by torch.jit.trace or
+ * torch.jit.script), evaluated and differentiated via LibTorch autograd —
+ * no basis-function expansion of any kind. This replaces the previous
+ * Galerkin/fast-operator-learning implementation of this file (Fourier or
+ * Gaussian-kernel cluster-product basis, coefficients from COEFF_FILE,
+ * src/ttsketch/BasisFunc.h) with the same evaluate-model/take-gradient
+ * approach used by PYTORCH_MODEL (src/pytorch/PytorchModel.cpp), combined
+ * with the xi-regularized Doob-drift formulas from
+ * triplewell_omp_tpp.py / triplewell_nn_tpp.py (project committor/
+ * directory): the model is expected to output q itself (the committor,
+ * in [0,1]), matching those scripts' OMPEvaluator/NNPhiEvaluator
+ * "committor" branch — NOT a log-committor / HJB phi representation. So
+ * this file keeps only the q-expansion modes (renamed from the old
+ * NEG_LOG_Q/NEG_LOG_Q_HALF naming to make clear they operate on a direct
+ * model forward pass, not a basis expansion) and drops the old
+ * HJB_PHI/HJB_PHI_HALF modes entirely, since those existed specifically to
+ * convert an already-regularized Phi_xi1 basis expansion between
+ * regularization levels on the fly — there is no such baked-in xi1 for a
+ * raw committor network to convert from (same reasoning documented in
+ * triplewell_omp_common.py's own module docstring for why OMPEvaluator's
+ * phi_and_grad_np needs no xi1->xi2 conversion).
  *
- *   q_xi = xi + (1-2*xi)*q,   q_xi in [xi, 1-xi]  for xi in (0, 0.5).
+ * Regularization is ASYMMETRIC (matching the project's NNPhiEvaluator /
+ * OMPEvaluator committor branch), not the old symmetric convention:
  *
- * ---- NEG_LOG_Q* modes — COEFF_FILE stores q (the committor) ----
+ *   q_xi = xi + (1-xi)*q,   q_xi in [xi, 1]   for xi in (0, 1).
+ *
+ * Only the A boundary (q=0) is lifted to xi; q=1 at B needs no
+ * regularization since log(1) is finite.
  *
  *   MODE=NEG_LOG_Q (default, full Doob drift):
- *     force_i = 2*kBT * (1-2*xi) * dq/dCV_i / q_xi
+ *     force_i = 2*kBT * (1-xi) * dq/dCV_i / q_xi
  *     V_bias  = -2*kBT * log q_xi
  *
  *   MODE=NEG_LOG_Q_HALF (Picard modified drift, soc.pdf eq. 19):
- *     force_i = kBT * (1-2*xi) * dq/dCV_i / q_xi
+ *     force_i = kBT * (1-xi) * dq/dCV_i / q_xi
  *     V_bias  = -kBT * log q_xi
  *
- * ---- HJB_PHI* modes — COEFF_FILE stores Phi_xi1 = -log q_xi1 ----
+ * The model is loaded once (MODEL keyword), frozen and optimized for
+ * inference exactly as PYTORCH_MODEL does, and must take the bias's ARG
+ * list as a single (1, n_arg) input and return a single scalar output
+ * (q). Region/basin geometry, periodicity handling, basin-stop logic and
+ * the optional nearest-source-state coverage check are all unchanged from
+ * the previous implementation — none of that depended on BasisFunc.
  *
- *   On-the-fly xi1→xi2 conversion (soc.pdf Sec. 6.1–6.2):
- *     q_xi2   = xi2 + [(1-2*xi2)/(1-2*xi1)] * (e^{-Phi_xi1} - xi1)
- *     -∇log q_xi2 = [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1} * ∇Phi_xi1 / q_xi2
- *
- *   MODE=HJB_PHI (full Doob drift, with optional xi conversion):
- *     force_i = -2*kBT * [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1}/q_xi2 * dPhi_xi1/dCV_i
- *     V_bias  = -2*kBT * log q_xi2
- *
- *   MODE=HJB_PHI_HALF (Picard modified drift):
- *     force_i = -kBT * [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1}/q_xi2 * dPhi_xi1/dCV_i
- *     V_bias  = -kBT * log q_xi2
- *
- *   When XI2 is omitted xi2=xi1, reducing to force_i = -factor*kBT * dPhi_xi1/dCV_i.
- *
- * Both are represented as cluster-product (rank-2) basis expansions using either
- * Fourier functions (default) or localized periodic Gaussian kernels (KERNEL_BASIS).
- * Coefficients and cluster indices are read from COEFF_FILE.
+ * Removed keywords (no longer meaningful without a basis expansion):
+ * DOMAIN_LL, DOMAIN_UL, NBASIS, CLUSTER1, CLUSTER2, KERNEL_BASIS,
+ * KERNEL_DX, COEFF_FILE/COEFFS, XI2. Replaced by: MODEL.
  */
+
+#ifdef __PLUMED_HAS_LIBTORCH
 
 #include "Bias.h"
 #include "core/ActionRegister.h"
 #include "core/PlumedMain.h"
 #include "tools/Exception.h"
 #include "tools/Tools.h"
-#include "ttsketch/BasisFunc.h"
+
+#include <torch/torch.h>
+#include <torch/script.h>
 
 #include <algorithm>
 #include <cmath>
@@ -51,9 +71,17 @@
 #include <string>
 #include <vector>
 
+// Note: Freezing a ScriptModule (torch::jit::freeze) works only in >=1.11.
+// For 1.8 <= versions <=1.10 we need a hack — identical workaround to
+// PytorchModel.cpp's own (see that file for the upstream references).
+#if ( TORCH_VERSION_MAJOR == 2 || TORCH_VERSION_MAJOR == 1 && TORCH_VERSION_MINOR <= 10 )
+#define DO_TORCH_FREEZE_HACK
+#include <torch/csrc/jit/passes/freeze_module.h>
+#include <torch/csrc/jit/passes/frozen_graph_optimizations.h>
+#endif
+
 using namespace std;
 using namespace PLMD::bias;
-using namespace PLMD::ttsketch;
 
 namespace PLMD {
 namespace tpp {
@@ -64,16 +92,13 @@ private:
   double kbt_;
 
   // ---- Drift mode ----
-  enum class Mode { NEG_LOG_Q, NEG_LOG_Q_HALF, HJB_PHI, HJB_PHI_HALF };
+  enum class Mode { NEG_LOG_Q, NEG_LOG_Q_HALF };
   Mode mode_;
 
-  // ---- Phi basis expansion ----
+  // ---- PyTorch committor model ----
   unsigned d_;
-  unsigned nbasis_;                             // basis functions per dimension
-  bool kernel_;                                 // true: Gaussian kernel basis; false: Fourier
-  vector<BasisFunc> basis_;
-  vector<pair<unsigned,unsigned>> clusters_;    // (k1, k2): 0-based CV dimension indices
-  vector<double> coeffs_;                       // length = nclusters * nbasis_^2
+  torch::jit::script::Module model_;
+  torch::Device device_ = torch::kCPU;
 
   // ---- Coverage check ----
   bool hasSrc_;
@@ -95,17 +120,16 @@ private:
   vector<bool>   argIsPeriodic_;
   vector<double> argPeriod_;
 
-  // ---- xi regularization ----
-  double xi1_;   // level used to compute Phi = -log q_xi1 in COEFF_FILE
-  double xi2_;   // output level for NEG_LOG_Q* (on-the-fly conversion); default = xi1_
+  // ---- xi regularization (asymmetric: q_xi = xi + (1-xi)*q) ----
+  double xi_;
 
   // ---- helpers ----
   double periodicDiff(double x, double c, unsigned dim) const;
   bool   regionContains(const Region& reg, const vector<double>& x) const;
   int    whichBasin(const vector<double>& x) const;
-  // Evaluates the Fourier cluster-product basis expansion and its gradient.
-  // Returns the raw expansion value; interpretation (q or Phi) depends on MODE.
-  double evalExpansion(const vector<double>& x, vector<double>& grad) const;
+  // Evaluates the committor model and its gradient at x via LibTorch
+  // autograd. Returns the raw (pre-clip) model output q.
+  double evalModel(const vector<double>& x, vector<double>& grad) const;
 
 public:
   static void registerKeywords(Keywords& keys);
@@ -122,46 +146,16 @@ void TPP::registerKeywords(Keywords& keys) {
   keys.add("optional", "TEMP",
            "System temperature in energy units. Required if the MD engine does not pass temperature to PLUMED.");
 
-  keys.addFlag("KERNEL_BASIS", false,
-               "Use a localized periodic Gaussian kernel basis instead of the Fourier basis. "
-               "Basis function 1 is the constant 1; functions 2..NBASIS are Gaussians centered on a "
-               "uniform grid over the domain, summed over periodic images k=-1,0,1.");
-  keys.add("optional", "KERNEL_DX",
-           "Bandwidth (sigma) of each Gaussian kernel, one value per CV dimension. "
-           "Defaults to the grid spacing (domain width / (NBASIS-1)) when not specified or set to 0. "
-           "Only used when KERNEL_BASIS is set.");
-
   keys.add("optional", "MODE",
-           "Drift mode. NEG_LOG_Q (default) and NEG_LOG_Q_HALF: COEFF_FILE holds the committor q; "
-           "symmetric xi regularization applied on-the-fly. "
-           "HJB_PHI and HJB_PHI_HALF: COEFF_FILE holds Phi_xi1 = -log q_xi1; "
-           "optional on-the-fly xi1→xi2 conversion via XI2. "
-           "Full-factor (NEG_LOG_Q, HJB_PHI) gives the Doob drift; "
-           "half-factor (NEG_LOG_Q_HALF, HJB_PHI_HALF) gives the Picard modified drift.");
+           "Drift mode. NEG_LOG_Q (default): full Doob drift, force_i = 2*kBT*(1-xi)*dq/dCV_i/q_xi. "
+           "NEG_LOG_Q_HALF: Picard modified drift (half factor).");
 
-  // Domain bounds and basis size
-  keys.add("compulsory", "DOMAIN_LL",
-           "Lower bounds of the domain, one value per CV.");
-  keys.add("compulsory", "DOMAIN_UL",
-           "Upper bounds of the domain, one value per CV.");
-  keys.add("compulsory", "NBASIS",
-           "Number of basis functions per CV dimension. "
-           "For Fourier basis: NBASIS functions (1 constant + pairs of cos/sin). "
-           "For kernel basis (KERNEL_BASIS): NBASIS functions (1 constant + NBASIS-1 Gaussians). "
-           "COEFF_FILE must contain exactly nclusters * NBASIS^2 values.");
-
-  keys.add("compulsory", "CLUSTER1",
-           "First CV dimension index (1-based) for each cluster. Length must equal the number of clusters and match CLUSTER2.");
-  keys.add("compulsory", "CLUSTER2",
-           "Second CV dimension index (1-based) for each cluster. k1 and k2 may be equal. Length must match CLUSTER1.");
-
-  keys.add("compulsory", "COEFF_FILE", "COEFFS",
-           "File containing basis expansion coefficients, one value per line. "
-           "For NEG_LOG_Q* modes these are coefficients for q (the committor). "
-           "For HJB_PHI* modes these are coefficients for Phi_xi1 = -log q_xi1. "
-           "Total lines must equal nclusters * NBASIS^2. "
-           "Must be consistent with KERNEL_BASIS: Fourier coefficients are not interchangeable "
-           "with kernel basis coefficients.");
+  keys.add("compulsory", "MODEL",
+           "Path to a TorchScript-compiled committor model (torch.jit.trace / torch.jit.script output, "
+           "e.g. a *.pt or *.ptc file). The model must accept a (1, n_arg) tensor of the bias's ARG "
+           "values, in ARG order, and return a single scalar output q in [0,1] (the committor) — "
+           "matching the convention of this project's CommittorNet (triplewell_committor_nn.py / "
+           "aladip_committor_nn.py), not a log-committor/HJB model.");
 
   // Source states for coverage check
   keys.add("optional", "SOURCE_FILE",
@@ -192,16 +186,9 @@ void TPP::registerKeywords(Keywords& keys) {
 
   // xi regularization
   keys.add("compulsory", "XI", "0.01",
-           "Regularization parameter xi for symmetric regularization q_xi = xi + (1-2*xi)*q, "
-           "so q_xi in [xi, 1-xi]. Must be in (0, 0.5). "
-           "For NEG_LOG_Q* modes: xi applied directly to q from COEFF_FILE. "
-           "For HJB_PHI* modes: xi1, the level at which Phi_xi1 in COEFF_FILE was computed.");
-  keys.add("optional", "XI2",
-           "Output regularization xi2 for HJB_PHI and HJB_PHI_HALF modes only: "
-           "on-the-fly conversion from xi1 to xi2 via "
-           "q_xi2 = xi2 + [(1-2*xi2)/(1-2*xi1)]*(exp(-Phi_xi1) - xi1). "
-           "Defaults to XI (no conversion, i.e. xi2=xi1). Must satisfy 0 < xi2 <= xi1. "
-           "Ignored for NEG_LOG_Q* modes.");
+           "Regularization parameter xi for asymmetric regularization q_xi = xi + (1-xi)*q, "
+           "so q_xi in [xi, 1]. Must be in (0, 1). Only the A boundary (q=0) is regularized; "
+           "q=1 at B needs no regularization.");
 }
 
 // ---------------------------------------------------------------------------
@@ -211,14 +198,11 @@ TPP::TPP(const ActionOptions& ao)
     kbt_(getkBT()),
     mode_(Mode::NEG_LOG_Q),
     d_(getNumberOfArguments()),
-    nbasis_(0),
-    kernel_(false),
     hasSrc_(false),
     doCoverageCheck_(false),
     coverage_radius2_(-1.0),
     nbasins_(0),
-    xi1_(0.01),
-    xi2_(0.01)
+    xi_(0.01)
 {
   if(d_ == 0) error("TPP: ARG must specify at least one CV");
   if(kbt_ == 0.0)
@@ -229,10 +213,7 @@ TPP::TPP(const ActionOptions& ao)
   parse("MODE", mode_str);
   if     (mode_str == "NEG_LOG_Q")      mode_ = Mode::NEG_LOG_Q;
   else if(mode_str == "NEG_LOG_Q_HALF") mode_ = Mode::NEG_LOG_Q_HALF;
-  else if(mode_str == "HJB_PHI")        mode_ = Mode::HJB_PHI;
-  else if(mode_str == "HJB_PHI_HALF")   mode_ = Mode::HJB_PHI_HALF;
-  else error("TPP: unknown MODE '" + mode_str +
-             "'. Valid: NEG_LOG_Q, NEG_LOG_Q_HALF, HJB_PHI, HJB_PHI_HALF");
+  else error("TPP: unknown MODE '" + mode_str + "'. Valid: NEG_LOG_Q, NEG_LOG_Q_HALF");
 
   // ---- Periodicity cache — identical to Committor.cpp ----
   argIsPeriodic_.resize(d_, false);
@@ -250,104 +231,58 @@ TPP::TPP(const ActionOptions& ao)
     }
   }
 
-  // ---- Kernel basis flag and bandwidth ----
-  parseFlag("KERNEL_BASIS", kernel_);
-  vector<double> kernel_dx;
-  parseVector("KERNEL_DX", kernel_dx);
-  if(kernel_dx.empty()) {
-    kernel_dx.assign(d_, 0.0);   // 0 → BasisFunc uses grid spacing
-  }
-  if(kernel_dx.size() != d_)
-    error("TPP: KERNEL_DX must have one entry per ARG (or be omitted entirely)");
-  if(kernel_) {
-    for(unsigned i = 0; i < d_; ++i)
-      if(kernel_dx[i] < 0.0)
-        error("TPP: KERNEL_DX values must be non-negative (0 = use grid spacing)");
-  }
-
-  // ---- Domain and basis functions ----
-  vector<double> domain_ll, domain_ul;
-  parseVector("DOMAIN_LL", domain_ll);
-  parseVector("DOMAIN_UL", domain_ul);
-  if(domain_ll.size() != d_) error("TPP: DOMAIN_LL must have one entry per ARG");
-  if(domain_ul.size() != d_) error("TPP: DOMAIN_UL must have one entry per ARG");
-  for(unsigned i = 0; i < d_; ++i)
-    if(domain_ul[i] <= domain_ll[i])
-      error("TPP: DOMAIN_UL[" + to_string(i) + "] must be strictly greater than DOMAIN_LL[" + to_string(i) + "]");
-
-  int nbasis_in = 0;
-  parse("NBASIS", nbasis_in);
-  if(nbasis_in < 1) error("TPP: NBASIS must be >= 1");
-  if(kernel_ && nbasis_in < 2) error("TPP: NBASIS must be >= 2 for KERNEL_BASIS (need at least one Gaussian center)");
-  nbasis_ = static_cast<unsigned>(nbasis_in);
-  log.printf("  NBASIS = %u %s basis functions per dimension\n",
-             nbasis_, kernel_ ? "Gaussian kernel" : "Fourier");
-  if(kernel_) {
-    for(unsigned i = 0; i < d_; ++i) {
-      double spacing = (domain_ul[i] - domain_ll[i]) / (nbasis_in - 1);
-      double last_center = domain_ll[i] + (nbasis_in - 2) * spacing;
-      double dx_used = (kernel_dx[i] > 0.0) ? kernel_dx[i] : spacing;
-      log.printf("    dim %u: %d centers in [%f, %f], sigma=%f\n",
-                 i, nbasis_in - 1, domain_ll[i], last_center, dx_used);
-    }
-  }
-
-  basis_.reserve(d_);
-  for(unsigned i = 0; i < d_; ++i)
-    basis_.emplace_back(make_pair(domain_ll[i], domain_ul[i]),
-                        nbasis_in, /*w=*/0.0, kernel_, kernel_dx[i]);
-
-  // ---- Cluster dimension pairs ----
-  vector<double> c1vec, c2vec;
-  parseVector("CLUSTER1", c1vec);
-  parseVector("CLUSTER2", c2vec);
-  if(c1vec.size() != c2vec.size())
-    error("TPP: CLUSTER1 and CLUSTER2 must have the same number of values");
-  if(c1vec.empty()) error("TPP: CLUSTER1/CLUSTER2 must be non-empty");
-  for(unsigned ic = 0; ic < c1vec.size(); ++ic) {
-    int k1 = static_cast<int>(std::round(c1vec[ic]));
-    int k2 = static_cast<int>(std::round(c2vec[ic]));
-    if(k1 < 1 || k1 > static_cast<int>(d_))
-      error("TPP: CLUSTER1[" + to_string(ic) + "]=" + to_string(k1) +
-            " is out of range [1," + to_string(d_) + "]");
-    if(k2 < 1 || k2 > static_cast<int>(d_))
-      error("TPP: CLUSTER2[" + to_string(ic) + "]=" + to_string(k2) +
-            " is out of range [1," + to_string(d_) + "]");
-    clusters_.emplace_back(static_cast<unsigned>(k1 - 1),
-                           static_cast<unsigned>(k2 - 1));   // store 0-based
-  }
-  log.printf("  %zu cluster(s):\n", clusters_.size());
-  for(unsigned ic = 0; ic < clusters_.size(); ++ic)
-    log.printf("    cluster %u: k1=%u, k2=%u\n", ic + 1,
-               clusters_[ic].first + 1, clusters_[ic].second + 1);
-
-  // ---- Load coefficient file ----
-  const unsigned expected_ncoeffs = static_cast<unsigned>(clusters_.size()) * nbasis_ * nbasis_;
-  string coeff_file;
-  parse("COEFF_FILE", coeff_file);
+  // ---- Load the TorchScript committor model ----
   {
-    ifstream fin(coeff_file);
-    if(!fin) error("TPP: cannot open COEFF_FILE '" + coeff_file + "'");
-    string line;
-    int linenum = 0;
-    while(getline(fin, line)) {
-      ++linenum;
-      auto pos = line.find('#');
-      if(pos != string::npos) line = line.substr(0, pos);
-      if(line.find_first_not_of(" \t\r\n") == string::npos) continue;
-      istringstream iss(line);
-      double c;
-      if(!(iss >> c))
-        error("TPP: could not parse coefficient in COEFF_FILE line " + to_string(linenum));
-      coeffs_.push_back(c);
-    }
+    std::stringstream ss;
+    ss << TORCH_VERSION_MAJOR << "." << TORCH_VERSION_MINOR << "." << TORCH_VERSION_PATCH;
+    std::string version;
+    ss >> version;
+    log.printf(("  LibTorch version: " + version + "\n").data());
   }
-  if(coeffs_.size() != expected_ncoeffs)
-    error("TPP: COEFF_FILE has " + to_string(coeffs_.size()) + " values but expected " +
-          to_string(expected_ncoeffs) + " (nclusters=" + to_string(clusters_.size()) +
-          " * NBASIS^2=" + to_string(nbasis_ * nbasis_) + ")");
-  log.printf("  Loaded %u coefficients from '%s' (%zu clusters x %u^2 basis pairs)\n",
-             expected_ncoeffs, coeff_file.c_str(), clusters_.size(), nbasis_);
+
+  string model_file;
+  parse("MODEL", model_file);
+  try {
+    model_ = torch::jit::load(model_file, device_);
+  } catch (const c10::Error& e) {
+    std::ifstream infile(model_file);
+    bool exist = infile.good();
+    infile.close();
+    if(exist)
+      error("TPP: cannot load MODEL '" + model_file + "'. Please check that it is a TorchScript-compiled "
+            "model (exported with torch.jit.trace or torch.jit.script).");
+    else
+      error("TPP: MODEL file '" + model_file + "' does not exist.");
+  }
+
+  model_.eval();
+#ifdef DO_TORCH_FREEZE_HACK
+  {
+    bool optimize_numerics = true;
+    auto out_mod = torch::jit::freeze_module(model_, {});
+    auto graph = out_mod.get_method("forward").graph();
+    OptimizeFrozenGraph(graph, optimize_numerics);
+    model_ = out_mod;
+  }
+#else
+  model_ = torch::jit::freeze(model_);
+#endif
+#if (TORCH_VERSION_MAJOR == 2 || TORCH_VERSION_MAJOR == 1 && TORCH_VERSION_MINOR >= 10)
+  model_ = torch::jit::optimize_for_inference(model_);
+#endif
+
+  // ---- Sanity-check the model's output shape with a dummy forward pass ----
+  {
+    std::vector<float> zeros(d_, 0.0f);
+    torch::Tensor single_input = torch::tensor(zeros).view({1, static_cast<long>(d_)}).to(device_);
+    std::vector<torch::jit::IValue> inputs;
+    inputs.push_back(single_input);
+    torch::Tensor output = model_.forward(inputs).toTensor();
+    if(output.numel() != 1)
+      error("TPP: committor MODEL must return exactly one scalar output (q), got " +
+            to_string(output.numel()) + " values. Check the model's forward() signature.");
+  }
+  log.printf("  Loaded committor model from '%s'  (n_in=%u)\n", model_file.c_str(), d_);
 
   // ---- Optional source file for coverage check ----
   string src_file;
@@ -378,8 +313,18 @@ TPP::TPP(const ActionOptions& ao)
     if(cov_radius > 0.0) {
       coverage_radius2_ = cov_radius * cov_radius;
     } else {
+      // No DOMAIN_LL/UL anymore (no basis to size); fall back to the
+      // bounding box of the source states themselves for the default
+      // coverage-radius volume estimate.
+      vector<double> lo(d_,  numeric_limits<double>::infinity());
+      vector<double> hi(d_, -numeric_limits<double>::infinity());
+      for(const auto& s : src_)
+        for(unsigned i = 0; i < d_; ++i) {
+          lo[i] = min(lo[i], s[i]);
+          hi[i] = max(hi[i], s[i]);
+        }
       double domain_vol = 1.0;
-      for(unsigned i = 0; i < d_; ++i) domain_vol *= (domain_ul[i] - domain_ll[i]);
+      for(unsigned i = 0; i < d_; ++i) domain_vol *= max(hi[i] - lo[i], 1e-12);
       coverage_radius2_ = 4.0 * domain_vol / static_cast<double>(src_.size());
     }
     log.printf("  Coverage radius = %f (radius^2 = %f)\n",
@@ -393,22 +338,10 @@ TPP::TPP(const ActionOptions& ao)
     log.printf("  Coverage check: %s\n", doCoverageCheck_ ? "enabled" : "disabled (bias applied everywhere)");
 
   // ---- xi regularization ----
-  parse("XI", xi1_);
-  if(xi1_ <= 0.0 || xi1_ >= 0.5)
-    error("TPP: XI must be in (0, 0.5)");
-  xi2_ = xi1_;  // default: no conversion
-  parse("XI2", xi2_);
-  if(xi2_ <= 0.0 || xi2_ > xi1_)
-    error("TPP: XI2 must satisfy 0 < XI2 <= XI");
-  if(mode_ == Mode::NEG_LOG_Q || mode_ == Mode::NEG_LOG_Q_HALF) {
-    if(xi2_ != xi1_)
-      log.printf("  WARNING: XI2 is ignored in NEG_LOG_Q / NEG_LOG_Q_HALF modes\n");
-    log.printf("  xi = %e  (symmetric regularization applied to q)\n", xi1_);
-  } else {
-    log.printf("  xi1 (COEFF_FILE level) = %e\n", xi1_);
-    log.printf("  xi2 (output level)     = %e%s\n", xi2_,
-               (xi2_ < xi1_) ? "  (on-the-fly conversion active)" : "  (no conversion)");
-  }
+  parse("XI", xi_);
+  if(xi_ <= 0.0 || xi_ >= 1.0)
+    error("TPP: XI must be in (0, 1)");
+  log.printf("  xi = %e  (asymmetric regularization: q_xi = xi + (1-xi)*q)\n", xi_);
 
   // =====================================================================
   //  Region/basin parsing — identical to Committor.cpp.
@@ -567,21 +500,15 @@ TPP::TPP(const ActionOptions& ao)
 
   log.printf("  kBT = %f\n", kbt_);
   {
-    const char* names[] = {"NEG_LOG_Q", "NEG_LOG_Q_HALF", "HJB_PHI", "HJB_PHI_HALF"};
+    const char* names[] = {"NEG_LOG_Q", "NEG_LOG_Q_HALF"};
     log.printf("  Mode: %s\n", names[static_cast<int>(mode_)]);
   }
   switch(mode_) {
   case Mode::NEG_LOG_Q:
-    log.printf("  Drift: 2D*(1-2xi)*grad_q/q_xi  (Doob, q-expansion)\n");
+    log.printf("  Drift: 2*kBT*(1-xi)*grad_q/q_xi  (Doob, PyTorch committor)\n");
     break;
   case Mode::NEG_LOG_Q_HALF:
-    log.printf("  Drift: D*(1-2xi)*grad_q/q_xi   (Picard, q-expansion)\n");
-    break;
-  case Mode::HJB_PHI:
-    log.printf("  Drift: -2D*fac*grad_Phi_xi1    (Doob, Phi-expansion)\n");
-    break;
-  case Mode::HJB_PHI_HALF:
-    log.printf("  Drift: -D*fac*grad_Phi_xi1     (Picard, Phi-expansion)\n");
+    log.printf("  Drift: kBT*(1-xi)*grad_q/q_xi    (Picard, PyTorch committor)\n");
     break;
   }
 
@@ -664,48 +591,32 @@ int TPP::whichBasin(const vector<double>& x) const {
 }
 
 // ---------------------------------------------------------------------------
-// Evaluate the cluster-product Fourier basis expansion and its gradient.
-//
-// f(x) = sum_{ic,nk1,nk2} c[j] * psi_{nk1}(x[k1]) * psi_{nk2}(x[k2])
-//
-// Gradient at dimension i (product rule):
-//   k1==i, k2!=i:  dpsi_{nk1}(x[i]) * psi_{nk2}(x[k2])
-//   k1!=i, k2==i:  psi_{nk1}(x[k1]) * dpsi_{nk2}(x[i])
-//   k1==i, k2==i:  dpsi_{nk1}(x[i])*psi_{nk2}(x[i]) + psi_{nk1}(x[i])*dpsi_{nk2}(x[i])
-//   otherwise:     0
+// Evaluate the PyTorch committor model and its gradient at x via LibTorch
+// autograd. Same forward/grad pattern as PytorchModel::calculate(), but
+// for a single scalar output and only the one gradient we actually need.
 // ---------------------------------------------------------------------------
-double TPP::evalExpansion(const vector<double>& x, vector<double>& grad) const {
-  fill(grad.begin(), grad.end(), 0.0);
-  double val = 0.0;
-  const unsigned nclusters = static_cast<unsigned>(clusters_.size());
+double TPP::evalModel(const vector<double>& x, vector<double>& grad) const {
+  vector<float> xf(x.begin(), x.end());
+  torch::Tensor input = torch::tensor(xf).view({1, static_cast<long>(d_)}).to(device_);
+  input.set_requires_grad(true);
 
-  for(unsigned ic = 0; ic < nclusters; ++ic) {
-    const unsigned k1 = clusters_[ic].first;
-    const unsigned k2 = clusters_[ic].second;
+  std::vector<torch::jit::IValue> inputs;
+  inputs.push_back(input);
+  torch::Tensor output = model_.forward(inputs).toTensor();
 
-    for(unsigned nk1 = 1; nk1 <= nbasis_; ++nk1) {
-      const double psi1  = basis_[k1](x[k1],  static_cast<int>(nk1), /*conv=*/false);
-      const double dpsi1 = basis_[k1].grad(x[k1], static_cast<int>(nk1), /*conv=*/false);
+  double q = output.item<float>();
 
-      for(unsigned nk2 = 1; nk2 <= nbasis_; ++nk2) {
-        const unsigned j = ic * nbasis_ * nbasis_ + (nk1 - 1) * nbasis_ + (nk2 - 1);
-        const double c = coeffs_[j];
+  auto gradient = torch::autograd::grad(
+                    {output}, {input},
+                    /*grad_outputs=*/{torch::ones_like(output)},
+                    /*retain_graph=*/false,
+                    /*create_graph=*/false)[0];
 
-        const double psi2  = basis_[k2](x[k2],  static_cast<int>(nk2), /*conv=*/false);
-        const double dpsi2 = basis_[k2].grad(x[k2], static_cast<int>(nk2), /*conv=*/false);
+  auto gradient_cpu = gradient.to(torch::kCPU).contiguous();
+  const float* gptr = gradient_cpu.data_ptr<float>();
+  for(unsigned i = 0; i < d_; ++i) grad[i] = static_cast<double>(gptr[i]);
 
-        val += c * psi1 * psi2;
-
-        if(k1 == k2) {
-          grad[k1] += c * (dpsi1 * psi2 + psi1 * dpsi2);
-        } else {
-          grad[k1] += c * dpsi1 * psi2;
-          grad[k2] += c * psi1  * dpsi2;
-        }
-      }
-    }
-  }
-  return val;
+  return q;
 }
 
 // ---------------------------------------------------------------------------
@@ -755,65 +666,34 @@ void TPP::calculate() {
   }
 
   // ---- Compute force and bias ----
+  // q_xi = xi + (1-xi)*q_raw, asymmetric regularization (see file header).
+  // grad log q_xi = (1-xi)*grad_q / q_xi
+  // force_i = factor * kBT * (1-xi) * dq/dCV_i / q_xi
   vector<double> grad(d_, 0.0);
+  double q_raw = evalModel(x, grad);
 
-  if(mode_ == Mode::NEG_LOG_Q || mode_ == Mode::NEG_LOG_Q_HALF) {
-    // COEFF_FILE stores q (the committor).
-    // Symmetric xi regularization: q_xi = xi + (1-2*xi)*q_raw, q_xi in [xi, 1-xi].
-    // grad log q_xi = (1-2*xi)*grad_q / q_xi
-    // force_i = factor * kBT * (1-2*xi) * dq/dCV_i / q_xi
-    double q_raw = evalExpansion(x, grad);
-
-    // Clip Fourier artifacts to [0, 1]; zero gradient at the boundary
-    if(q_raw <= 0.0) {
-      q_raw = 0.0;
-      fill(grad.begin(), grad.end(), 0.0);
-    } else if(q_raw >= 1.0) {
-      q_raw = 1.0;
-      fill(grad.begin(), grad.end(), 0.0);
-    }
-
-    const double alpha  = 1.0 - 2.0 * xi1_;          // q_xi = xi1 + alpha*q_raw
-    const double q_xi   = xi1_ + alpha * q_raw;        // in [xi1_, 1-xi1_] after clipping
-    const double factor = (mode_ == Mode::NEG_LOG_Q) ? 2.0 : 1.0;
-
-    for(unsigned i = 0; i < d_; ++i)
-      setOutputForce(i, factor * kbt_ * alpha * grad[i] / q_xi);
-    setBias(-factor * kbt_ * std::log(q_xi));
-
-  } else {
-    // COEFF_FILE stores Phi_xi1 = -log q_xi1.
-    // On-the-fly conversion to xi2 (soc.pdf Sec. 6, symmetric regularization):
-    //   q_xi2 = xi2 + [(1-2*xi2)/(1-2*xi1)] * (e^{-Phi_xi1} - xi1)
-    //   -∇ log q_xi2 = [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1} * ∇Phi_xi1 / q_xi2
-    //   force_i = factor * kBT * ∇ log q_xi2
-    //           = -factor * kBT * [(1-2*xi2)/(1-2*xi1)] * e^{-Phi_xi1}/q_xi2 * dPhi_xi1/dCV_i
-    double phi = evalExpansion(x, grad);
-
-    // Clip phi to valid range [-log(1-xi1), -log(xi1)] (B = phi_lo, A = phi_hi)
-    const double phi_lo = -std::log(1.0 - xi1_);
-    const double phi_hi = -std::log(xi1_);
-    if(phi < phi_lo) {
-      phi = phi_lo;
-      fill(grad.begin(), grad.end(), 0.0);
-    } else if(phi > phi_hi) {
-      phi = phi_hi;
-      fill(grad.begin(), grad.end(), 0.0);
-    }
-
-    const double q_xi1  = std::exp(-phi);
-    const double scale  = (1.0 - 2.0*xi2_) / (1.0 - 2.0*xi1_);
-    double       q_xi2  = xi2_ + scale * (q_xi1 - xi1_);
-    if(q_xi2 < xi2_) q_xi2 = xi2_;   // guard against floating-point rounding below xi2
-
-    const double fac    = scale * q_xi1 / q_xi2;   // = (1-2*xi2)/(1-2*xi1) * e^{-phi} / q_xi2
-    const double factor = (mode_ == Mode::HJB_PHI) ? 2.0 : 1.0;
-
-    for(unsigned i = 0; i < d_; ++i)
-      setOutputForce(i, -factor * kbt_ * fac * grad[i]);
-    setBias(-factor * kbt_ * std::log(q_xi2));
+  // Clip model output to [0,1]; zero gradient at the boundary (same
+  // defensive pattern as the old Fourier-artifact clipping — should
+  // rarely trigger for a sigmoid/mask-constrained committor network, but
+  // costs nothing to guard against a stray out-of-range forward pass).
+  if(q_raw <= 0.0) {
+    q_raw = 0.0;
+    fill(grad.begin(), grad.end(), 0.0);
+  } else if(q_raw >= 1.0) {
+    q_raw = 1.0;
+    fill(grad.begin(), grad.end(), 0.0);
   }
+
+  const double alpha  = 1.0 - xi_;              // q_xi = xi + alpha*q_raw
+  const double q_xi   = xi_ + alpha * q_raw;     // in [xi_, 1] after clipping
+  const double factor = (mode_ == Mode::NEG_LOG_Q) ? 2.0 : 1.0;
+
+  for(unsigned i = 0; i < d_; ++i)
+    setOutputForce(i, factor * kbt_ * alpha * grad[i] / q_xi);
+  setBias(-factor * kbt_ * std::log(q_xi));
 }
 
 } // namespace tpp
 } // namespace PLMD
+
+#endif // __PLUMED_HAS_LIBTORCH
