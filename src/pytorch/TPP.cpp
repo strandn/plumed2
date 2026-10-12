@@ -52,9 +52,15 @@
  * KERNEL_DX, COEFF_FILE/COEFFS, XI2. Replaced by: MODEL.
  */
 
+// Lives in src/pytorch/ (not src/bias/) specifically because this module's
+// Makefile has no -Werror override: LibTorch's own c10/ATen headers are not
+// -pedantic-clean under strict -std=c++17 (they rely on GNU variadic-macro
+// extensions), which src/bias/Makefile's `CXXFLAGS += -Wshadow -Werror`
+// turns into hard compile errors. src/pytorch/PytorchModel.cpp already
+// compiles cleanly against these same headers for exactly this reason.
 #ifdef __PLUMED_HAS_LIBTORCH
 
-#include "Bias.h"
+#include "bias/Bias.h"
 #include "core/ActionRegister.h"
 #include "core/PlumedMain.h"
 #include "tools/Exception.h"
