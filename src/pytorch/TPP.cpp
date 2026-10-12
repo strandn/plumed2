@@ -135,7 +135,7 @@ private:
   int    whichBasin(const vector<double>& x) const;
   // Evaluates the committor model and its gradient at x via LibTorch
   // autograd. Returns the raw (pre-clip) model output q.
-  double evalModel(const vector<double>& x, vector<double>& grad) const;
+  double evalModel(const vector<double>& x, vector<double>& grad);
 
 public:
   static void registerKeywords(Keywords& keys);
@@ -601,7 +601,7 @@ int TPP::whichBasin(const vector<double>& x) const {
 // autograd. Same forward/grad pattern as PytorchModel::calculate(), but
 // for a single scalar output and only the one gradient we actually need.
 // ---------------------------------------------------------------------------
-double TPP::evalModel(const vector<double>& x, vector<double>& grad) const {
+double TPP::evalModel(const vector<double>& x, vector<double>& grad) {
   vector<float> xf(x.begin(), x.end());
   torch::Tensor input = torch::tensor(xf).view({1, static_cast<long>(d_)}).to(device_);
   input.set_requires_grad(true);
