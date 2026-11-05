@@ -1,49 +1,75 @@
-/* Transition Path Process (TPP) bias — PyTorch committor version.
+/* Transition Path Process (TPP) bias — PyTorch committor/HJB version.
  *
  * Drives trajectories along reactive paths using the Doob h-transform
- * drift built from a committor q(x) supplied by a TorchScript-compiled
- * PyTorch model (a *.pt / *.ptc file produced by torch.jit.trace or
+ * drift built from a model supplied as a TorchScript-compiled PyTorch
+ * model (a *.pt / *.ptc file produced by torch.jit.trace or
  * torch.jit.script), evaluated and differentiated via LibTorch autograd —
  * no basis-function expansion of any kind. This replaces the previous
  * Galerkin/fast-operator-learning implementation of this file (Fourier or
  * Gaussian-kernel cluster-product basis, coefficients from COEFF_FILE,
  * src/ttsketch/BasisFunc.h) with the same evaluate-model/take-gradient
  * approach used by PYTORCH_MODEL (src/pytorch/PytorchModel.cpp), combined
- * with the xi-regularized Doob-drift formulas from
- * triplewell_omp_tpp.py / triplewell_nn_tpp.py (project committor/
- * directory): the model is expected to output q itself (the committor,
- * in [0,1]), matching those scripts' OMPEvaluator/NNPhiEvaluator
- * "committor" branch — NOT a log-committor / HJB phi representation. So
- * this file keeps only the q-expansion modes (renamed from the old
- * NEG_LOG_Q/NEG_LOG_Q_HALF naming to make clear they operate on a direct
- * model forward pass, not a basis expansion) and drops the old
- * HJB_PHI/HJB_PHI_HALF modes entirely, since those existed specifically to
- * convert an already-regularized Phi_xi1 basis expansion between
- * regularization levels on the fly — there is no such baked-in xi1 for a
- * raw committor network to convert from (same reasoning documented in
- * triplewell_omp_common.py's own module docstring for why OMPEvaluator's
- * phi_and_grad_np needs no xi1->xi2 conversion).
+ * with the xi-regularized Doob-drift formulas from this project's
+ * {doublewell,triplewell,aladip}_picard_tpp_nn.py scripts.
  *
- * Regularization is ASYMMETRIC (matching the project's NNPhiEvaluator /
- * OMPEvaluator committor branch), not the old symmetric convention:
+ * Two different model representations are supported, selected by MODE:
  *
- *   q_xi = xi + (1-xi)*q,   q_xi in [xi, 1]   for xi in (0, 1).
+ *  - NEG_LOG_Q / NEG_LOG_Q_HALF ("q-modes"): the model outputs q itself
+ *    (the committor, in [0,1]) — matching CommittorNet / MaskedQNet's raw
+ *    output in the *_picard_tpp_nn.py scripts' richardson_init() stage.
+ *    Regularization is ASYMMETRIC:
  *
- * Only the A boundary (q=0) is lifted to xi; q=1 at B needs no
- * regularization since log(1) is finite.
+ *      q_xi = xi + (1-xi)*q,   q_xi in [xi, 1]   for xi in (0, 1).
  *
- *   MODE=NEG_LOG_Q (default, full Doob drift):
- *     force_i = 2*kBT * (1-xi) * dq/dCV_i / q_xi
- *     V_bias  = -2*kBT * log q_xi
+ *    Only the A boundary (q=0) is lifted to xi; q=1 at B needs no
+ *    regularization since log(1) is finite.
  *
- *   MODE=NEG_LOG_Q_HALF (Picard modified drift, soc.pdf eq. 19):
- *     force_i = kBT * (1-xi) * dq/dCV_i / q_xi
- *     V_bias  = -kBT * log q_xi
+ *      MODE=NEG_LOG_Q (full Doob drift):
+ *        force_i = 2*kBT * (1-xi) * dq/dCV_i / q_xi
+ *        V_bias  = -2*kBT * log q_xi
+ *
+ *      MODE=NEG_LOG_Q_HALF (Picard modified drift, soc.pdf eq. 19):
+ *        force_i = kBT * (1-xi) * dq/dCV_i / q_xi
+ *        V_bias  = -kBT * log q_xi
+ *
+ *  - PHI_HALF / PHI ("phi-modes"): the model outputs Phi = -log(q_xi)
+ *    directly — matching BoundedPhiNet's raw output in the
+ *    *_picard_tpp_nn.py scripts' main Picard loop (Phi(x) =
+ *    phi_hi*sigmoid(net(x)), trained with boundary targets Phi=phi_hi at
+ *    A and Phi=0 at B, phi_hi = -log(xi)). Substituting Phi for -log(q_xi)
+ *    into the q-mode formulas above (grad(log q_xi) = -grad(Phi)) gives:
+ *
+ *      MODE=PHI (full Doob drift):
+ *        force_i = -2*kBT * dPhi/dCV_i
+ *        V_bias  =  2*kBT * Phi
+ *
+ *      MODE=PHI_HALF (Picard modified drift, soc.pdf eq. 19):
+ *        force_i = -kBT * dPhi/dCV_i
+ *        V_bias  =  kBT * Phi
+ *
+ *    No xi-regularization term appears in the phi-mode force/bias
+ *    formulas themselves (Phi is already regularized by construction, via
+ *    the network's own sigmoid-bounded training target) — XI is used only
+ *    to derive the defensive clip range [0, -log(xi)] for a stray
+ *    out-of-range forward pass (see calculate()), mirroring the clip to
+ *    [0,1] used for the q-modes. This differs from the old (pre-PyTorch,
+ *    basis-expansion) HJB_PHI/HJB_PHI_HALF modes, which existed to convert
+ *    an already-regularized Phi_xi1 basis expansion between regularization
+ *    levels on the fly; there is no such baked-in xi1 here, since the
+ *    model is retrained from scratch each outer Picard iteration.
+ *
+ * Typical use (mirroring the *_picard_tpp_nn.py main loop): MODE=
+ * NEG_LOG_Q_HALF with a previously-computed raw-committor model for the
+ * very first biased iteration (warm start from richardson_init()), then
+ * MODE=PHI_HALF with the current BoundedPhiNet export for every iteration
+ * thereafter. MODE=PHI (full factor) is for downstream, post-convergence
+ * Doob dynamics / enhanced sampling — a separate concern from the fitting
+ * loop this mode list otherwise serves.
  *
  * The model is loaded once (MODEL keyword), frozen and optimized for
  * inference exactly as PYTORCH_MODEL does, and must take the bias's ARG
- * list as a single (1, n_arg) input and return a single scalar output
- * (q). Region/basin geometry, periodicity handling, basin-stop logic and
+ * list as a single (1, n_arg) input and return a single scalar output.
+ * Region/basin geometry, periodicity handling, basin-stop logic and
  * the optional nearest-source-state coverage check are all unchanged from
  * the previous implementation — none of that depended on BasisFunc.
  *
@@ -98,7 +124,7 @@ private:
   double kbt_;
 
   // ---- Drift mode ----
-  enum class Mode { NEG_LOG_Q, NEG_LOG_Q_HALF };
+  enum class Mode { NEG_LOG_Q, NEG_LOG_Q_HALF, PHI_HALF, PHI };
   Mode mode_;
 
   // ---- PyTorch committor model ----
@@ -127,14 +153,19 @@ private:
   vector<double> argPeriod_;
 
   // ---- xi regularization (asymmetric: q_xi = xi + (1-xi)*q) ----
+  // phiHi_ = -log(xi_), the phi-mode clip bound (see calculate()); derived
+  // once from xi_ at construction time, same phi_hi = -log(xi) convention
+  // used by BoundedPhiNet in the *_picard_tpp_nn.py scripts.
   double xi_;
+  double phiHi_;
 
   // ---- helpers ----
   double periodicDiff(double x, double c, unsigned dim) const;
   bool   regionContains(const Region& reg, const vector<double>& x) const;
   int    whichBasin(const vector<double>& x) const;
-  // Evaluates the committor model and its gradient at x via LibTorch
-  // autograd. Returns the raw (pre-clip) model output q.
+  // Evaluates the model and its gradient at x via LibTorch autograd.
+  // Returns the raw (pre-clip) model output — q for the q-modes, Phi for
+  // the phi-modes (see MODE).
   double evalModel(const vector<double>& x, vector<double>& grad);
 
 public:
@@ -153,15 +184,23 @@ void TPP::registerKeywords(Keywords& keys) {
            "System temperature in energy units. Required if the MD engine does not pass temperature to PLUMED.");
 
   keys.add("optional", "MODE",
-           "Drift mode. NEG_LOG_Q (default): full Doob drift, force_i = 2*kBT*(1-xi)*dq/dCV_i/q_xi. "
-           "NEG_LOG_Q_HALF: Picard modified drift (half factor).");
+           "Drift mode. Two model representations: q-modes (NEG_LOG_Q, NEG_LOG_Q_HALF) expect MODEL "
+           "to output the committor q in [0,1]; phi-modes (PHI, PHI_HALF) expect MODEL to output "
+           "Phi = -log(q_xi) directly. NEG_LOG_Q (default): full Doob drift, "
+           "force_i = 2*kBT*(1-xi)*dq/dCV_i/q_xi. NEG_LOG_Q_HALF: Picard modified drift (half factor), "
+           "q-valued model — typically used for the first biased iteration, warm-started from a "
+           "previously-computed raw-committor model. PHI_HALF: Picard modified drift (half factor), "
+           "phi-valued model — force_i = -kBT*dPhi/dCV_i; used for every iteration after the first. "
+           "PHI: full Doob drift, phi-valued model — force_i = -2*kBT*dPhi/dCV_i; for downstream, "
+           "post-convergence Doob dynamics, not the fitting loop.");
 
   keys.add("compulsory", "MODEL",
-           "Path to a TorchScript-compiled committor model (torch.jit.trace / torch.jit.script output, "
+           "Path to a TorchScript-compiled model (torch.jit.trace / torch.jit.script output, "
            "e.g. a *.pt or *.ptc file). The model must accept a (1, n_arg) tensor of the bias's ARG "
-           "values, in ARG order, and return a single scalar output q in [0,1] (the committor) — "
-           "matching the convention of this project's CommittorNet (triplewell_committor_nn.py / "
-           "aladip_committor_nn.py), not a log-committor/HJB model.");
+           "values, in ARG order, and return a single scalar output, whose meaning depends on MODE: "
+           "for NEG_LOG_Q/NEG_LOG_Q_HALF a committor q in [0,1] (matching this project's CommittorNet/ "
+           "MaskedQNet raw output); for PHI/PHI_HALF the HJB potential Phi = -log(q_xi) directly "
+           "(matching this project's BoundedPhiNet raw output), not a committor.");
 
   // Source states for coverage check
   keys.add("optional", "SOURCE_FILE",
@@ -208,7 +247,8 @@ TPP::TPP(const ActionOptions& ao)
     doCoverageCheck_(false),
     coverage_radius2_(-1.0),
     nbasins_(0),
-    xi_(0.01)
+    xi_(0.01),
+    phiHi_(0.0)
 {
   if(d_ == 0) error("TPP: ARG must specify at least one CV");
   if(kbt_ == 0.0)
@@ -219,7 +259,9 @@ TPP::TPP(const ActionOptions& ao)
   parse("MODE", mode_str);
   if     (mode_str == "NEG_LOG_Q")      mode_ = Mode::NEG_LOG_Q;
   else if(mode_str == "NEG_LOG_Q_HALF") mode_ = Mode::NEG_LOG_Q_HALF;
-  else error("TPP: unknown MODE '" + mode_str + "'. Valid: NEG_LOG_Q, NEG_LOG_Q_HALF");
+  else if(mode_str == "PHI_HALF")       mode_ = Mode::PHI_HALF;
+  else if(mode_str == "PHI")            mode_ = Mode::PHI;
+  else error("TPP: unknown MODE '" + mode_str + "'. Valid: NEG_LOG_Q, NEG_LOG_Q_HALF, PHI_HALF, PHI");
 
   // ---- Periodicity cache — identical to Committor.cpp ----
   argIsPeriodic_.resize(d_, false);
@@ -285,10 +327,10 @@ TPP::TPP(const ActionOptions& ao)
     inputs.push_back(single_input);
     torch::Tensor output = model_.forward(inputs).toTensor();
     if(output.numel() != 1)
-      error("TPP: committor MODEL must return exactly one scalar output (q), got " +
+      error("TPP: MODEL must return exactly one scalar output (q or Phi, depending on MODE), got " +
             to_string(output.numel()) + " values. Check the model's forward() signature.");
   }
-  log.printf("  Loaded committor model from '%s'  (n_in=%u)\n", model_file.c_str(), d_);
+  log.printf("  Loaded model from '%s'  (n_in=%u)\n", model_file.c_str(), d_);
 
   // ---- Optional source file for coverage check ----
   string src_file;
@@ -347,7 +389,12 @@ TPP::TPP(const ActionOptions& ao)
   parse("XI", xi_);
   if(xi_ <= 0.0 || xi_ >= 1.0)
     error("TPP: XI must be in (0, 1)");
-  log.printf("  xi = %e  (asymmetric regularization: q_xi = xi + (1-xi)*q)\n", xi_);
+  phiHi_ = -std::log(xi_);
+  if(mode_ == Mode::NEG_LOG_Q || mode_ == Mode::NEG_LOG_Q_HALF)
+    log.printf("  xi = %e  (asymmetric regularization: q_xi = xi + (1-xi)*q)\n", xi_);
+  else
+    log.printf("  xi = %e  (used only to set the phi-mode clip bound phi_hi = -log(xi) = %f)\n",
+               xi_, phiHi_);
 
   // =====================================================================
   //  Region/basin parsing — identical to Committor.cpp.
@@ -506,15 +553,21 @@ TPP::TPP(const ActionOptions& ao)
 
   log.printf("  kBT = %f\n", kbt_);
   {
-    const char* names[] = {"NEG_LOG_Q", "NEG_LOG_Q_HALF"};
+    const char* names[] = {"NEG_LOG_Q", "NEG_LOG_Q_HALF", "PHI_HALF", "PHI"};
     log.printf("  Mode: %s\n", names[static_cast<int>(mode_)]);
   }
   switch(mode_) {
   case Mode::NEG_LOG_Q:
-    log.printf("  Drift: 2*kBT*(1-xi)*grad_q/q_xi  (Doob, PyTorch committor)\n");
+    log.printf("  Drift: 2*kBT*(1-xi)*grad_q/q_xi  (Doob, q-valued model)\n");
     break;
   case Mode::NEG_LOG_Q_HALF:
-    log.printf("  Drift: kBT*(1-xi)*grad_q/q_xi    (Picard, PyTorch committor)\n");
+    log.printf("  Drift: kBT*(1-xi)*grad_q/q_xi    (Picard, q-valued model)\n");
+    break;
+  case Mode::PHI:
+    log.printf("  Drift: -2*kBT*grad_Phi           (Doob, phi-valued model)\n");
+    break;
+  case Mode::PHI_HALF:
+    log.printf("  Drift: -kBT*grad_Phi             (Picard, phi-valued model)\n");
     break;
   }
 
@@ -672,31 +725,57 @@ void TPP::calculate() {
   }
 
   // ---- Compute force and bias ----
-  // q_xi = xi + (1-xi)*q_raw, asymmetric regularization (see file header).
-  // grad log q_xi = (1-xi)*grad_q / q_xi
-  // force_i = factor * kBT * (1-xi) * dq/dCV_i / q_xi
   vector<double> grad(d_, 0.0);
-  double q_raw = evalModel(x, grad);
+  double raw = evalModel(x, grad);
 
-  // Clip model output to [0,1]; zero gradient at the boundary (same
-  // defensive pattern as the old Fourier-artifact clipping — should
-  // rarely trigger for a sigmoid/mask-constrained committor network, but
-  // costs nothing to guard against a stray out-of-range forward pass).
-  if(q_raw <= 0.0) {
-    q_raw = 0.0;
-    fill(grad.begin(), grad.end(), 0.0);
-  } else if(q_raw >= 1.0) {
-    q_raw = 1.0;
-    fill(grad.begin(), grad.end(), 0.0);
+  if(mode_ == Mode::NEG_LOG_Q || mode_ == Mode::NEG_LOG_Q_HALF) {
+    // q-modes: q_xi = xi + (1-xi)*q_raw, asymmetric regularization (see
+    // file header). grad log q_xi = (1-xi)*grad_q / q_xi.
+    // force_i = factor * kBT * (1-xi) * dq/dCV_i / q_xi
+
+    // Clip model output to [0,1]; zero gradient at the boundary (same
+    // defensive pattern as the old Fourier-artifact clipping — should
+    // rarely trigger for a sigmoid/mask-constrained committor network, but
+    // costs nothing to guard against a stray out-of-range forward pass).
+    double q_raw = raw;
+    if(q_raw <= 0.0) {
+      q_raw = 0.0;
+      fill(grad.begin(), grad.end(), 0.0);
+    } else if(q_raw >= 1.0) {
+      q_raw = 1.0;
+      fill(grad.begin(), grad.end(), 0.0);
+    }
+
+    const double qalpha = 1.0 - xi_;                // q_xi = xi + qalpha*q_raw
+    const double q_xi   = xi_ + qalpha * q_raw;      // in [xi_, 1] after clipping
+    const double factor = (mode_ == Mode::NEG_LOG_Q) ? 2.0 : 1.0;
+
+    for(unsigned i = 0; i < d_; ++i)
+      setOutputForce(i, factor * kbt_ * qalpha * grad[i] / q_xi);
+    setBias(-factor * kbt_ * std::log(q_xi));
+
+  } else {
+    // phi-modes: the model outputs Phi = -log(q_xi) directly (see file
+    // header for the substitution that gives these formulas from the
+    // q-mode ones above). No xi term in the force/bias itself — XI only
+    // sets the defensive clip bound phi_hi = -log(xi), mirroring the
+    // q-modes' clip to [0,1] for a stray out-of-range forward pass (should
+    // rarely trigger for a sigmoid-bounded BoundedPhiNet).
+    double phi_raw = raw;
+    if(phi_raw <= 0.0) {
+      phi_raw = 0.0;
+      fill(grad.begin(), grad.end(), 0.0);
+    } else if(phi_raw >= phiHi_) {
+      phi_raw = phiHi_;
+      fill(grad.begin(), grad.end(), 0.0);
+    }
+
+    const double factor = (mode_ == Mode::PHI) ? 2.0 : 1.0;
+
+    for(unsigned i = 0; i < d_; ++i)
+      setOutputForce(i, -factor * kbt_ * grad[i]);
+    setBias(factor * kbt_ * phi_raw);
   }
-
-  const double alpha  = 1.0 - xi_;              // q_xi = xi + alpha*q_raw
-  const double q_xi   = xi_ + alpha * q_raw;     // in [xi_, 1] after clipping
-  const double factor = (mode_ == Mode::NEG_LOG_Q) ? 2.0 : 1.0;
-
-  for(unsigned i = 0; i < d_; ++i)
-    setOutputForce(i, factor * kbt_ * alpha * grad[i] / q_xi);
-  setBias(-factor * kbt_ * std::log(q_xi));
 }
 
 } // namespace tpp
